@@ -59,6 +59,7 @@ export default defineConfig({
 					items: [
 						{ label: 'Agent-Native Development', slug: 'reference/agent-native' },
 						{ label: 'Packaging & Distribution', slug: 'reference/packaging' },
+						{ label: 'Built-in Types & Formats', slug: 'reference/data-types' },
 						{ label: 'Best Practices & FAQ', slug: 'reference/best-practices' },
 						{ label: 'Configuration', slug: 'reference/configuration' },
 						{ label: 'Packages', slug: 'reference/packages' },

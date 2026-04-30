@@ -35,11 +35,15 @@ Constraints enforce the type of a segment at parse time. An invalid value is rej
 | `email` | `string` | `user@example.com` |
 | `uri` | `Uri` | `https://example.com` |
 | `url` | `Uri` | `https://` with valid host |
-| `date` | `DateOnly` | `2024-01-15` |
-| `datetime` | `DateTime` | `2024-01-15T10:30` |
-| `timespan` | `TimeSpan` | `2h30m`, `30d` |
+| `date` / `dateonly` | `DateOnly` | `2024-01-15` |
+| `datetime` / `date-time` | `DateTime` | `2024-01-15T10:30` |
+| `datetimeoffset` / `date-time-offset` | `DateTimeOffset` | `2024-01-15T10:30+05:00` |
+| `time` / `timeonly` | `TimeOnly` | `14:30`, `14:30:45` |
+| `timespan` / `time-span` | `TimeSpan` | `2h30m`, `30d`, `PT8H` |
 
 Write the constraint after a colon: `{id:int}`, `{email:email}`, `{when:date}`.
+
+Full format details — including all accepted timestamp strings and duration syntax — are in [Built-in Types & Formats](/reference/data-types/).
 
 ### Type inference
 
@@ -51,7 +55,7 @@ app.Map("open {path}", (Uri path) => ...);   // :uri inferred
 app.Map("since {d}", (DateOnly d) => ...);   // :date inferred
 ```
 
-Implicit types not available as constraint names: `FileInfo`, `DirectoryInfo`, `ReplDateRange`, `ReplDateTimeRange`.
+Implicit types not available as constraint names: `FileInfo`, `DirectoryInfo`, `ReplDateRange`, `ReplDateTimeRange`, `ReplDateTimeOffsetRange`.
 
 ### Optional segments
 
@@ -73,17 +77,27 @@ app.Map("connect {host:ipv4}", (string host) => ...);
 
 ### Temporal ranges
 
-`ReplDateRange` (and `ReplDateTimeRange`, `ReplDateTimeOffsetRange`) accept human-friendly intervals:
+`ReplDateRange`, `ReplDateTimeRange`, and `ReplDateTimeOffsetRange` capture an interval from a single token. The type is inferred from the handler parameter — no constraint name needed.
 
 ```csharp
-app.Map("logs {range}", (ReplDateRange range) =>
+app.Map("report {period}", (ReplDateRange period) =>
+    GetReport(period.From, period.To));
+
+app.Map("logs {range}", (ReplDateTimeRange range) =>
     GetLogs(range.From, range.To));
 ```
 
+Both `start..end` and `start@duration` forms are accepted:
+
 ```text
-myapp logs 2024-01-01..2024-03-31     # start..end
-myapp logs 2024-01-01@30d             # start + duration
+myapp report 2024-01-01..2024-03-31     # start..end
+myapp report 2024-01-01@90d             # start + duration (whole days for ReplDateRange)
+
+myapp logs 2024-03-15T08:00..2024-03-15T18:00
+myapp logs 2024-03-15T08:00@8h
 ```
+
+See [Built-in Types & Formats](/reference/data-types/#temporal-range-types) for all accepted timestamp and duration formats.
 
 ---
 

@@ -1,0 +1,210 @@
+---
+title: Built-in Types & Formats
+description: All built-in route constraint types, temporal range types, and their accepted input formats.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+This page is the definitive reference for every type Repl can bind from a route segment or command-line token, and every input format each type accepts.
+
+---
+
+## Scalar types
+
+These types are usable as route constraints (`{name:type}`) and are inferred automatically from handler parameter types.
+
+| Constraint name(s) | .NET type | Accepted input |
+|---|---|---|
+| `string` *(default)* | `string` | Any single token |
+| `alpha` | `string` | Letters only (`[a-zA-Z]+`) |
+| `int` | `int` | Integer — e.g. `42`, `-7`, `1_000` |
+| `long` | `long` | Large integer — e.g. `1000000000` |
+| `bool` | `bool` | `true` or `false` |
+| `double` | `double` | Floating point — e.g. `3.14`, `-0.5` |
+| `guid` | `Guid` | Standard GUID — e.g. `123e4567-e89b-12d3-a456-426614174000` |
+| `email` | `string` | Valid email address — e.g. `user@example.com` |
+| `uri` | `Uri` | Any URI — e.g. `https://example.com` |
+| `url` | `Uri` | HTTP/HTTPS URL with valid host |
+
+---
+
+## Temporal scalar types
+
+Temporal scalars capture a single point in time or a duration. Each has one or more constraint name aliases — any alias is interchangeable.
+
+### `date` / `dateonly` / `date-only`
+
+Binds to `DateOnly`.
+
+| Format | Example |
+|---|---|
+| `yyyy-MM-dd` | `2024-01-15` |
+
+### `datetime` / `date-time`
+
+Binds to `DateTime`.
+
+| Format | Example |
+|---|---|
+| `yyyy-MM-dd` | `2024-01-15` |
+| `yyyy-MM-ddTHH:mm` | `2024-01-15T10:30` |
+| `yyyy-MM-dd HH:mm` | `2024-01-15 10:30` |
+| `yyyy-MM-ddTHH:mm:ss` | `2024-01-15T10:30:45` |
+
+### `datetimeoffset` / `date-time-offset`
+
+Binds to `DateTimeOffset`. Accepts all `datetime` formats plus an optional timezone designator appended to the datetime.
+
+| Format | Example |
+|---|---|
+| `yyyy-MM-dd` | `2024-01-15` |
+| `yyyy-MM-ddTHH:mm` | `2024-01-15T10:30` |
+| `yyyy-MM-ddTHH:mmK` | `2024-01-15T10:30+05:00` |
+| `yyyy-MM-ddTHH:mm:ss` | `2024-01-15T10:30:45` |
+| `yyyy-MM-ddTHH:mm:ssK` | `2024-01-15T10:30:45Z` |
+| ISO 8601 round-trip | `2024-01-15T10:30:45.0000000+05:00` |
+
+`K` is any valid offset: `Z` (UTC), `+HH:mm`, or `-HH:mm`.
+
+### `time` / `timeonly` / `time-only`
+
+Binds to `TimeOnly`.
+
+| Format | Example |
+|---|---|
+| `HH:mm` | `14:30` |
+| `HH:mm:ss` | `14:30:45` |
+
+### `timespan` / `time-span`
+
+Binds to `TimeSpan`. Three format families are accepted; mixing families within a single value is not supported.
+
+#### Compact duration
+
+Compact tokens for each unit:
+
+| Suffix | Unit | Example |
+|---|---|---|
+| `d` | Days | `30d` |
+| `h` | Hours | `8h` |
+| `m` | Minutes | `30m` |
+| `s` | Seconds | `45s` |
+| `ms` | Milliseconds | `500ms` |
+
+Combine units in descending order (`d` → `h` → `m` → `s` → `ms`). Underscore separators are optional:
+
+```
+1h30m          → 1 hour 30 minutes
+2d4h           → 2 days 4 hours
+1h30m45s       → 1 hour 30 minutes 45 seconds
+1h_30m_45s     → same, with separators
+```
+
+#### ISO 8601 duration
+
+```
+P30D           → 30 days
+PT8H           → 8 hours
+P1DT2H30M      → 1 day, 2 hours, 30 minutes
+PT1H30M45S     → 1 hour, 30 minutes, 45 seconds
+```
+
+#### Standard .NET colon format
+
+```
+HH:mm:ss       → e.g.  08:30:00
+d.HH:mm:ss     → e.g.  1.08:30:00  (1 day, 8 hours, 30 minutes)
+```
+
+---
+
+## Temporal range types
+
+Temporal ranges capture an interval — a start and an end — from a single token. There are three types, one per temporal precision:
+
+| .NET type | Start/end type | Duration constraint |
+|---|---|---|
+| `ReplDateRange` | `DateOnly` | Duration must be whole days (`d` only, no sub-day units) |
+| `ReplDateTimeRange` | `DateTime` | Any `TimeSpan` format |
+| `ReplDateTimeOffsetRange` | `DateTimeOffset` | Any `TimeSpan` format |
+
+All three types expose `.From` and `.To` properties of their respective type.
+
+<Aside type="note">
+  Temporal range types are used as handler parameter types, not as constraint names. Repl infers the binding automatically when the parameter type is `ReplDateRange`, `ReplDateTimeRange`, or `ReplDateTimeOffsetRange`.
+</Aside>
+
+### Syntax
+
+Two forms are accepted for all three range types:
+
+```
+start..end        # inclusive start-to-end range
+start@duration    # start plus a forward duration
+```
+
+### Timestamp formats
+
+The timestamp format depends on the range type:
+
+**`ReplDateRange`** — uses `date` format:
+
+```
+2024-01-15
+```
+
+**`ReplDateTimeRange`** — uses `datetime` formats:
+
+```
+2024-01-15
+2024-01-15T10:30
+2024-01-15 10:30
+2024-01-15T10:30:45
+```
+
+**`ReplDateTimeOffsetRange`** — uses `datetimeoffset` formats:
+
+```
+2024-01-15
+2024-01-15T10:30
+2024-01-15T10:30+05:00
+2024-01-15T10:30:45Z
+```
+
+### Duration formats (for `@duration`)
+
+The duration part accepts all [TimeSpan formats](#timespan--time-span) listed above, subject to the type constraint:
+
+- `ReplDateRange@duration` — whole days only, e.g. `@30d`, `@P1M` is **not** valid
+- `ReplDateTimeRange@duration` — any `TimeSpan` format, e.g. `@8h30m`
+- `ReplDateTimeOffsetRange@duration` — any `TimeSpan` format
+
+### Examples
+
+```bash
+# Date-only range
+myapp report --period 2024-01-01..2024-03-31
+myapp report --period 2024-01-01@90d
+
+# DateTime range — narrow to hours
+myapp logs --range 2024-03-15T08:00..2024-03-15T18:00
+myapp logs --range 2024-03-15T08:00@8h
+
+# DateTimeOffset range — cross-timezone audit window
+myapp audit --window 2024-01-15T00:00:00Z..2024-01-15T23:59:59Z
+myapp audit --window 2024-01-15T00:00:00Z@1d
+```
+
+### Route registration
+
+```csharp
+// Inferred from parameter type — no constraint name needed
+app.Map("report period", (ReplDateRange period) => commands.Report(period));
+app.Map("logs range", (ReplDateTimeRange range) => commands.Logs(range));
+app.Map("audit window", (ReplDateTimeOffsetRange window) => commands.Audit(window));
+
+// CLI usage
+// myapp report period --period 2024-01-01..2024-03-31
+// myapp logs range --range 2024-03-15T08:00@8h
+// myapp audit window --window 2024-01-15T00:00:00Z@1d
+```

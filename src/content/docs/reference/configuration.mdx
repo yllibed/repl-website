@@ -83,36 +83,49 @@ app.Context("admin", admin =>
 
 ### Route constraints
 
-| Constraint | Matches |
-|------------|---------|
-| `{x:int}` | Integer (`int`) |
-| `{x:long}` | Long integer |
-| `{x:double}` | Floating-point number |
-| `{x:bool}` | `true` / `false` |
-| `{x:guid}` | GUID |
-| `{x:email}` | Email address |
-| `{x:datetime}` | `DateTime` (ISO 8601) |
+| Constraint | .NET type |
+|------------|-----------|
+| `{x:int}` | `int` |
+| `{x:long}` | `long` |
+| `{x:double}` | `double` |
+| `{x:bool}` | `bool` |
+| `{x:guid}` | `Guid` |
+| `{x:email}` | `string` (validated) |
+| `{x:date}` / `{x:dateonly}` | `DateOnly` |
+| `{x:datetime}` / `{x:date-time}` | `DateTime` |
+| `{x:datetimeoffset}` / `{x:date-time-offset}` | `DateTimeOffset` |
+| `{x:time}` / `{x:timeonly}` | `TimeOnly` |
+| `{x:timespan}` / `{x:time-span}` | `TimeSpan` |
 
-Types are also inferred from the handler parameter type, so `:int` is implicit when the parameter is `int id`.
+Types are also inferred from the handler parameter type, so `:int` is implicit when the parameter is `int id`. For all accepted input formats, see [Built-in Types & Formats](/reference/data-types/).
 
 ### Options groups
 
 ```csharp
 [ReplOptionsGroup]
-public class MyOptions
+public class PagingOptions
 {
-    [Option("--format")]
-    public string Format { get; set; } = "text";
+    [Option("--limit")]
+    public int Limit { get; set; } = 20;
+
+    [Option("--sort")]
+    public string Sort { get; set; } = "name";
 }
 ```
 
-Handlers that accept `MyOptions` receive all flags in the group.
+Handlers that accept `PagingOptions` receive all flags in the group. Avoid names already reserved by Repl: `--format`, `--json`, `--xml`, `--yaml`, `--markdown`, `--no-logo`, `--help`, `--interactive`, `--no-interactive`, `--output`, and `--answer:*`.
 
 ### Temporal ranges
 
-`ReplDateRange` accepts:
-- `2024-01-15..2024-02-15` (start..end)
-- `2024-01-15@30d` (start@duration, whole days only)
+Three range types, one per precision level:
+
+| Type | Precision | Duration constraint |
+|---|---|---|
+| `ReplDateRange` | `DateOnly` | Whole days only |
+| `ReplDateTimeRange` | `DateTime` | Any duration |
+| `ReplDateTimeOffsetRange` | `DateTimeOffset` | Any duration |
+
+Both `start..end` and `start@duration` forms are accepted. See [Built-in Types & Formats](/reference/data-types/#temporal-range-types) for all format details.
 
 ## Interactive options
 
