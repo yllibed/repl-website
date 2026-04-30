@@ -32,14 +32,40 @@ import { Card, CardGrid, Tabs, TabItem, Badge, LinkButton } from '@astrojs/starl
 	<Card title="Hosted sessions" icon="laptop">
 		The same command surface runs over any text-based session transport. Multiple concurrent sessions, each with its own scope. `Repl.WebSocket` and `Repl.Telnet` are built-in implementations; any transport that delivers a stream pair works.
 	</Card>
-	<Card title="AI-ready in one line" icon="puzzle">
-		`app.UseMcpServer()` exposes every command over the Model Context Protocol — the open standard AI assistants like Claude use to discover and call tools. Add resources, prompts, and MCP Apps UI surfaces for capable clients.
+	<Card title="Full-fledged MCP server in one line" icon="puzzle">
+		`app.UseMcpServer()` exposes every command over the Model Context Protocol — the open standard AI assistants like Claude use to discover and call tools. State-of-the-art coverage: tools, resources, prompts, and MCP Apps (`ui://`) — all generated from the same command graph, with behavioral hints derived from your route annotations.
 	</Card>
 	<Card title="Zero-dependency core" icon="approve-check-circle">
 		`Repl.Core` has zero NuGet dependencies. Build embedded command surfaces in strict environments. Compose only what you need.
 	</Card>
-	<Card title="Test every interaction path" icon="approve-check">
-		`Repl.Testing` runs your full command graph in memory — multi-session, multi-step, with a typed assertion API. Test prompts, scoped navigation, and MCP tools without a real terminal.
+	<Card title="Every interaction path, testable" icon="approve-check">
+		`Repl.Testing` runs your full command graph in memory — multi-session, multi-step, with a typed assertion API. Prompts, scoped navigation, and MCP tools — all verifiable without a real terminal, with no hidden I/O. Production confidence by `dotnet test`.
+	</Card>
+</CardGrid>
+
+## Production-grade by default
+
+Repl is a full-fledged command surface toolkit. It implements the working [CLI guidelines from clig.dev](https://clig.dev) — the de-facto reference for modern command-line tools — out of the box, then extends them for the era of AI agents and multi-channel automation.
+
+<CardGrid>
+	<Card title="What clig.dev asks for, you already have" icon="approve-check">
+		- **`--help` at every level** — root, contexts, individual commands, with examples
+		- **Machine-readable output** — `--json`, `--xml`, `--yaml`, `--markdown` on every command
+		- **Color discipline** — `NO_COLOR`, `CLICOLOR_FORCE`, and `TERM=dumb` honored without configuration
+		- **TTY-aware** — progress bars, prompts, and styling adapt automatically to redirected output and CI
+		- **Forgiving input** — prefix matching (`co li` → `contact list`), unique disambiguation, "Did you mean?" suggestions on typos
+		- **Two-tap `Ctrl+C`** — first tap interrupts work, second tap exits, exactly as the guidelines prescribe
+		- **Shell completion** — Bash, PowerShell, Zsh, Fish, and Nushell adapters generated from your command graph
+		- **Response files** — `@args.rsp` for long invocations, ready for CI scripts
+		- **Structured exit codes** — `0` for success, distinct codes for usage, validation, and runtime failures
+	</Card>
+	<Card title="What clig.dev couldn't predict" icon="rocket">
+		- **First-class MCP server** — tools, resources (`repl://`), prompts, and MCP Apps (`ui://`) generated from the same routes
+		- **Behavioral annotations** — `.ReadOnly()`, `.Destructive()`, `.Idempotent()`, `.LongRunning()` propagate into MCP hints and shape interactive confirmations
+		- **In-memory test harness** — `Repl.Testing` runs the full graph (prompts, scoped navigation, multi-step sessions) without a terminal
+		- **Hosted remote sessions** — the same graph served over WebSocket, Telnet, or any stream pair, with per-session DI scope
+		- **Channel-aware interactivity** — prompts degrade automatically when stdin is redirected, when running under MCP, or in non-interactive transports
+		- **Conditional modules** — register surfaces based on environment, license, or runtime detection without restructuring code
 	</Card>
 </CardGrid>
 
@@ -179,7 +205,7 @@ $ myapp contacts add "Alice Dupont" alice@example.com --json
 
 Start with `dotnet add package Repl`. That single package gives you routing, typed parameter binding, an interactive REPL, CLI dispatch, and JSON/XML/YAML/Markdown output — no other dependencies required.
 
-When your users need AI-agent access, add `Repl.Mcp` and call `app.UseMcpServer()`. Every command becomes an MCP tool with no handler changes. Add `Repl.Spectre` to upgrade all output and prompts to Spectre.Console richness — again, zero handler changes.
+When your users need AI-agent access, add `Repl.Mcp` and call `app.UseMcpServer()`. Every command becomes an MCP tool with no handler changes. Add `Repl.Spectre` to upgrade all output and prompts to Spectre.Console richness — again, zero handler changes. The whole stack honors standard guidelines by default, so your CLI behaves the way operators, scripts, and CI pipelines expect.
 
 Test the whole thing with `Repl.Testing`: an in-memory harness that runs full multi-step interaction sequences, including prompts and scoped navigation, with typed assertions.
 
