@@ -41,28 +41,30 @@ app.Options(o =>
 
 Repl detects the terminal's color capability at startup and chooses rendering accordingly.
 
-| Level | Rendering |
+Repl detects the terminal's color capability at startup and chooses rendering accordingly. Detected capability tiers (informational):
+
+| Detected tier | Rendering |
 |---|---|
-| `None` | Plain text, no escape sequences |
-| `Basic` | 16 ANSI colors |
-| `Extended` | 256 colors |
-| `TrueColor` | 24-bit color |
+| No ANSI | Plain text, no escape sequences |
+| Basic | 16 ANSI colors |
+| Extended | 256 colors |
+| TrueColor | 24-bit color |
 
 **Detection chain** (first match wins):
 
-1. `NO_COLOR` env var → force `None`
+1. `NO_COLOR` env var → disable ANSI
 2. `CLICOLOR_FORCE` env var → force ANSI
 3. `TERM` / `COLORTERM` heuristics
 4. Platform-specific checks (Windows Console, VS Code terminal, etc.)
-5. Redirection check (piped stdout → `None`)
+5. Redirection check (piped stdout → no ANSI)
 
-Override programmatically:
+Override programmatically using `AnsiMode`:
 
 ```csharp
 app.Options(o =>
 {
-    o.Output.AnsiMode = AnsiMode.TrueColor;   // force 24-bit
-    // or: None, Basic, Extended, Auto (default)
+    o.Output.AnsiMode = AnsiMode.Always;  // force ANSI on regardless of detection
+    // or: Auto (default — let detection decide), Never (force off)
 });
 ```
 

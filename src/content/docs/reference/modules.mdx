@@ -45,7 +45,7 @@ public class AuditModule : IReplModule
 
     public AuditModule(IAuditLog log) => _log = log;
 
-    public void Register(IReplMap map)
+    public void Map(IReplMap map)
     {
         map.Map("audit list", () => _log.All());
         map.Map("audit clear", () =>
@@ -134,7 +134,7 @@ Modules can register other modules — compose freely:
 ```csharp
 public class ContactsModule : IReplModule
 {
-    public void Register(IReplMap map)
+    public void Map(IReplMap map)
     {
         map.Context("contacts", contacts =>
         {

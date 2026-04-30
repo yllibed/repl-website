@@ -105,10 +105,10 @@ Types are also inferred from the handler parameter type, so `:int` is implicit w
 [ReplOptionsGroup]
 public class PagingOptions
 {
-    [Option("--limit")]
+    [ReplOption(Aliases = ["--limit"])]
     public int Limit { get; set; } = 20;
 
-    [Option("--sort")]
+    [ReplOption(Aliases = ["--sort"])]
     public string Sort { get; set; } = "name";
 }
 ```

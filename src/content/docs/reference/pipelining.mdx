@@ -21,7 +21,7 @@ Every command invocation goes through a 12-stage pipeline. Understanding it lets
  9. Middleware & Handler        — your Use() chain + handler invocation
 10. Result Processing           — unwrap IExitResult, EnterInteractiveResult
 11. Output Transformation       — format selection and rendering
-12. Exit Code                   — 0 success, 1 failure, 2 validation, 3 cancelled, 5 exception
+12. Exit Code                   — 0 success, 1 all other results, n via Results.Exit(n)
 ```
 
 ---
@@ -184,7 +184,7 @@ Enable hosted service lifecycle so Repl starts and stops them:
 ```csharp
 return await app.RunAsync(args, options: new ReplRunOptions
 {
-    HostedServiceLifecycleMode = HostedServiceLifecycleMode.Head,
+    HostedServiceLifecycle = HostedServiceLifecycleMode.Head,
 });
 ```
 
@@ -253,5 +253,5 @@ return Results.Exit(42);   // explicit exit code
 ```
 
 <Aside type="tip">
-Use `Results.Cancelled(...)` (exit code 3) when a user-initiated cancellation happens — it's distinct from `Results.Error(code, message)` (exit code 1) for program errors and `Results.Validation(message)` (exit code 2) for bad input.
+Use `Results.Cancelled(...)` for user-initiated cancellations and `Results.Validation(message)` for bad input — they render with distinct messages and are semantically separate from `Results.Error(code, message)`. All three return exit code 1. Use `Results.Exit(n)` for an explicit non-zero code.
 </Aside>

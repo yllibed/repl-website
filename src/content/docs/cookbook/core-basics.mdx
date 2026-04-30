@@ -92,8 +92,9 @@ public void Reset() { /* ... */ }
 | `IEnumerable<T>` | Table |
 | Any object | Structured (key: value) |
 | Any + `--json` | JSON |
-| `Results.Error(...)` | Error message, exit code 2 |
-| `Results.Cancelled(...)` | Message, exit code 3 |
+| `Results.Error(...)` | Error message, exit code 1 |
+| `Results.Cancelled(...)` | Message, exit code 1 |
+| `Results.Exit(n)` | (none) — explicit exit code `n` |
 
 ## Reusable options groups
 
@@ -101,10 +102,10 @@ public void Reset() { /* ... */ }
 [ReplOptionsGroup]
 public class FilterOptions
 {
-    [Option("--limit")]
+    [ReplOption(Aliases = ["--limit"])]
     public int Limit { get; set; } = 20;
 
-    [Option("--sort")]
+    [ReplOption(Aliases = ["--sort"])]
     public string Sort { get; set; } = "name";
 }
 ```
