@@ -10,9 +10,9 @@ Repl can host multiple concurrent sessions over any transport that delivers a st
 The built-in packages cover the most common cases:
 
 - **`Repl.WebSocket`** — WebSocket transport, served from ASP.NET Core. Good for browser clients, reverse-proxy friendly.
-- **`Repl.Telnet`** — Telnet *session protocol* (framing + NAWS terminal-size negotiation) layered on top of a WebSocket transport. For terminal emulators and Telnet clients. Note: Telnet and WebSocket are not at the same level — WebSocket is the network transport, Telnet is the session framing protocol above it.
+- **`Repl.Telnet`** — Telnet *session protocol* (framing + NAWS terminal-size negotiation) layered on top of a WebSocket transport. For terminal emulators and Telnet clients.
 
-Any other transport — SSH, named pipes, TCP sockets, gRPC streams — works by implementing `StreamedReplHost` and wiring it to your own `(TextReader, TextWriter)` pair.
+Any other transport — SSH, named pipes, TCP sockets, gRPC streams — works by instantiating `StreamedReplHost` with a `TextWriter`, pushing received text via `EnqueueInput`, and calling `RunSessionAsync`.
 
 <Aside type="tip">
   Full runnable code: [`samples/05-hosting-remote`](https://github.com/yllibed/repl/tree/main/samples/05-hosting-remote)
@@ -48,6 +48,10 @@ app.Run();
 
 Connect with any WebSocket client (browser, `wscat`, terminal emulator).
 
+<Aside type="caution">
+`MapReplWebSocket` exposes your entire command graph to any connecting client with no authentication by default. Place the endpoint behind ASP.NET Core authentication middleware (`app.UseAuthentication()` / `app.UseAuthorization()`) and apply `[Authorize]` policies, or add an auth guard as Repl middleware, before using in production.
+</Aside>
+
 ## Telnet session protocol (`Repl.Telnet`)
 
 `Repl.Telnet` layers Telnet framing and NAWS window-size negotiation on top of the WebSocket transport. The network layer is still WebSocket; Telnet is the session protocol above it:
@@ -66,30 +70,22 @@ wscat -c ws://localhost:5000/telnet
 
 Terminal size and type are negotiated automatically via NAWS (RFC 1073) and TERMINAL-TYPE (RFC 1091).
 
-## Session visibility
-
-Commands can inspect other active sessions:
-
-```csharp
-app.Map("sessions", (ISessionRegistry registry) =>
-    registry.Active.Select(s => new { s.Id, s.ConnectedAt, s.RemoteAddress }));
-```
-
 ## Terminal metadata
 
-Each session carries terminal metadata — size, capabilities, user identity:
+Each session carries terminal metadata — capabilities and window size, injectable via `ITerminalInfo` (namespace `Repl.Interaction`):
 
 ```csharp
-app.Map("info", (ITerminalContext terminal) => new
+using Repl.Interaction;
+
+app.Map("info", (ITerminalInfo terminal) => new
 {
-    terminal.Width,
-    terminal.Height,
-    terminal.ColorDepth,
-    terminal.UserName,
+    terminal.IsAnsiSupported,
+    terminal.CanReadKeys,
+    terminal.WindowSize,
 });
 ```
 
-Handlers can adapt output to the terminal width, or reject connections from unsupported clients.
+Handlers can adapt output to the terminal width, or degrade gracefully when ANSI is unavailable.
 
 ## Shared vs. per-session state
 
@@ -103,4 +99,4 @@ Use `AddScoped<T>` for per-user state (shopping cart, selection, cursor position
 
 ## Graceful shutdown
 
-Active sessions are notified on server shutdown. Implement `IReplSessionLifetime` to send a goodbye message or flush state before disconnect.
+When the host process receives a shutdown signal, active sessions drain gracefully. `CancellationToken` is cancelled in all running handlers, giving them time to complete or clean up before the process exits.

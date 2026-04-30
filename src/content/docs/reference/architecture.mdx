@@ -56,12 +56,12 @@ Custom transports implement `StreamedReplHost`, which accepts any `(TextReader, 
 
 | Type | Role |
 |------|------|
-| `IReplMap` | Registration interface — `Map(...)`, `Context(...)`, `WithChannelFilter(...)` |
+| `IReplMap` | Registration interface — `Map(...)`, `Context(...)`, `AutomationHidden()`, `AsResource()` |
 | `IReplApp` | Runtime interface — `Run(args)` |
-| `IInteraction` | Prompt/progress channel injected into handlers |
-| `ITerminalContext` | Session metadata (width, height, user, capabilities) |
-| `IChannelContext` | Active channel info (`IsAutomation`, `IsMcp`, `IsLocalConsole`, ...) |
-| `Results` | Semantic return helpers — `Results.Success()`, `Results.Error()`, `Results.Cancelled()` |
+| `IReplInteractionChannel` | Prompt/progress channel injected into handlers — namespace `Repl.Interaction` |
+| `ITerminalInfo` | Session metadata (window size, ANSI capabilities) — namespace `Repl.Interaction` |
+| `IReplIoContext` | Active I/O context (`Output`, `Error`, `IsHostedSession`, ...) |
+| `Results` | Semantic return helpers — `Results.Success(msg)`, `Results.Error(code, msg)`, `Results.Cancelled(msg)` |
 
 ## Source
 

@@ -23,14 +23,13 @@ Creates an app with a default DI container (Microsoft.Extensions.DependencyInjec
 var app = ReplApp.Create().UseDefaultInteractive();
 ```
 
-### `ReplApp.CreateBuilder()`
-
-For apps that need to configure services before building:
+Pass a service configuration delegate to `ReplApp.Create()` to register services before the app runs:
 
 ```csharp
-var builder = ReplApp.CreateBuilder();
-builder.Services.AddSingleton<IMyService, MyService>();
-var app = builder.Build().UseDefaultInteractive();
+var app = ReplApp.Create(services =>
+{
+    services.AddSingleton<IMyService, MyService>();
+}).UseDefaultInteractive();
 ```
 
 ## Profiles
@@ -73,10 +72,10 @@ app.Context("admin", admin =>
 | Method | Effect |
 |--------|--------|
 | `.WithDescription("...")` | Sets the command description shown in help |
-| `.WithChannelFilter(c => ...)` | Restricts to matching channels |
-| `.WithAnnotations(new McpToolAnnotations { ... })` | Adds MCP behavioral hints |
-| `.AsMcpResource(uri, mimeType)` | Registers as an MCP resource |
-| `.AsMcpPrompt()` | Registers as an MCP prompt template |
+| `.Destructive()` / `.ReadOnly()` / `.Idempotent()` | MCP behavioral annotations |
+| `.AutomationHidden()` | Hides from MCP agents; visible in interactive REPL |
+| `.AsResource()` | Registers as an MCP resource (URI derived from route) |
+| `.AsPrompt()` | Registers as an MCP prompt template |
 | `.AsMcpAppResource()` | Registers as an MCP Apps UI resource |
 | `.WithCompletion(provider)` | Registers Tab completion for this route |
 

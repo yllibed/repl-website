@@ -100,16 +100,16 @@ Tokens are read one per line. Useful for long or repeatable invocations. Respons
 
 ## Terminal metadata in hosted sessions
 
-Each session carries metadata about the connecting terminal, accessible via `ITerminalContext`:
+Each session carries metadata about the connecting terminal, accessible via `ITerminalInfo` (namespace `Repl.Interaction`):
 
 ```csharp
-app.Map("info", (ITerminalContext terminal) => new
+using Repl.Interaction;
+
+app.Map("info", (ITerminalInfo terminal) => new
 {
-    terminal.Width,
-    terminal.Height,
-    terminal.AnsiSupport,
-    terminal.TransportName,
-    terminal.UserName,
+    terminal.WindowSize,
+    terminal.IsAnsiSupported,
+    terminal.CanReadKeys,
 });
 ```
 
@@ -126,9 +126,11 @@ For Telnet sessions, metadata is negotiated via NAWS (window size, RFC 1073) and
 Handlers can query capabilities to adapt their output:
 
 ```csharp
-app.Map("report", (ITerminalContext terminal, IDataStore store) =>
+using Repl.Interaction;
+
+app.Map("report", (ITerminalInfo terminal, IDataStore store) =>
 {
-    if (terminal.Width >= 120)
+    if (terminal.WindowSize?.Width >= 120)
         return BuildWideReport(store);
     else
         return BuildCompactReport(store);

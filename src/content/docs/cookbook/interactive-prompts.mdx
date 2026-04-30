@@ -13,28 +13,40 @@ Some commands need to ask the user questions, show progress, or handle long-runn
 
 ## Prompts
 
-Inject `IInteraction` to ask the user questions mid-command:
+Inject `IReplInteractionChannel` (namespace `Repl.Interaction`) to ask the user questions mid-command:
 
 ```csharp
-app.Map("add", async (IInteraction ui, IContactStore store) =>
+using Repl.Interaction;
+
+app.Map("add", async (IReplInteractionChannel ui, IContactStore store, CancellationToken ct) =>
 {
-    var name = await ui.Ask("Full name:");
-    var email = await ui.Ask("Email:");
+    var name  = await ui.AskTextAsync("name",  "Full name:",     ct: ct);
+    var email = await ui.AskTextAsync("email", "Email address:", ct: ct);
 
     var contact = store.Add(name, email);
-    return contact;
+    return Results.Success($"Added {contact.Name} (#{contact.Id}).");
 });
 ```
 
 In REPL mode this presents an interactive prompt. In CLI mode with `--answer:*` flags, answers are pre-filled deterministically.
 
+## Choice prompts
+
+```csharp
+var options = new[] { "admin", "editor", "viewer" };
+var roleIndex = await ui.AskChoiceAsync("role", "Assign role:", options, ct: ct);
+var role = options[roleIndex];
+```
+
+`AskChoiceAsync` returns the zero-based index of the selected item. `AskMultiChoiceAsync` returns `IReadOnlyList<int>`.
+
 ## Confirmation
 
 ```csharp
-app.Map("delete {id:int}", async (int id, IInteraction ui, IContactStore store) =>
+app.Map("delete {id:int}", async (int id, IReplInteractionChannel ui, IContactStore store, CancellationToken ct) =>
 {
     var contact = store.Get(id);
-    var confirmed = await ui.Confirm($"Delete '{contact.Name}'? This cannot be undone.");
+    var confirmed = await ui.AskConfirmationAsync("confirm", $"Delete '{contact.Name}'? This cannot be undone.");
 
     if (!confirmed)
         return Results.Cancelled("Delete cancelled.");
@@ -46,18 +58,18 @@ app.Map("delete {id:int}", async (int id, IInteraction ui, IContactStore store) 
 
 ## Progress
 
+Each `WriteProgressAsync` call updates the progress display. Fire-and-forget style — no disposable to manage:
+
 ```csharp
-app.Map("import {file}", async (string file, IInteraction ui, CancellationToken ct) =>
+app.Map("import {file}", async (string file, IReplInteractionChannel ui, CancellationToken ct) =>
 {
     var lines = await File.ReadAllLinesAsync(file, ct);
-
-    await using var progress = await ui.StartProgress($"Importing {lines.Length} records...");
 
     for (int i = 0; i < lines.Length; i++)
     {
         ct.ThrowIfCancellationRequested();
-        await ImportLine(lines[i]);
-        progress.Report((double)i / lines.Length);
+        await ImportLine(lines[i], ct);
+        await ui.WriteProgressAsync($"Importing…", (double)(i + 1) / lines.Length, ct);
     }
 
     return Results.Success($"Imported {lines.Length} records.");
@@ -67,9 +79,10 @@ app.Map("import {file}", async (string file, IInteraction ui, CancellationToken 
 ## Timeouts
 
 ```csharp
-app.Map("ping {host}", async (string host, IInteraction ui) =>
+app.Map("ping {host}", async (string host, CancellationToken ct) =>
 {
-    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+    using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+    cts.CancelAfter(TimeSpan.FromSeconds(5));
     try
     {
         var reply = await Ping(host, cts.Token);
@@ -77,28 +90,27 @@ app.Map("ping {host}", async (string host, IInteraction ui) =>
     }
     catch (OperationCanceledException)
     {
-        return Results.Error($"Ping to {host} timed out after 5s.");
+        return Results.Error("timeout", $"Ping to {host} timed out after 5s.");
     }
 });
 ```
 
 ## Deterministic automation with `--answer:*`
 
-Pre-fill prompts from the command line — useful for scripts and tests without `Repl.Testing`:
+Pre-fill prompts by name from the command line — useful for scripts and tests without `Repl.Testing`:
 
 ```bash
-# Answers prompt 1 with "Alice", prompt 2 with "alice@example.com"
-myapp add --answer:1=Alice --answer:2=alice@example.com
+myapp add --answer:name=Alice --answer:email=alice@example.com
 ```
 
-This makes interactive commands fully scriptable without changing handler code.
+This makes interactive commands fully scriptable without changing handler code. Prompt names match the first argument to `AskTextAsync` / `AskChoiceAsync` / `AskBoolAsync`.
 
 ## Spectre.Console prompts
 
-With `Repl.Spectre`, upgrade all prompts to rich Spectre.Console widgets automatically — selection lists, multi-select, styled confirmations:
+With `Repl.Spectre`, all prompts upgrade to rich Spectre.Console widgets automatically:
 
 ```csharp
-builder.Services.AddSpectreInteraction();
+app.UseSpectreConsole();
 ```
 
 No handler changes required. See the [Spectre cookbook](/cookbook/spectre/) for details.

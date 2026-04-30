@@ -51,8 +51,8 @@ Every `Map(...)` call becomes an MCP tool automatically. The tool name is derive
 | Repl declaration | MCP surface | Notes |
 |---|---|---|
 | `app.Map(...)` | Tool | Default — always a tool |
-| `.ReadOnly()` | Tool + auto-promoted Resource | Route becomes a `resource://` URI |
-| `.AsResource(uri)` | Resource only | Not callable as tool |
+| `.ReadOnly()` | Tool + auto-promoted Resource | URI derived from route |
+| `.AsResource()` | Resource only | Not callable as tool; URI derived from route |
 | `.AsPrompt()` | Prompt | Callable as MCP prompt |
 | `.AsMcpAppResource()` | Tool + `ui://` HTML resource | Returns HTML for capable clients |
 | `.AutomationHidden()` | Excluded | Human-only command |
@@ -76,12 +76,10 @@ Annotations tell the agent **how** to call your tool — whether it should ask f
 app.Map("contacts delete {id:int}", (int id, IContactStore store) =>
 {
     store.Delete(id);
-    return Results.Success();
+    return Results.Success("Contact deleted.");
 })
 .WithDescription("Permanently delete a contact.")
-.Destructive()           // warn before calling
-.RequiresConfirmation()  // ask user before calling
-.IdempotentOnRetry(false); // not safe to retry
+.Destructive();   // warn agent before calling; not safe to parallelize
 ```
 
 | Annotation | Meaning for the agent |
@@ -91,7 +89,7 @@ app.Map("contacts delete {id:int}", (int id, IContactStore store) =>
 | `.Idempotent()` | Safe to retry on transient failure |
 | `.OpenWorld()` | Reaches external systems (email, HTTP, etc.) |
 | `.LongRunning()` | Enable call-now/poll-later pattern |
-| `.RequiresConfirmation()` | Ask user before calling |
+| `.AutomationHidden()` | Exclude from MCP; visible in interactive REPL only |
 
 ---
 
@@ -101,9 +99,11 @@ Expose read-only data as MCP resources — the agent can subscribe, list, and re
 
 ```csharp
 app.Map("contacts export", (IContactStore store) => store.All())
-    .AsResource("contacts://all", "application/json")
+    .AsResource()
     .WithDescription("All contacts as a live JSON resource.");
 ```
+
+The resource URI is derived from the route.
 
 Use `.ReadOnly()` for the common case of "tool that's also readable as a resource":
 
@@ -111,7 +111,7 @@ Use `.ReadOnly()` for the common case of "tool that's also readable as a resourc
 app.Map("contacts {id:int} show", (int id, IContactStore store) => store.Get(id))
     .ReadOnly()
     .WithDescription("Get contact by ID.");
-// Registered as both: tool 'contacts_id_show' AND resource 'contacts://{id}/show'
+// Registered as both tool 'contacts_show' and a resource with a URI derived from the route
 ```
 
 ---
@@ -143,7 +143,13 @@ app.Map("prompts summarize {id:int}", (int id, IContactStore store) =>
 
 MCP Apps are HTML surfaces rendered inside capable clients (e.g., Claude). The same `Map(...)` call serves launcher text for tool invocation and HTML for `resources/read`:
 
+<Aside type="caution">
+Always HTML-encode user-controlled values before embedding them in MCP App HTML. Raw interpolation creates stored XSS — an attacker who controls contact data can execute scripts in the MCP client's WebView.
+</Aside>
+
 ```csharp
+using System.Net;   // WebUtility.HtmlEncode
+
 app.Map("contacts dashboard", (IContactStore store) =>
 {
     var contacts = store.All().ToList();
@@ -153,7 +159,8 @@ app.Map("contacts dashboard", (IContactStore store) =>
         <head><title>Contacts ({{contacts.Count}})</title></head>
         <body>
           <h1>Contacts</h1>
-          <ul>{{string.Join("", contacts.Select(c => $"<li><b>{c.Name}</b> — {c.Email}</li>"))}}</ul>
+          <ul>{{string.Join("", contacts.Select(c =>
+              $"<li><b>{WebUtility.HtmlEncode(c.Name)}</b> — {WebUtility.HtmlEncode(c.Email)}</li>"))}}</ul>
         </body>
         </html>
         """;
@@ -173,7 +180,7 @@ Configure Content Security Policy for apps that load external assets:
 
 ## Interaction in MCP mode
 
-Repl routes `IInteraction` calls through MCP primitives when running as an MCP server. Configure how it falls back when the client doesn't support elicitation:
+Repl routes `IReplInteractionChannel` calls through MCP primitives when running as an MCP server. Configure how it falls back when the client doesn't support elicitation:
 
 ```csharp
 app.UseMcpServer(o =>
@@ -186,7 +193,7 @@ app.UseMcpServer(o =>
 });
 ```
 
-**Design for agents:** prefer accepting all required data as route parameters or named options. Reserve `IInteraction` prompts for the human-interactive experience — agents should pass everything upfront.
+**Design for agents:** prefer accepting all required data as route parameters or named options. Reserve `IReplInteractionChannel` prompts for the human-interactive experience — agents should pass everything upfront.
 
 ---
 
@@ -222,7 +229,7 @@ app.Map("contacts add {name} {email:email}", handler)
 app.Map("analyze {path}", async (string path, IMcpClientRoots roots, CancellationToken ct) =>
 {
     if (!roots.IsAllowed(path))
-        return Results.Error($"'{path}' is outside your workspace roots.");
+        return Results.Error("outside_root", $"'{path}' is outside your workspace roots.");
 
     return await AnalyzeFile(path, ct);
 });
@@ -233,7 +240,9 @@ For clients without native roots support, provide a setup command that stores a 
 ```csharp
 app.Map("init {path}", (string path, IMcpClientRoots roots) =>
 {
-    roots.SetSoftRoots([new Uri($"file:///{path}")]);
+    // Canonicalize the path before building the URI to prevent path-traversal
+    var canonical = Path.GetFullPath(path);
+    roots.SetSoftRoots([new Uri(canonical)]);
     roots.InvalidateRouting();  // rebuild tool graph with new context
     return Results.Success($"Working directory set to {path}.");
 });

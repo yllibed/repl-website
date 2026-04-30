@@ -90,7 +90,7 @@ app.Context("admin", admin =>
 {
     admin.Map("purge", ...);  // user must type 'admin purge', not just 'purge'
 })
-.WithChannelFilter(c => c.IsLocalConsole);
+.AutomationHidden();  // hidden from MCP and automation surfaces
 ```
 
 ---
@@ -160,14 +160,14 @@ In CLI mode, "scoped" means per invocation — it's still correct, just not sign
 [Description("Adding a contact via the add command persists it and returns its ID.")]
 public async Task When_AddContact_Then_ContactPersistedAndIdReturned()
 {
-    await using var session = await host.CreateSessionAsync();
+    await using var session = await host.OpenSessionAsync();
 
-    var result = await session.ExecuteAsync<Contact>("contacts add Alice alice@example.com");
+    var result = await session.RunCommandAsync("contacts add Alice alice@example.com");
 
-    result.Name.Should().Be("Alice");
+    result.Output.Should().Contain("Alice");
 
-    var list = await session.ExecuteAsync<IEnumerable<Contact>>("contacts list");
-    list.Should().ContainSingle(c => c.Name == "Alice");
+    var list = await session.RunCommandAsync("contacts list --json");
+    list.Output.Should().Contain("alice@example.com");
 }
 ```
 
@@ -175,12 +175,18 @@ public async Task When_AddContact_Then_ContactPersistedAndIdReturned()
 
 Test at the command level (full route → output), not at the handler method level. This catches routing bugs, binding bugs, and output formatting issues that unit-testing the handler method alone won't catch.
 
-### Use `AnswerQueue` for interactive commands
+### Supply answers for interactive commands
+
+Pass prompt answers as a dictionary keyed by prompt name. These are injected as `--answer:name=value` flags:
 
 ```csharp
-session.AnswerQueue.Enqueue("Alice");
-session.AnswerQueue.Enqueue("alice@example.com");
-await session.ExecuteAsync("contacts add");  // prompts are answered from the queue
+await session.RunCommandAsync(
+    "contacts add",
+    new Dictionary<string, string>
+    {
+        ["name"]  = "Alice",
+        ["email"] = "alice@example.com",
+    });
 ```
 
 ---
@@ -211,7 +217,7 @@ In CLI mode `io.Output` is stdout. In a hosted session it routes to that client'
 app.Map("status", (IAnsiConsole console) =>
 {
     console.Write(new Panel("[green]All systems go[/]"));
-    return Results.Success();
+    return Results.Success("Status OK.");
 });
 ```
 
@@ -261,8 +267,10 @@ Log.Logger = new LoggerConfiguration()
     .WriteTo.File("logs/myapp-.log", rollingInterval: RollingInterval.Day)
     .CreateLogger();
 
-var app = ReplApp.Create();
-app.Logging(logging => logging.AddSerilog());
+var app = ReplApp.Create(services =>
+{
+    services.AddLogging(l => l.AddSerilog());
+});
 ```
 
 For local development only, `AddDebug()` writes to the IDE debug output window — not to the terminal, so it doesn't contaminate command output.
@@ -276,10 +284,13 @@ Without any provider, log calls are no-ops. This is intentional — the default 
 | Property | Value |
 |---|---|
 | `ReplSessionId` | Unique session identifier |
+| `ReplSessionActive` | `true` while a session is active |
 | `ReplHostedSession` | `true` for remote transport sessions |
+| `ReplProgrammatic` | `true` when called non-interactively (CI, scripts) |
 | `ReplProtocolPassthrough` | `true` in MCP stdio mode |
 | `ReplTransport` | `websocket`, `telnet`, `local`, … |
 | `ReplRemotePeer` | Client address for hosted sessions |
+| `ReplTerminalIdentity` | Terminal identity string (e.g. `xterm-256color`) |
 
 No opt-in needed — the scope appears automatically in any structured provider (OpenTelemetry, Serilog, etc.).
 
@@ -299,10 +310,10 @@ Yes. `Repl.Testing` runs commands in a session context, which is equivalent to R
 
 Decorate the handler with `[Browsable(false)]`. The command still runs if invoked directly but doesn't appear in `--help` or discovery.
 
-**Q: How do I show a command only in local interactive mode?**
+**Q: How do I hide a command from MCP agents but keep it in the interactive REPL?**
 
 ```csharp
-.WithChannelFilter(c => c.IsLocalConsole && !c.IsAutomation)
+.AutomationHidden()
 ```
 
 **Q: My MCP client doesn't see my commands. Why?**
@@ -311,8 +322,8 @@ Make sure `app.UseMcpServer()` is called before `app.Run(args)`, and that the MC
 
 **Q: How do I version my command surface?**
 
-Route under a version prefix: `app.Context("v2", v2 => { ... })`. For backward compatibility in MCP, keep old tools alive alongside new ones using `.WithAnnotations(new McpToolAnnotations { Deprecated = true })`.
+Route under a version prefix: `app.Context("v2", v2 => { ... })`. For backward compatibility in MCP, keep old tools alive alongside new ones and use `.WithDescription(...)` to signal that a tool is superseded.
 
 **Q: Can I use Repl in an ASP.NET Core app alongside HTTP endpoints?**
 
-Yes. `ReplApp.CreateBuilder()` integrates with `WebApplicationBuilder`. Your HTTP endpoints and REPL commands share the same DI container and the same `IServiceProvider`.
+Yes. Register your shared services in `WebApplicationBuilder`, then use `app.Services.GetRequiredService<IReplApp>()` to get the Repl command graph. HTTP endpoints and REPL commands share the same DI container and `IServiceProvider`.

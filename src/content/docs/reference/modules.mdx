@@ -117,15 +117,14 @@ app.MapModule(
 
 ## Channel-specific commands
 
-Use `.WithChannelFilter(...)` on individual routes instead of wrapping a whole module:
+Use `.AutomationHidden()` to hide a command from MCP and other programmatic surfaces while keeping it in the interactive REPL. For MCP-only commands, register them with `.AsMcpAppResource()` or `.AsResource()` — these are only surfaced on the MCP channel:
 
 ```csharp
 app.Map("debug reset", () => store.Clear())
-    .WithChannelFilter(c => c.IsLocalConsole && !c.IsAutomation);
+    .AutomationHidden();  // visible in REPL, hidden from MCP agents
 
 app.Map("contacts dashboard", BuildDashboard)
-    .WithChannelFilter(c => c.IsMcp)
-    .AsMcpAppResource();
+    .AsMcpAppResource();  // surfaced as an MCP ui:// resource
 ```
 
 ## Composing modules with modules

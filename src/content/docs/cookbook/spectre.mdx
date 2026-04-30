@@ -18,11 +18,8 @@ dotnet add package Repl.Spectre
 ```
 
 ```csharp
-var builder = ReplApp.CreateBuilder();
-builder.Services.AddSpectreInteraction();   // rich prompts
-builder.Services.AddSpectreOutput();        // rich renderables
-
-var app = builder.Build().UseDefaultInteractive();
+var app = ReplApp.Create().UseDefaultInteractive();
+app.UseSpectreConsole();   // rich prompts + renderables in one call
 ```
 
 ## Rich output renderables
@@ -72,41 +69,41 @@ app.Map("stats chart", (IContactStore store) =>
 ## Progress bars
 
 ```csharp
-app.Map("import {file}", async (string file, IInteraction ui, CancellationToken ct) =>
+using Repl.Interaction;
+
+app.Map("import {file}", async (string file, IReplInteractionChannel ui, CancellationToken ct) =>
 {
     var lines = await File.ReadAllLinesAsync(file, ct);
-
-    await using var progress = await ui.StartProgress($"Importing {lines.Length} records...");
 
     for (int i = 0; i < lines.Length; i++)
     {
         await ImportLine(lines[i], ct);
-        progress.Report((double)i / lines.Length);
+        await ui.WriteProgressAsync($"Importing… {i + 1}/{lines.Length}", (double)(i + 1) / lines.Length, ct);
     }
+
+    return Results.Success($"Imported {lines.Length} records.");
 });
 ```
 
-With `AddSpectreInteraction()`, the progress bar is a live Spectre.Console `Progress` display.
+With `UseSpectreConsole()`, progress renders as a live Spectre.Console `Progress` bar.
 
 ## Rich prompts
 
-`AddSpectreInteraction()` upgrades all `IInteraction` prompts to Spectre.Console widgets:
+`UseSpectreConsole()` upgrades all `IReplInteractionChannel` prompts to Spectre.Console widgets automatically:
 
 ```csharp
-// Ask → TextPrompt<string>
-var name = await ui.Ask("Name:");
+using Repl.Interaction;
 
-// SelectOne → SelectionPrompt
-var role = await ui.SelectOne("Role:", new[] { "admin", "user", "guest" });
-
-// SelectMany → MultiSelectionPrompt
-var permissions = await ui.SelectMany("Permissions:", allPermissions);
-
-// Confirm → ConfirmationPrompt
-var ok = await ui.Confirm("Proceed?");
+app.Map("add", async (IReplInteractionChannel ui, IContactStore store, CancellationToken ct) =>
+{
+    var name  = await ui.AskTextAsync("name",  "Full name:",     ct: ct);
+    var email = await ui.AskTextAsync("email", "Email address:", ct: ct);
+    store.Add(name, email);
+    return Results.Success($"Added {name}.");
+});
 ```
 
-No handler changes are needed — just register `AddSpectreInteraction()` and all prompts upgrade automatically.
+No handler changes are needed when switching between terminals — `UseSpectreConsole()` upgrades the rendering layer and all prompts degrade gracefully on plain terminals.
 
 ## Available renderables
 

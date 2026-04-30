@@ -37,38 +37,50 @@ var host = ReplTestHost.Create(app =>
 
 ## Single-command execution
 
+`RunCommandAsync` returns a `CommandExecution` with the output text, exit code, and the raw result object:
+
 ```csharp
 [TestMethod]
 [Description("Adding a contact returns a success result and persists to the store.")]
 public async Task When_AddContact_Then_SuccessAndPersisted()
 {
-    await using var session = await host.CreateSessionAsync();
+    await using var session = await host.OpenSessionAsync();
 
-    var result = await session.ExecuteAsync<SuccessResult>("add Alice alice@example.com");
+    var result = await session.RunCommandAsync("add Alice alice@example.com");
 
-    result.Should().NotBeNull();
-    result.Message.Should().Contain("Alice");
+    result.ExitCode.Should().Be(0);
+    result.OutputText.Should().Contain("Alice");
 
-    var list = await session.ExecuteAsync<IEnumerable<Contact>>("list");
-    list.Should().ContainSingle(c => c.Name == "Alice");
+    var list = await session.RunCommandAsync("list --json");
+    var contacts = list.ReadJson<IEnumerable<Contact>>();
+    contacts.Should().ContainSingle(c => c.Name == "Alice");
 }
+```
+
+To access the typed handler return value directly, use `GetResult<T>()`:
+
+```csharp
+var execution = await session.RunCommandAsync("contacts 1 show");
+var contact = execution.GetResult<Contact>();
+contact.Name.Should().Be("Alice");
 ```
 
 ## Multi-step sequences
 
+Scoped routes work as full paths — no special navigation method needed:
+
 ```csharp
 [TestMethod]
-[Description("Scoped navigation enters the context and runs commands relative to it.")]
-public async Task When_EnteringScope_Then_ScopedCommandsExecute()
+[Description("Commands in a scoped context run via the full route path.")]
+public async Task When_ScopedCommand_Then_ExecutesCorrectly()
 {
-    await using var session = await host.CreateSessionAsync();
+    await using var session = await host.OpenSessionAsync();
 
-    await session.ExecuteAsync("add Alice alice@example.com");
-    await session.EnterContextAsync("client");
-    await session.EnterContextAsync("1");
+    await session.RunCommandAsync("add Alice alice@example.com");
 
-    var contact = await session.ExecuteAsync<Contact>("show");
-    contact.Name.Should().Be("Alice");
+    var result = await session.RunCommandAsync("client 1 show");
+    result.ExitCode.Should().Be(0);
+    result.OutputText.Should().Contain("Alice");
 }
 ```
 
@@ -79,55 +91,56 @@ public async Task When_EnteringScope_Then_ScopedCommandsExecute()
 [Description("Changes made by one session are visible to another via shared store.")]
 public async Task When_TwoSessions_Then_SharedStateIsVisible()
 {
-    await using var session1 = await host.CreateSessionAsync();
-    await using var session2 = await host.CreateSessionAsync();
+    await using var session1 = await host.OpenSessionAsync();
+    await using var session2 = await host.OpenSessionAsync();
 
-    await session1.ExecuteAsync("add Bob bob@example.com");
+    await session1.RunCommandAsync("add Bob bob@example.com");
 
-    var list = await session2.ExecuteAsync<IEnumerable<Contact>>("list");
-    list.Should().ContainSingle(c => c.Name == "Bob");
+    var result = await session2.RunCommandAsync("list --json");
+    var contacts = result.ReadJson<IEnumerable<Contact>>();
+    contacts.Should().ContainSingle(c => c.Name == "Bob");
 }
 ```
 
 ## Testing interactions (prompts)
 
-Pre-fill prompts via `AnswerQueue`:
+Pass prompt answers as a dictionary keyed by prompt name. They are injected as `--answer:name=value` flags:
 
 ```csharp
 [TestMethod]
-[Description("Interactive add command reads name and email from the answer queue.")]
+[Description("Interactive add command reads name and email from supplied answers.")]
 public async Task When_InteractiveAdd_WithAnswers_Then_ContactCreated()
 {
-    await using var session = await host.CreateSessionAsync();
-    session.AnswerQueue.Enqueue("Bob");
-    session.AnswerQueue.Enqueue("bob@example.com");
+    await using var session = await host.OpenSessionAsync();
 
-    await session.ExecuteAsync("add");
+    await session.RunCommandAsync("add", new Dictionary<string, string>
+    {
+        ["name"]  = "Bob",
+        ["email"] = "bob@example.com",
+    });
 
-    var list = await session.ExecuteAsync<IEnumerable<Contact>>("list");
-    list.Should().ContainSingle(c => c.Name == "Bob");
+    var result = await session.RunCommandAsync("list --json");
+    var contacts = result.ReadJson<IEnumerable<Contact>>();
+    contacts.Should().ContainSingle(c => c.Name == "Bob");
 }
+```
+
+For session-wide answers (applied to every command), set them on `SessionDescriptor.Answers` when opening the session:
+
+```csharp
+await using var session = await host.OpenSessionAsync(new SessionDescriptor
+{
+    Answers = new Dictionary<string, string> { ["confirm"] = "yes" }
+});
 ```
 
 ## Interaction timeline
 
-Inspect every event — prompts shown, answers given, output emitted:
+Inspect the interaction events recorded during execution:
 
 ```csharp
-var events = session.Timeline;
-events.Should().ContainInOrder(
-    new PromptEvent("Full name:"),
-    new AnswerEvent("Bob"),
-    new PromptEvent("Email:"),
-    new AnswerEvent("bob@example.com")
-);
+var result = await session.RunCommandAsync("add", answers);
+result.InteractionEvents.Should().HaveCount(2);
 ```
 
-## Testing MCP surface
-
-With `Repl.Mcp` + `Repl.Testing`:
-
-```csharp
-var toolList = await session.ExecuteAsync<McpToolList>("mcp tools");
-toolList.Tools.Should().ContainSingle(t => t.Name == "list");
-```
+`TimelineEvents` combines output, interactions, and the final result into a chronological sequence.

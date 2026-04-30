@@ -24,7 +24,7 @@ app.Context("client", client =>
         scoped.Map("remove", (int id) =>
         {
             contactStore.Remove(id);
-            return Results.Success();
+            return Results.Success("Removed.");
         });
     });
 });
@@ -72,10 +72,10 @@ myapp client 1 remove
 With `ReplApp` (vs. the lighter `CoreReplApp`), handlers can take DI-injected services:
 
 ```csharp
-var builder = ReplApp.CreateBuilder();
-builder.Services.AddSingleton<IContactStore, ContactStore>();
-
-var app = builder.Build().UseDefaultInteractive();
+var app = ReplApp.Create(services =>
+{
+    services.AddSingleton<IContactStore, ContactStore>();
+}).UseDefaultInteractive();
 
 app.Context("client", client =>
 {

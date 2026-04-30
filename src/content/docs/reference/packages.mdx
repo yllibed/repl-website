@@ -58,7 +58,7 @@ Expose your entire command graph as an MCP server:
 - `app.UseMcpServer()` — one line to activate
 - Tools, resources, prompts
 - MCP Apps UI resources
-- Behavioral annotations (`Destructive`, `RequiresConfirmation`, etc.)
+- Behavioral annotations (`.Destructive()`, `.ReadOnly()`, `.Idempotent()`, `.OpenWorld()`, `.LongRunning()`)
 - Client roots support
 - Transport factory
 
@@ -71,8 +71,8 @@ dotnet add package Repl.Mcp
 [Spectre.Console](https://spectreconsole.net/) integration:
 
 - Rich renderables as command return values (Table, Panel, Tree, BarChart, Calendar, ...)
-- `AddSpectreInteraction()` — upgrades all IInteraction prompts to Spectre widgets
-- `IAnsiConsole` DI injection
+- `UseSpectreConsole()` — enables rich prompts and renderables in one call
+- `IAnsiConsole` DI injection (session-safe across hosted sessions)
 - Automatic capability detection and graceful degradation
 
 ```bash
@@ -101,6 +101,19 @@ Telnet session protocol layered over a WebSocket transport — adds Telnet frami
 
 ```bash
 dotnet add package Repl.Telnet
+```
+
+## `Repl.Logging`
+
+Session-aware logging context for Repl apps:
+
+- `AddReplLogging()` — registers the logging context services
+- Injects `ReplLoggingMiddleware` automatically via `ReplApp` for structured log scopes
+- Adds REPL session metadata (`ReplSessionId`, `ReplTransport`, etc.) to every log scope
+- No sink included — bring your own provider (`Serilog`, `OpenTelemetry`, etc.)
+
+```bash
+dotnet add package Repl.Logging
 ```
 
 ## `Repl.Testing`

@@ -5,35 +5,39 @@ description: How to ask users questions, report progress, and handle prompts —
 
 import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
 
-Repl provides a typed interaction channel (`IInteraction`) that works across all execution modes: interactive REPL, hosted sessions, MCP tools, and automated scripts. The same handler code asks questions in a terminal, receives answers from an MCP client, or reads pre-filled values from `--answer:*` flags.
+Repl provides a typed interaction channel (`IReplInteractionChannel`) that works across all execution modes: interactive REPL, hosted sessions, MCP tools, and automated scripts. The same handler code asks questions in a terminal, receives answers from an MCP client, or reads pre-filled values from `--answer:*` flags.
 
 ## The interaction channel
 
-Inject `IInteraction` into your handler to access prompts and progress:
+Inject `IReplInteractionChannel` (namespace `Repl.Interaction`) into your handler:
 
 ```csharp
-app.Map("add", async (IInteraction ui, IContactStore store, CancellationToken ct) =>
+using Repl.Interaction;
+
+app.Map("add", async (IReplInteractionChannel ui, IContactStore store, CancellationToken ct) =>
 {
-    var name  = await ui.AskTextAsync("Full name:", ct);
-    var email = await ui.AskTextAsync("Email address:", ct);
+    var name  = await ui.AskTextAsync("name",  "Full name:",    ct: ct);
+    var email = await ui.AskTextAsync("email", "Email address:", ct: ct);
 
     var contact = store.Add(name, email);
     return Results.Success($"Added {contact.Name} (#{contact.Id}).");
 });
 ```
 
+The first argument to every prompt method is a **name** — a stable identifier used to match `--answer:name=value` flags and to route MCP elicitation responses to the right prompt.
+
 ## Prompt types
 
 ### Text input
 
 ```csharp
-var name = await ui.AskTextAsync("Full name:", ct);
+var name = await ui.AskTextAsync("name", "Full name:", ct: ct);
 ```
 
 ### Secret / password (masked)
 
 ```csharp
-var password = await ui.AskSecretAsync("Password:", ct);
+var password = await ui.AskSecretAsync("password", "Password:", ct: ct);
 ```
 
 In MCP mode, `AskSecretAsync` is **prefill-only** — the agent must supply the value upfront; elicitation and sampling are never used for secrets.
@@ -41,7 +45,7 @@ In MCP mode, `AskSecretAsync` is **prefill-only** — the agent must supply the 
 ### Confirmation
 
 ```csharp
-var confirmed = await ui.AskConfirmationAsync("Delete this record? This cannot be undone.", ct);
+var confirmed = await ui.AskConfirmationAsync("confirm", "Delete this record? This cannot be undone.", ct: ct);
 if (!confirmed)
     return Results.Cancelled("Deletion cancelled.");
 ```
@@ -49,22 +53,22 @@ if (!confirmed)
 ### Single-choice selection
 
 ```csharp
-var role = await ui.AskChoiceAsync(
-    "Assign role:",
-    new[] { "admin", "editor", "viewer" },
-    ct);
+var options   = new[] { "admin", "editor", "viewer" };
+var roleIndex = await ui.AskChoiceAsync("role", "Assign role:", options, ct: ct);
+var role      = options[roleIndex];
 ```
 
-In a capable terminal, this renders as an arrow-key menu. In plain mode, it falls back to numbered choices.
+`AskChoiceAsync` returns the **index** of the selected item. In a capable terminal, this renders as an arrow-key menu; in plain mode it falls back to numbered choices.
 
 ### Multi-choice selection
 
 ```csharp
-var permissions = await ui.AskMultiChoiceAsync(
-    "Select permissions:",
-    new[] { "read", "write", "delete", "export" },
-    ct);
+var allPerms = new[] { "read", "write", "delete", "export" };
+var indices  = await ui.AskMultiChoiceAsync("permissions", "Select permissions:", allPerms, ct: ct);
+var selected = indices.Select(i => allPerms[i]).ToArray();
 ```
+
+`AskMultiChoiceAsync` returns `IReadOnlyList<int>` — the indices of all selected items.
 
 ### Utility
 
@@ -82,63 +86,69 @@ await ui.ClearScreenAsync(ct);
 
 ### Determinate progress
 
+Call `WriteProgressAsync` on each update — pass the label, a `double?` between 0 and 1, and the cancellation token:
+
 ```csharp
-app.Map("import {file}", async (string file, IInteraction ui, CancellationToken ct) =>
+app.Map("import {file}", async (string file, IReplInteractionChannel ui, CancellationToken ct) =>
 {
     var lines = await File.ReadAllLinesAsync(file, ct);
-    await using var progress = await ui.WriteProgressAsync($"Importing {lines.Length} records...", ct);
 
     for (int i = 0; i < lines.Length; i++)
     {
         ct.ThrowIfCancellationRequested();
         await ImportLine(lines[i]);
-        progress.Report((double)(i + 1) / lines.Length);
+        await ui.WriteProgressAsync(
+            $"Importing {lines.Length} records…",
+            (double)(i + 1) / lines.Length,
+            ct);
     }
 
     return Results.Success($"Imported {lines.Length} records.");
 });
 ```
 
+Each `WriteProgressAsync` call is independent — there is no progress session object to manage.
+
 ### Indeterminate progress (spinner)
 
 ```csharp
-await using var progress = await ui.WriteIndeterminateProgressAsync("Connecting...", ct);
-// ... work
-```
-
-### Warning / error state on progress
-
-```csharp
-progress.Report(new ReplProgressEvent(0.75, ReplProgressState.Warning, "Slow connection detected."));
+await ui.WriteIndeterminateProgressAsync("Connecting…", ct: ct);
+// … work …
+await ui.WriteProgressAsync("Connecting…", 1.0, ct);  // signals completion
 ```
 
 ---
 
 ## Automating prompts
 
-### `--answer:*` flags (CLI scripts)
+### `--answer:*` flags (CLI / CI scripts)
 
-Pre-fill prompts positionally from the command line. Prompts are answered in the order they're asked:
-
-```bash
-# Answers "Full name:" with "Alice", "Email:" with "alice@example.com"
-myapp add --answer:1=Alice --answer:2=alice@example.com
-```
-
-Named answers target a specific prompt by label:
+Pre-fill prompts by **name** from the command line. Each `--answer:name=value` targets the prompt whose `name` parameter matches:
 
 ```bash
+# Answers the 'name' prompt with "Alice", 'email' with "alice@example.com"
 myapp add --answer:name=Alice --answer:email=alice@example.com
 ```
 
-### `AnswerQueue` (tests)
+Positional answers (by order) also work:
 
-In `Repl.Testing`:
+```bash
+myapp add --answer:1=Alice --answer:2=alice@example.com
+```
+
+### Answers in tests (`Repl.Testing`)
+
+Pass answers as a dictionary to the second overload of `RunCommandAsync`:
 
 ```csharp
-session.AnswerQueue.Enqueue("Alice");
-session.AnswerQueue.Enqueue("alice@example.com");
-await session.ExecuteAsync("add");
+var result = await session.RunCommandAsync(
+    "add",
+    new Dictionary<string, string>
+    {
+        ["name"]  = "Alice",
+        ["email"] = "alice@example.com",
+    },
+    ct);
 ```
 
 ---
@@ -150,7 +160,7 @@ When a command is called via MCP, Repl tries to answer prompts in this order:
 | Tier | Mechanism | Notes |
 |---|---|---|
 | 1 | **Prefill** — from tool call arguments | Always tried first |
-| 2 | **Elicitation** — structured form through the agent | Requires `sampling`/`elicitation` capability |
+| 2 | **Elicitation** — structured form through the agent | Requires `elicitation` capability |
 | 3 | **Sampling** — LLM generates an answer | Requires `sampling` capability |
 | 4 | **Default / Fail** | Depends on `InteractivityMode` |
 
@@ -175,10 +185,10 @@ For agent-driven workflows, design your commands to accept all required values a
 Add `Repl.Spectre` and register:
 
 ```csharp
-builder.Services.AddSpectreInteraction();
+app.UseSpectreConsole();
 ```
 
-All `IInteraction` calls upgrade automatically to Spectre.Console widgets:
+All `IReplInteractionChannel` calls upgrade automatically to Spectre.Console widgets:
 
 | Call | Spectre widget |
 |---|---|
@@ -199,10 +209,8 @@ No handler changes required.
 Prefix a choice item with `_` to designate it as the keyboard shortcut:
 
 ```csharp
-var action = await ui.AskChoiceAsync(
-    "What next?",
-    new[] { "_Retry", "_Abort", "_Skip" },
-    ct);
+var actions = new[] { "_Retry", "_Abort", "_Skip" };
+var idx     = await ui.AskChoiceAsync("action", "What next?", actions, ct: ct);
 ```
 
 The user can press `R`, `A`, or `S` without navigating the menu.
@@ -211,6 +219,6 @@ The user can press `R`, `A`, or `S` without navigating the menu.
 
 ## Cancellation
 
-Every `IInteraction` method accepts a `CancellationToken`. When `Ctrl+C` is pressed or the session is terminated, the token is cancelled, and the prompt throws `OperationCanceledException` — which Repl catches and reports as `Results.Cancelled`.
+Every `IReplInteractionChannel` method accepts a `CancellationToken`. When `Ctrl+C` is pressed or the session is terminated, the token is cancelled, and the prompt throws `OperationCanceledException` — which Repl catches and reports as `Results.Cancelled`.
 
 Press `Esc` to cancel a single prompt without cancelling the whole command (the method returns the prompt's default value instead of throwing).

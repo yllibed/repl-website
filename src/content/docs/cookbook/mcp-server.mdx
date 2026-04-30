@@ -60,7 +60,7 @@ Expose read-only data as MCP resources:
 
 ```csharp
 app.Map("contacts export", (IContactStore store) => store.All())
-    .AsMcpResource(uri: "contacts://all", mimeType: "application/json")
+    .AsResource()
     .WithDescription("All contacts as a JSON resource");
 ```
 
@@ -77,7 +77,7 @@ app.Map("prompts summarize {contact_id:int}", (int contactId, IContactStore stor
         Messages = [new McpMessage(McpRole.User, $"Summarize the following contact: {contact}")]
     };
 })
-.AsMcpPrompt()
+.AsPrompt()
 .WithDescription("Generate a summary prompt for a contact");
 ```
 
@@ -86,14 +86,17 @@ app.Map("prompts summarize {contact_id:int}", (int contactId, IContactStore stor
 Return HTML from a command and register it as an MCP App resource — the client renders it as an interactive panel:
 
 ```csharp
+using System.Net;   // WebUtility.HtmlEncode
+
 app.Map("contacts dashboard", (IContactStore store) =>
 {
     var contacts = store.All().ToList();
-    return $"""
+    return $$"""
         <html>
           <body>
-            <h1>Contacts ({contacts.Count})</h1>
-            <ul>{string.Join("", contacts.Select(c => $"<li>{c.Name}</li>"))}</ul>
+            <h1>Contacts ({{contacts.Count}})</h1>
+            <ul>{{string.Join("", contacts.Select(c =>
+                $"<li>{WebUtility.HtmlEncode(c.Name)}</li>"))}}</ul>
           </body>
         </html>
         """;
@@ -101,6 +104,8 @@ app.Map("contacts dashboard", (IContactStore store) =>
 .AsMcpAppResource()
 .WithDescription("Open the contacts dashboard");
 ```
+
+Always HTML-encode user-controlled values. Raw interpolation of contact data into HTML creates stored XSS — an attacker who controls the data can execute scripts in the MCP client's WebView.
 
 ## Behavioral annotations
 
@@ -110,23 +115,19 @@ Tell the agent how it should handle your tools:
 app.Map("contacts delete {id:int}", (int id, IContactStore store) =>
 {
     store.Delete(id);
-    return Results.Success();
+    return Results.Success("Contact deleted.");
 })
-.WithAnnotations(new McpToolAnnotations
-{
-    Destructive = true,
-    RequiresConfirmation = true,
-    IdempotentOnRetry = false,
-})
+.Destructive()
 .WithDescription("Delete a contact permanently");
 ```
 
 | Annotation | Meaning |
 |---|---|
-| `Destructive = true` | Agent should warn before calling |
-| `RequiresConfirmation = true` | Agent should ask user before calling |
-| `IdempotentOnRetry = true` | Safe to retry on failure |
-| `ReadOnly = true` | No side effects |
+| `.Destructive()` | Agent should warn before calling |
+| `.ReadOnly()` | No side effects — call freely, parallelize |
+| `.Idempotent()` | Safe to retry on transient failure |
+| `.OpenWorld()` | Reaches external systems (email, HTTP, etc.) |
+| `.LongRunning()` | Enable call-now/poll-later pattern |
 
 ## Automation visibility
 
@@ -134,10 +135,10 @@ Some commands are useful for humans in REPL but should be hidden from agents:
 
 ```csharp
 app.Map("debug reset", () => store.Clear())
-    .WithChannelFilter(c => !c.IsAutomation);
+    .AutomationHidden();
 ```
 
-`.WithChannelFilter` lets a command appear only in matching channel types (local console, automation, remote session, MCP).
+`.AutomationHidden()` hides the command from MCP and other programmatic surfaces while keeping it accessible in the interactive REPL and `--help`.
 
 ## Client roots
 
@@ -147,7 +148,7 @@ Expose the client's file system roots to your tools:
 app.Map("analyze {path}", async (string path, IMcpClientRoots roots) =>
 {
     if (!roots.IsAllowed(path))
-        return Results.Error($"Path '{path}' is not within an allowed root.");
+        return Results.Error("outside_root", $"Path '{path}' is not within an allowed root.");
 
     return await AnalyzeFile(path);
 });

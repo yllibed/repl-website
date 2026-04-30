@@ -59,8 +59,8 @@ Repl translates your command graph to MCP concepts automatically:
 | Return value | Tool result |
 | `[Description]` attribute | Tool description |
 | `Results.Error(...)` | Tool error |
-| `AsMcpResource()` | Resource |
-| `AsMcpPrompt()` | Prompt |
+| `.AsResource()` | Resource |
+| `.AsPrompt()` | Prompt |
 
 ## MCP Apps
 
@@ -80,11 +80,8 @@ Control how the agent sees your commands:
 
 ```csharp
 app.Map("delete {id:int}", (int id) => Delete(id))
-    .WithAnnotations(new McpToolAnnotations
-    {
-        Destructive = true,
-        RequiresConfirmation = true
-    });
+    .Destructive()
+    .WithDescription("Delete a record permanently.");
 ```
 
 ## Automation visibility
@@ -93,7 +90,7 @@ Some commands should be available to humans in REPL mode but hidden from agents:
 
 ```csharp
 app.Map("debug reset", Reset)
-    .WithChannelFilter(c => !c.IsAutomation);
+    .AutomationHidden();
 ```
 
 ## Next steps

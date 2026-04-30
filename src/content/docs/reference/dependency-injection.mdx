@@ -8,21 +8,11 @@ Repl Toolkit uses **Microsoft.Extensions.DependencyInjection** through `ReplApp`
 ## Service registration
 
 ```csharp
-var builder = ReplApp.CreateBuilder();
-
-builder.Services.AddSingleton<IContactStore, InMemoryContactStore>();
-builder.Services.AddSingleton(typeof(IStore<>), typeof(InMemoryStore<>));  // open generic
-builder.Services.AddScoped<ICurrentUser, HttpContextUser>();               // per-session
-
-var app = builder.Build().UseDefaultInteractive();
-```
-
-Or with the factory overload:
-
-```csharp
 var app = ReplApp.Create(services =>
 {
     services.AddSingleton<IContactStore, InMemoryContactStore>();
+    services.AddSingleton(typeof(IStore<>), typeof(InMemoryStore<>));  // open generic
+    services.AddScoped<ICurrentUser, SessionUser>();                   // per-session
 }).UseDefaultInteractive();
 ```
 
@@ -63,7 +53,7 @@ app.Context("project {id:int}", project =>
         ([FromContext] int id, IProjectService svc) =>
         {
             svc.Archive(id);
-            return Results.Success();
+            return Results.Success("Archived.");
         });
 });
 ```
@@ -90,7 +80,7 @@ Static lambdas enable expression tree compilation and make handlers independentl
 | Lifetime | Scope in Repl |
 |---|---|
 | `Singleton` | Shared across all sessions and all commands |
-| `Scoped` | One instance per session (in hosted sessions) or per invocation (in CLI mode) |
+| `Scoped` | One instance per session in hosted sessions; in CLI mode there is no scope boundary between invocations — `Scoped` behaves like `Transient` |
 | `Transient` | New instance per command handler invocation |
 
 Use `Scoped` for per-user state in hosted sessions (shopping cart, authentication context, cursor position). Use `Singleton` for shared data stores.

@@ -28,48 +28,53 @@ Every command invocation goes through a 12-stage pipeline. Understanding it lets
 
 ## Middleware
 
-Register middleware with `app.Use(...)`:
+Register middleware with `app.Use(...)`. The delegate receives a `ReplExecutionContext` (with `Services`, `Items`, and `CancellationToken`) and a `ReplNext` delegate to invoke the next stage:
 
 ```csharp
 app.Use(async (context, next) =>
 {
+    var logger = context.Services.GetRequiredService<ILogger<Program>>();
     var sw = Stopwatch.StartNew();
     await next();
-    context.Logger.LogInformation("Command {Route} completed in {Elapsed}ms",
-        context.Route, sw.ElapsedMilliseconds);
+    logger.LogInformation("Command completed in {Elapsed}ms", sw.ElapsedMilliseconds);
 });
 ```
 
-Middleware runs between argument binding (step 7) and your handler (step 9). Chain multiple middleware calls — they execute in registration order.
+Middleware runs between argument binding (step 7) and your handler (step 9). Chain multiple `Use(...)` calls — they execute in registration order.
 
 ### Authentication middleware example
 
+Resolve your auth service from `context.Services`. If the check fails, short-circuit by not calling `next()`:
+
 ```csharp
 app.Use(async (context, next) =>
 {
-    if (context.Route.StartsWith("admin") && !context.Session.IsAuthenticated)
-    {
-        context.SetResult(Results.Error("Not authenticated. Run 'auth login' first."));
-        return;
-    }
+    var auth = context.Services.GetRequiredService<IAuthService>();
+    if (!auth.IsAuthenticated)
+        throw new UnauthorizedAccessException("Not authenticated. Run 'auth login' first.");
+
     await next();
 });
 ```
+
+<Aside type="caution">
+`ReplExecutionContext` exposes `Services`, `Items`, and `CancellationToken` — access any service via `context.Services.GetRequiredService<T>()`. To scope auth guards to specific contexts, use per-context validation delegates rather than inspecting route strings in middleware.
+</Aside>
 
 ### Logging middleware
 
 ```csharp
 app.Use(async (context, next) =>
 {
-    using var scope = context.Logger.BeginScope(new { context.Route, context.SessionId });
-    context.Logger.LogDebug("Executing {Route}", context.Route);
+    var logger = context.Services.GetRequiredService<ILogger<Program>>();
+    logger.LogDebug("Executing command");
     try
     {
         await next();
     }
     catch (Exception ex)
     {
-        context.Logger.LogError(ex, "Command {Route} threw", context.Route);
+        logger.LogError(ex, "Command threw");
         throw;
     }
 });
@@ -161,23 +166,39 @@ The REPL command `contacts list` and the REST endpoint `/api/contacts` share the
 
 ---
 
-## Integrating with `IHostedService`
+## Hosting background services
 
-Run Repl commands from background services or scheduled jobs:
+A Repl app can host `IHostedService` / `BackgroundService` implementations alongside its command surface. Register them as you would in any .NET host:
 
 ```csharp
-public class NightlyCleanup : BackgroundService
+var app = ReplApp.Create(services =>
 {
-    private readonly IReplExecutor _executor;
+    services.AddSingleton<IContactStore, ContactStore>();
+    services.AddHostedService<CacheWarmupService>();   // runs on startup
+    services.AddHostedService<SessionCleanupService>(); // runs in background
+});
+```
 
-    public NightlyCleanup(IReplExecutor executor) => _executor = executor;
+Enable hosted service lifecycle so Repl starts and stops them:
 
+```csharp
+return await app.RunAsync(args, options: new ReplRunOptions
+{
+    HostedServiceLifecycleMode = HostedServiceLifecycleMode.Head,
+});
+```
+
+This is most useful for **REPL and MCP server** scenarios where the process runs indefinitely — background services have a long lifetime alongside the interactive session. In CLI mode the process exits after the command completes, so hosted services run only for the duration of that invocation.
+
+```csharp
+public class SessionCleanupService(IContactStore store) : BackgroundService
+{
     protected override async Task ExecuteAsync(CancellationToken ct)
     {
         while (!ct.IsCancellationRequested)
         {
-            await Task.Delay(TimeSpan.FromHours(24), ct);
-            await _executor.ExecuteAsync("contacts purge-inactive --confirm", ct);
+            await Task.Delay(TimeSpan.FromHours(1), ct);
+            store.PurgeExpiredSessions();
         }
     }
 }
@@ -213,13 +234,13 @@ Errors flow through the pipeline as typed `Results`:
 app.Map("pay {amount:double}", async (double amount, IPaymentService payments) =>
 {
     if (amount <= 0)
-        return Results.Error("Amount must be positive.", exitCode: 2);
+        return Results.Validation("Amount must be positive.");
 
     var result = await payments.ChargeAsync(amount);
 
     return result.IsSuccess
         ? Results.Success($"Paid {amount:C}.")
-        : Results.Error($"Payment failed: {result.Message}");
+        : Results.Error("payment_failed", $"Payment failed: {result.Message}");
 });
 ```
 
@@ -232,5 +253,5 @@ return Results.Exit(42);   // explicit exit code
 ```
 
 <Aside type="tip">
-Use `Results.Cancelled(...)` (exit code 3) when a user-initiated cancellation happens — it's distinct from `Results.Error(...)` (exit code 2), which indicates a program error.
+Use `Results.Cancelled(...)` (exit code 3) when a user-initiated cancellation happens — it's distinct from `Results.Error(code, message)` (exit code 1) for program errors and `Results.Validation(message)` (exit code 2) for bad input.
 </Aside>

@@ -58,14 +58,14 @@ app.Context("contacts", contacts =>
 
 ## Conditional modules
 
-Mount a module only when a certain channel capability is present:
+Mount a module and hide it from automation surfaces:
 
 ```csharp
 app.Context("admin", admin =>
 {
     admin.Map("purge-all", (IStore<Contact> store) => store.DeleteAll());
 })
-.WithChannelFilter(c => c.IsLocalConsole); // only available in local interactive sessions
+.AutomationHidden();
 ```
 
 ## Reusing the same module under multiple contexts
@@ -77,7 +77,7 @@ void RegisterAuditLog(IReplMap map, string entityType)
     map.Map("log clear", (IAuditLog log) =>
     {
         log.Clear(entityType);
-        return Results.Success();
+        return Results.Success("Log cleared.");
     });
 }
 

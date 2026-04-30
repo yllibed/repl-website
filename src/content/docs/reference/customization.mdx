@@ -29,9 +29,9 @@ Every command supports output format flags out of the box:
 ### Set the default format
 
 ```csharp
-app.Configure<OutputOptions>(o =>
+app.Options(o =>
 {
-    o.DefaultFormat = "json";  // all commands default to JSON
+    o.Output.DefaultFormat = "json";  // all commands default to JSON
 });
 ```
 
@@ -59,9 +59,9 @@ Repl detects the terminal's color capability at startup and chooses rendering ac
 Override programmatically:
 
 ```csharp
-app.Configure<OutputOptions>(o =>
+app.Options(o =>
 {
-    o.AnsiMode = AnsiMode.TrueColor;   // force 24-bit
+    o.Output.AnsiMode = AnsiMode.TrueColor;   // force 24-bit
     // or: None, Basic, Extended, Auto (default)
 });
 ```
@@ -99,22 +99,24 @@ app.Configure<OutputOptions>(o =>
 Register a transformer for a new format name:
 
 ```csharp
-app.Configure<OutputOptions>(o =>
+app.Options(o =>
 {
-    o.AddTransformer("csv", new CsvOutputTransformer());
-    o.AddAlias("spreadsheet", "csv");  // both --output:format=csv and --output:format=spreadsheet work
+    o.Output.AddTransformer("csv", new CsvOutputTransformer());
+    o.Output.AddAlias("spreadsheet", "csv");  // both --output:format=csv and --output:format=spreadsheet work
 });
 ```
 
+`IOutputTransformer` receives the handler's return value and returns a formatted string:
+
 ```csharp
-public class CsvOutputTransformer : IReplOutputTransformer
+public class CsvOutputTransformer : IOutputTransformer
 {
-    public async Task TransformAsync(object? value, ReplOutputContext context, CancellationToken ct)
+    public string Name => "csv";
+
+    public ValueTask<string> TransformAsync(object? value, CancellationToken ct)
     {
-        if (value is IEnumerable<object> rows)
-        {
-            await context.Writer.WriteLineAsync(ToCsv(rows));
-        }
+        var csv = value is IEnumerable<object> rows ? ToCsv(rows) : value?.ToString() ?? "";
+        return ValueTask.FromResult(csv);
     }
 }
 ```
@@ -132,10 +134,10 @@ myapp --no-logo
 Or globally:
 
 ```csharp
-app.Configure<OutputOptions>(o =>
+app.Options(o =>
 {
-    o.BannerEnabled = false;
-    // or: BannerFormats = ["human"]  — show only in human format (default)
+    o.Output.BannerEnabled = false;
+    // or: o.Output.BannerFormats = ["human"]  — show only in human format (default)
 });
 ```
 
@@ -143,11 +145,10 @@ app.Configure<OutputOptions>(o =>
 
 ## Spectre.Console integration
 
-Add `Repl.Spectre` and register the services:
+Add `Repl.Spectre` and register:
 
 ```csharp
-builder.Services.AddSpectreInteraction();  // rich prompts
-builder.Services.AddSpectreOutput();       // rich renderables
+app.UseSpectreConsole();   // enables rich prompts and renderables in one call
 ```
 
 ### Returning renderables
