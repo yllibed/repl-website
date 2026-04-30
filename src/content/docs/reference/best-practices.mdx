@@ -243,18 +243,31 @@ app.Map("sync", async (IMyService svc, IReplIoContext io) =>
 
 ### Logging is silent by default
 
-`ReplApp.Create()` wires `Microsoft.Extensions.Logging` but registers no provider. Handlers can freely inject `ILogger<T>` — add the provider you want when you need it:
+`ReplApp.Create()` wires `Microsoft.Extensions.Logging` but registers no provider. Handlers can freely inject `ILogger<T>` — add the provider you want when you need it.
 
-```csharp
-var app = ReplApp.Create();
-app.Logging(logging =>
-{
-    logging.AddConsole();          // local dev
-    // logging.AddOpenTelemetry() // production
-});
+**Do not use `AddConsole()`** in a Repl app. The console logger writes to stdout/stderr — the same streams as command output. In REPL mode it interrupts the interactive experience; in MCP passthrough mode it corrupts the protocol wire.
+
+Use a file logger instead:
+
+```bash
+dotnet add package Serilog.Extensions.Hosting
+dotnet add package Serilog.Sinks.File
 ```
 
-Without an explicit provider, log calls are no-ops. This is intentional — it keeps the default output clean.
+```csharp
+using Serilog;
+
+Log.Logger = new LoggerConfiguration()
+    .WriteTo.File("logs/myapp-.log", rollingInterval: RollingInterval.Day)
+    .CreateLogger();
+
+var app = ReplApp.Create();
+app.Logging(logging => logging.AddSerilog());
+```
+
+For local development only, `AddDebug()` writes to the IDE debug output window — not to the terminal, so it doesn't contaminate command output.
+
+Without any provider, log calls are no-ops. This is intentional — the default stays clean.
 
 ### Structured scope is pre-wired
 
