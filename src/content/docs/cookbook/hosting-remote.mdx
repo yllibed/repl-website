@@ -104,3 +104,11 @@ Use `AddScoped<T>` for per-user state (shopping cart, selection, cursor position
 ## Graceful shutdown
 
 When the host process receives a shutdown signal, active sessions drain gracefully. `CancellationToken` is cancelled in all running handlers, giving them time to complete or clean up before the process exits.
+
+---
+
+## Further reading
+
+- [Dependency Injection](/reference/dependency-injection/) — service lifetimes and how `AddScoped` maps to per-session state in hosted sessions.
+- [Terminal Integration](/reference/terminal-integration/) — terminal capability detection, ANSI support, and window-size negotiation.
+- [Pipelining & Lifecycle](/reference/pipelining/) — hosted service integration and `ReplRunOptions`.

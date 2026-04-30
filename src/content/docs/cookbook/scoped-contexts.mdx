@@ -124,3 +124,11 @@ client.Context("{id:int}", scoped => { /* ... */ })
     .WithCompletion((IContactStore store) =>
         store.All().Select(c => new CompletionItem(c.Id.ToString(), c.Name)));
 ```
+
+---
+
+## Further reading
+
+- [Routes & Parameters](/reference/routes-and-parameters/) — route constraint syntax, completion providers, and parameter binding.
+- [Modules](/reference/modules/) — packaging reusable scope patterns into `IReplModule` classes.
+- [Dependency Injection](/reference/dependency-injection/) — injecting services into scoped handlers.
