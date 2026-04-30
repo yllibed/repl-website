@@ -34,28 +34,81 @@ app.Context("products", products => RegisterCrudCommands(products, productStore)
 
 Both `contacts` and `products` now expose `list`, `show`, and `delete` — without copy-pasting routes.
 
-## `MapModule` for class-based modules
+## `MapModule` — registering a class-based module
 
-Use `app.MapModule(...)` with a class that implements `IReplModule`:
+`MapModule` is the primary registration mechanism for class-based modules. There are three forms.
+
+### DI-resolved — `MapModule<TModule>()`
+
+The recommended form. Repl resolves the constructor from the DI container — every service registered in `builder.Services` is available to the module:
+
+```csharp
+builder.Services.AddScoped<IAuditLog, AuditLog>();
+
+// …later, when building the command graph:
+app.MapModule<AuditModule>();   // DI resolves IAuditLog automatically
+```
+
+The module declares its dependencies via a primary constructor (or any constructor):
 
 ```csharp
 public class AuditModule(IAuditLog log) : IReplModule
 {
     public void Map(IReplMap map)
     {
-        map.Map("audit list", () => log.All());
-        map.Map("audit clear", () =>
+        map.Map("audit list", static (IAuditLog l) => l.All());
+        map.Map("audit clear", static (IAuditLog l) =>
         {
-            log.Clear();
+            l.Clear();
             return Results.Success("Audit log cleared.");
         });
     }
 }
 ```
 
+### Instance — `MapModule(module)`
+
+Pass a pre-constructed instance when you wire dependencies manually or the module has no DI dependencies:
+
 ```csharp
-app.MapModule<AuditModule>();  // DI resolves the constructor
+app.MapModule(new AuditModule(myAuditLog));
 ```
+
+This also works inside a `Context(...)` callback, where local variables are already available:
+
+```csharp
+app.Context("admin", admin =>
+{
+    admin.MapModule(new AuditModule(myAuditLog));
+    admin.MapModule(new MaintenanceModule());
+});
+```
+
+### Conditional — `MapModule(module, predicate)`
+
+Mount a module only when a runtime condition is met. The predicate is evaluated each time the command graph is traversed:
+
+```csharp
+app.MapModule(
+    new AdminModule(),
+    ctx => ctx.Channel != ReplRuntimeChannel.Session
+        && ctx.SessionState.TryGet<bool>("auth.admin", out var isAdmin)
+        && isAdmin);
+```
+
+For predicates that need DI services, pass a delegate — Repl resolves the parameters from the container at evaluation time:
+
+```csharp
+app.MapModule(
+    new AdminModule(),
+    (IAuthService auth, ReplRuntimeChannel channel) =>
+        channel == ReplRuntimeChannel.Interactive && auth.IsAdmin());
+```
+
+`ModulePresenceContext` provides:
+- `Channel`: `Cli`, `Interactive`, or `Session`
+- `SessionState`: current mutable session state
+- `SessionInfo`: current read-only session metadata
 
 ## Dynamic context routes
 
@@ -83,33 +136,6 @@ app.Context("project {id:int}", (int id, IProjectStore store) =>
 The outer factory runs once when the scope is entered. All commands inside the returned lambda close over the resolved `project` — they don't re-fetch on every invocation.
 
 This pattern is also where you enforce access control: throw or return `Results.Error(...)` from the factory to block entry.
-
-## Conditional module presence
-
-Mount a module only when a condition is met at invocation time:
-
-```csharp
-app.MapModule(
-    new AdminModule(),
-    context =>
-        context.Channel != ReplRuntimeChannel.Session   // not in hosted sessions
-        && context.SessionState.TryGet<bool>("auth.admin", out var isAdmin)
-        && isAdmin);
-```
-
-Or with DI-injected predicates:
-
-```csharp
-app.MapModule(
-    new AdminModule(),
-    (IAuthService auth, ReplRuntimeChannel channel) =>
-        channel == ReplRuntimeChannel.Interactive && auth.IsAdmin());
-```
-
-`ModulePresenceContext` provides:
-- `Channel`: `Cli`, `Interactive`, or `Session`
-- `SessionState`: current mutable session state
-- `SessionInfo`: current read-only session metadata
 
 ## Channel-specific commands
 
