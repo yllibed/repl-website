@@ -1,0 +1,289 @@
+---
+title: MCP — Advanced
+description: Programmatic sampling, elicitation, client roots, custom transports, and HTTP hosting for Repl MCP servers.
+---
+
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+`Repl.Mcp` is built on the official `ModelContextProtocol` C# SDK. The basics — tools, resources, prompts, MCP Apps, behavioral annotations — are covered in [MCP In Depth](/reference/mcp-concepts/). This page goes one level deeper: direct access to agent capabilities (sampling and elicitation) from handler code, client roots and soft roots, dynamic tool compatibility, custom transports, and HTTP hosting.
+
+---
+
+## Programmatic sampling
+
+MCP sampling lets your server ask the connected AI client to produce an LLM completion. The client uses its own model and returns the generated text.
+
+Inject `IMcpSampling` into any command handler:
+
+```csharp
+using Repl.Mcp;
+
+app.Map("classify {text}",
+    async (string text, IMcpSampling sampling, CancellationToken ct) =>
+    {
+        if (!sampling.IsSupported)
+            return Results.Error("sampling_unavailable",
+                "This tool requires an AI client with sampling support.");
+
+        var category = await sampling.SampleAsync(
+            $"Classify the following text with one word (positive/negative/neutral): \"{text}\"",
+            maxTokens: 10,
+            cancellationToken: ct);
+
+        return Results.Success($"Category: {category}");
+    })
+    .WithDescription("Classify text sentiment via LLM sampling.")
+    .LongRunning();
+```
+
+**Interface:**
+
+```csharp
+public interface IMcpSampling
+{
+    bool IsSupported { get; }   // true iff the client declared Sampling capability
+
+    ValueTask<string?> SampleAsync(
+        string prompt,
+        int maxTokens = 1024,
+        CancellationToken cancellationToken = default);
+}
+```
+
+`SampleAsync` returns `null` when the client does not support sampling. Always check `IsSupported` or guard on the nullable return before acting on the result.
+
+**Current limitations:** single-message, text-only. The wrapper does not expose system prompts, temperature, model preferences, or multi-turn conversation — those are available in the underlying SDK if you need them.
+
+**Design guidance:** prefer passing all necessary data as route parameters and returning a structured result rather than relying on sampling for core logic. Sampling is best for tasks where LLM judgment genuinely adds value and the command can degrade gracefully without it (as in the CSV import sample in `samples/08-mcp-server`).
+
+---
+
+## Programmatic elicitation
+
+MCP elicitation lets your server ask a structured question to the user through the connected client. Unlike `IReplInteractionChannel` prompts (which are automatically triggered by missing parameters), elicitation is explicit: you call it from handler code at the moment you need input.
+
+```csharp
+using Repl.Mcp;
+
+app.Map("contacts delete {id:int}",
+    async (int id, IMcpElicitation elicitation, ContactStore store, CancellationToken ct) =>
+    {
+        if (elicitation.IsSupported)
+        {
+            var confirmed = await elicitation.ElicitBooleanAsync(
+                $"Permanently delete contact {id}?", ct);
+
+            if (confirmed is not true)
+                return Results.Cancelled("Deletion cancelled by user.");
+        }
+
+        store.Delete(id);
+        return Results.Success($"Contact {id} deleted.");
+    })
+    .WithDescription("Permanently delete a contact.")
+    .Destructive();
+```
+
+**Interface — four typed helpers:**
+
+```csharp
+public interface IMcpElicitation
+{
+    bool IsSupported { get; }
+
+    ValueTask<string?> ElicitTextAsync(string message, CancellationToken ct = default);
+    ValueTask<bool?> ElicitBooleanAsync(string message, CancellationToken ct = default);
+    ValueTask<int?> ElicitChoiceAsync(string message, IReadOnlyList<string> choices, CancellationToken ct = default);
+    ValueTask<double?> ElicitNumberAsync(string message, CancellationToken ct = default);
+}
+```
+
+`ElicitChoiceAsync` returns the **zero-based index** of the selected choice, or `null` if elicitation is not supported, the user cancels, or the response doesn't match any option.
+
+All methods return `null` when the client does not support elicitation or the user cancels — always handle the null case.
+
+**Current limitation:** each call targets a single field. Multi-field forms (several questions in one request) are not yet supported. If you need them, use sequential calls or open a feature request.
+
+### Sampling vs. elicitation vs. `InteractivityMode`
+
+| Mechanism | Who provides the response | When to use |
+|---|---|---|
+| `IMcpSampling.SampleAsync` | LLM (the agent) | Need an AI judgment — classifying, mapping, summarizing |
+| `IMcpElicitation` | User (human) | Need explicit human confirmation or structured input |
+| `IReplInteractionChannel` | User — but automatically wired | Prompting for missing parameters in interactive or REPL mode |
+| `InteractivityMode.PrefillThenElicitation` | User — as fallback pipeline | Automatic elicitation when a parameter has no prefill value |
+
+Use `IMcpSampling` / `IMcpElicitation` directly when you need control over *when* and *how* the question is asked. Use `InteractivityMode` when you want the framework to handle missing parameters automatically.
+
+---
+
+## Client roots and soft roots
+
+### Native MCP roots
+
+The connected MCP client may advertise workspace roots — the directories or URIs it considers "in scope". Inject `IMcpClientRoots` to read them:
+
+```csharp
+using Repl.Mcp;
+
+app.Map("read {path}",
+    (string path, IMcpClientRoots roots) =>
+    {
+        var canonical = Path.GetFullPath(path);
+        var isUnderRoot = roots.Current.Any(r =>
+            canonical.StartsWith(
+                r.Uri.LocalPath.TrimEnd('/', '\\'),
+                StringComparison.OrdinalIgnoreCase));
+
+        if (!isUnderRoot)
+            return Results.Error("outside_root",
+                $"'{path}' is outside the configured workspace roots.");
+
+        return Results.Text(File.ReadAllText(canonical));
+    })
+    .ReadOnly()
+    .WithDescription("Read a file within the workspace.");
+```
+
+`roots.Current` returns the latest list. Use `roots.GetAsync(ct)` to refresh native roots on demand:
+
+```csharp
+var latest = await roots.GetAsync(ct);
+```
+
+**`IMcpClientRoots`:**
+
+```csharp
+public interface IMcpClientRoots
+{
+    bool IsSupported { get; }
+    bool HasSoftRoots { get; }
+    IReadOnlyList<McpClientRoot> Current { get; }
+    ValueTask<IReadOnlyList<McpClientRoot>> GetAsync(CancellationToken ct = default);
+    void SetSoftRoots(IEnumerable<McpClientRoot> roots);
+    void ClearSoftRoots();
+}
+
+public sealed record McpClientRoot(Uri Uri, string? Name = null);
+```
+
+`IsSupported` is `true` when the client declared the Roots capability. `Current` returns native roots when supported, or soft roots otherwise.
+
+### Soft roots — the fallback
+
+Soft roots are a Repl-specific application-level convention — not part of the MCP specification. They exist for clients that don't support the native roots capability. Calling `SetSoftRoots` internally triggers routing invalidation, so any presence predicates depending on root state are re-evaluated.
+
+The typical pattern: map a `workspace init` command only when the client has no native roots, and use it to register a soft root:
+
+```csharp
+using Repl.Mcp;
+
+// This command won't appear in clients that already have native roots support
+app.Map("workspace init {path}",
+    (string path, IMcpClientRoots roots) =>
+    {
+        var canonical = Path.GetFullPath(path);
+        roots.SetSoftRoots([new McpClientRoot(new Uri(canonical))]);
+        return Results.Success($"Workspace set to {canonical}.");
+    })
+    .WithDescription("Set the working directory for this session (clients without native roots support).");
+```
+
+<Aside type="note">
+Soft roots are stored per-session, not persisted across sessions. A fresh MCP connection always starts without them.
+</Aside>
+
+---
+
+## Dynamic tool compatibility
+
+Some MCP clients struggle with tool lists that change at runtime — they miss `notifications/tools/list_changed` or don't re-fetch after receiving it. Enable shim mode for maximum compatibility:
+
+```csharp
+app.UseMcpServer(o =>
+{
+    o.DynamicToolCompatibility = DynamicToolCompatibilityMode.DiscoverAndCallShim;
+});
+```
+
+With the shim active, the agent initially sees only two tools: `discover_tools` (returns the full list of available tools) and `call_tool` (dispatches any tool by name). After calling `discover_tools`, the full tool list is delivered via `notifications/tools/list_changed`.
+
+This is an opt-in fallback — use it only when your target clients are known to have tool-discovery issues. For static tool graphs, leave it at the default (`Disabled`).
+
+---
+
+## Custom transports
+
+By default, `myapp mcp serve` uses stdio (`StdioServerTransport`). Supply a `TransportFactory` to use any other transport:
+
+```csharp
+using ModelContextProtocol.Protocol;
+
+app.UseMcpServer(o =>
+{
+    o.TransportFactory = (serverName, io) =>
+    {
+        // io.StandardInput / io.StandardOutput are available if you want to
+        // wrap or chain the default streams.
+        var (reader, writer) = MyCustomBridge.CreatePair();
+        return new StreamServerTransport(reader, writer, serverName);
+    };
+});
+```
+
+The factory receives:
+- `serverName` — the value of `ReplMcpServerOptions.ServerName`
+- `io` — `IReplIoContext` with access to standard input/output streams for the current invocation
+
+`ITransport` is the interface from the `ModelContextProtocol` SDK. Any compliant implementation works — named pipes, WebSocket adapters, in-memory pairs for tests, etc.
+
+---
+
+## HTTP and multi-session hosting
+
+The built-in `mcp serve` command is a single-session stdio server. For HTTP-based or multi-session deployments (SSE, Streamable HTTP, ASP.NET Core), use `BuildMcpServerOptions`:
+
+```csharp
+using ModelContextProtocol.Server;
+using Repl.Mcp;
+
+// Build the SDK's McpServerOptions from the Repl command graph.
+// This captures Tools, Resources, and Prompts as pre-populated collections.
+McpServerOptions mcpOptions = app.BuildMcpServerOptions(o =>
+{
+    o.ServerName = "MyApi";
+    o.ToolNamingSeparator = ToolNamingSeparator.Hyphen;
+});
+
+// Pass mcpOptions to any compatible host — ASP.NET Core, raw SDK, etc.
+// Example with the official SDK HTTP server:
+// await using var server = McpServer.Create(transport, mcpOptions, serviceProvider: app.Services);
+```
+
+The `ICoreReplApp` overload is available when you don't have a full `ReplApp` reference:
+
+```csharp
+McpServerOptions mcpOptions = app.Core.BuildMcpServerOptions(configure, serviceProvider);
+```
+
+<Aside type="note">
+Repl does not ship HTTP/SSE transport wrappers. Obtain them from the `ModelContextProtocol` SDK or its ASP.NET Core integration package. `BuildMcpServerOptions` gives you the pre-wired command graph; you choose the transport.
+</Aside>
+
+---
+
+## Capabilities advertised
+
+When an MCP client connects, Repl announces what the server supports:
+
+| Capability | Status | Notes |
+|---|---|---|
+| `tools` | Yes — with `listChanged: true` | All non-hidden commands. Dynamic graphs send `notifications/tools/list_changed`. |
+| `resources` | Yes — with `listChanged: true` | `.ReadOnly()`, `.AsResource()` and `ui://` registrations. |
+| `prompts` | Yes — with `listChanged: true` | `.AsPrompt()` commands and `options.Prompt(...)` registrations. |
+| `logging` | Yes | Used by `IReplInteractionChannel.WriteNoticeAsync` / `WriteWarningAsync` etc. |
+| MCP Apps (`experimental`) | Conditional | Advertised when `EnableApps = true` or `ui://` resources are present. |
+| `sampling` | Client capability | Repl **consumes** this. `IMcpSampling.IsSupported` reads it. |
+| `elicitation` | Client capability | Repl **consumes** this. `IMcpElicitation.IsSupported` reads it. |
+| `roots` | Client capability | Repl **consumes** this. `IMcpClientRoots.IsSupported` reads it. |
+| `completions` | Not implemented | The argument-completion capability is not yet exposed. |

@@ -49,6 +49,7 @@ export default defineConfig({
 						{ label: 'Dependency Injection', slug: 'reference/dependency-injection' },
 						{ label: 'Interactivity', slug: 'reference/interactivity' },
 						{ label: 'MCP In Depth', slug: 'reference/mcp-concepts' },
+						{ label: 'MCP — Advanced', slug: 'reference/mcp-advanced' },
 						{ label: 'Customization & Output', slug: 'reference/customization' },
 						{ label: 'Pipelines & Integration', slug: 'reference/pipelining' },
 						{ label: 'Terminal Integration', slug: 'reference/terminal-integration' },

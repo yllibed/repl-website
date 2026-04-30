@@ -180,13 +180,13 @@ Configure Content Security Policy for apps that load external assets:
 
 ## Interaction in MCP mode
 
-Repl routes `IReplInteractionChannel` calls through MCP primitives when running as an MCP server. Configure how it falls back when the client doesn't support elicitation:
+Repl routes `IReplInteractionChannel` calls through MCP primitives when running as an MCP server. Configure the fallback when a client doesn't support elicitation:
 
 ```csharp
 app.UseMcpServer(o =>
 {
     o.InteractivityMode = InteractivityMode.PrefillThenElicitation;
-    //  PrefillThenFail        — fail if no prefill provided
+    //  PrefillThenFail        — fail if no prefill provided (default)
     //  PrefillThenDefaults    — use C# parameter defaults
     //  PrefillThenElicitation — structured form via agent
     //  PrefillThenSampling    — LLM generates answer
@@ -194,6 +194,8 @@ app.UseMcpServer(o =>
 ```
 
 **Design for agents:** prefer accepting all required data as route parameters or named options. Reserve `IReplInteractionChannel` prompts for the human-interactive experience — agents should pass everything upfront.
+
+For direct programmatic access to sampling and elicitation (outside of the interactivity pipeline), see [MCP — Advanced](/reference/mcp-advanced/).
 
 ---
 
@@ -223,30 +225,9 @@ app.Map("contacts add {name} {email:email}", handler)
 
 ## Client roots
 
-`IMcpClientRoots` exposes the workspace boundaries that the MCP client reports (opened folders, project roots):
+`IMcpClientRoots` exposes the workspace boundaries the MCP client reports. Inject it into any handler to read native roots or configure soft roots for clients that don't support them.
 
-```csharp
-app.Map("analyze {path}", async (string path, IMcpClientRoots roots, CancellationToken ct) =>
-{
-    if (!roots.IsAllowed(path))
-        return Results.Error("outside_root", $"'{path}' is outside your workspace roots.");
-
-    return await AnalyzeFile(path, ct);
-});
-```
-
-For clients without native roots support, provide a setup command that stores a soft root in session state:
-
-```csharp
-app.Map("init {path}", (string path, IMcpClientRoots roots) =>
-{
-    // Normalize to absolute form; root-containment is enforced by IsAllowed below
-    var canonical = Path.GetFullPath(path);
-    roots.SetSoftRoots([new Uri(canonical)]);
-    roots.InvalidateRouting();  // rebuild tool graph with new context
-    return Results.Success($"Working directory set to {path}.");
-});
-```
+→ [MCP — Advanced: Client roots and soft roots](/reference/mcp-advanced/#client-roots-and-soft-roots)
 
 ---
 
@@ -280,7 +261,7 @@ app.MapModule(
 
 ## Dynamic tool compatibility
 
-Some MCP clients have limited tool discovery. Enable shim mode for maximum compatibility:
+Some MCP clients struggle with tool lists that change at runtime. Enable shim mode for maximum compatibility:
 
 ```csharp
 app.UseMcpServer(o =>
@@ -289,7 +270,7 @@ app.UseMcpServer(o =>
 });
 ```
 
-The agent first sees only `discover_tools` and `call_tool`. After calling `discover_tools`, it receives the full tool list via `notifications/tools/list_changed`.
+→ [MCP — Advanced: Dynamic tool compatibility](/reference/mcp-advanced/#dynamic-tool-compatibility)
 
 ---
 
@@ -323,3 +304,9 @@ app.UseMcpServer(o =>
 **Keep tool names short.** Agents have context windows. `contacts_list` is better than `contact_management_list_all_records`. Prefer short, noun-verb names.
 
 **Test with MCP Inspector.** Run `myapp mcp serve` and point MCP Inspector at it to verify tool schemas, annotations, and resources before connecting a real agent.
+
+---
+
+## Going further
+
+For advanced topics — programmatic sampling and elicitation from handler code, client roots and soft roots, custom transports, and HTTP hosting — see [MCP — Advanced](/reference/mcp-advanced/).

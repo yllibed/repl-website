@@ -69,8 +69,54 @@ myapp completion install --shell bash
 myapp completion install --shell powershell
 myapp completion install --shell zsh
 myapp completion install --shell fish
-myapp completion install --shell nu
+myapp completion install --shell nu   # Nushell
 ```
+
+This writes a managed block to the shell's profile file. Tab completion then works for all routes, context segments, and option names.
+
+**Other commands:**
+
+```bash
+myapp completion status         # show current installation status
+myapp completion uninstall      # remove the managed block
+myapp completion detect-shell   # show which shell was detected
+```
+
+The completion bridge (`completion __complete`) is hidden from `--help` — it is a protocol command used by the shell scripts.
+
+**Automatic installation** — configure how completion is offered at startup:
+
+| `SetupMode` | Behavior |
+|---|---|
+| `Manual` (default) | User runs `install` explicitly |
+| `Prompt` | Offers installation once on the first interactive startup |
+| `Auto` | Installs automatically when a supported shell is detected |
+
+```csharp
+app.Options(o =>
+{
+    o.ShellCompletion.SetupMode = CompletionSetupMode.Prompt;
+});
+```
+
+## Response files
+
+Any argument prefixed with `@` is a response file:
+
+```bash
+myapp @deploy.rsp
+```
+
+`deploy.rsp`:
+```text
+deploy
+--environment
+production
+--region
+us-east-1
+```
+
+Tokens are read one per line. Useful for long or repeatable invocations, and for passing arguments in CI without quoting issues. Response files are not recursive.
 
 ## Machine-readable help
 

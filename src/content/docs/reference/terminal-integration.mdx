@@ -1,129 +1,172 @@
 ---
 title: Terminal Integration
-description: ANSI levels, CLI vs TUI, shell autocomplete, response files, and terminal metadata.
+description: Terminal features used by Repl — size detection, keyboard input, progress reporting, terminal capabilities, and the path toward a future TUI mode.
 ---
 
-Repl Toolkit is designed to work across a wide range of terminal environments — from a basic CI pipe to a full 24-bit color TUI. This page explains how terminal capabilities are detected, negotiated, and used.
+import { Aside } from '@astrojs/starlight/components';
 
-## CLI vs TUI
+Repl integrates with the host terminal at several levels: it detects window size, decodes VT keyboard sequences, emits progress notifications to capable terminals, and classifies terminal identity to adapt rendering. This page documents those interactions.
 
-Repl adapts its output style based on how the process is invoked:
+---
 
-| Mode | Input | Output |
-|---|---|---|
-| **CLI** (non-interactive) | `args[]` | Structured, streamed to `stdout` |
-| **Interactive REPL** | Keyboard | VT/ANSI rendering, cursor positioning |
-| **Hosted session** | Network transport | Adapted to terminal capabilities of the client |
+## ANSI and color
 
-In CLI mode, Repl never emits ANSI escape sequences to `stdout` — only plain text or structured formats. Prompts and interactive elements are disabled. This makes CLI output safe for pipes, scripts, and CI.
+ANSI escape sequences are enabled or disabled based on a precedence chain:
 
-In interactive mode, Repl reads VT sequences from `stdin` (arrow keys, `Ctrl+C`, etc.) and emits ANSI to `stdout` when the terminal supports it.
-
-## ANSI capability levels
-
-Repl detects the terminal's color and rendering capability at startup:
-
-| Level | Meaning |
+| Checked first | Source |
 |---|---|
-| `None` | No ANSI, plain text only |
-| `Basic` | 16 colors |
-| `Extended` | 256 colors |
-| `TrueColor` | 24-bit colors |
+| Session override | `TerminalSessionOverrides.AnsiSupported` |
+| Explicit config | `OutputOptions.AnsiMode = Always` / `Never` |
+| `NO_COLOR` | Any set value disables ANSI (per [no-color.org](https://no-color.org/)) |
+| `CLICOLOR_FORCE=1` | Forces ANSI on |
+| Redirected output | `Console.IsOutputRedirected` disables ANSI |
+| `TERM=dumb` | Disables ANSI |
 
-Detection uses environment variables (`TERM`, `COLORTERM`, `NO_COLOR`, `FORCE_COLOR`) and platform-specific heuristics. Override with `TerminalSessionOverrides` if needed.
+When ANSI is enabled, the default renderer uses **256-color** SGR styling (`38;5;N`). Add `Repl.Spectre` for 24-bit color (`38;2;r;g;b`) and richer rendering — Spectre.Console always requests true-color when ANSI is on.
 
-The `NO_COLOR` convention is respected: if `NO_COLOR` is set (to any value), Repl disables all ANSI output.
+---
 
-## Terminal width
+## Terminal size detection
 
-Repl uses the terminal width for output formatting (table column widths, word wrap, etc.). It's obtained from:
+Repl uses the terminal window size to format output (table column widths, word wrap, indentation). The width is resolved from the first available source:
 
-1. `COLUMNS` environment variable (if set)
-2. Console window size query
-3. Telnet NAWS negotiation (hosted Telnet sessions)
-4. DTTERM push resize sequence (WebSocket/SignalR sessions)
-5. Default fallback (120 columns)
-
-The width is re-read on `SIGWINCH` / DTTERM resize events in interactive mode.
-
-## Shell autocomplete
-
-Register completion scripts for your app's executable once:
-
-```bash
-myapp completion install            # auto-detects current shell
-myapp completion install --shell powershell
-myapp completion install --shell bash
-myapp completion install --shell zsh
-myapp completion install --shell fish
-myapp completion install --shell nu
-```
-
-This writes a managed block to the shell's profile file. Tab completion then works for all routes, context segments, and option names.
-
-**Other commands:**
-
-```bash
-myapp completion status             # show current status
-myapp completion uninstall          # remove managed block
-myapp completion detect-shell       # show detected shell
-```
-
-The completion bridge (`completion __complete`) is hidden from help — it's a protocol command used by the shell scripts.
-
-**SetupMode options** (in `ReplOptions.ShellCompletion`):
-
-| Mode | Behavior |
+| Source | Context |
 |---|---|
-| `Manual` (default) | User runs `install` manually |
-| `Prompt` | Offers installation once on first interactive startup |
-| `Auto` | Installs automatically when a supported shell is detected |
+| `TerminalSessionOverrides.WindowSize` | Explicit override — always wins |
+| Console direct query | Local interactive sessions — `Console.WindowWidth` |
+| DTTERM probe (`CSI 18 t`) | Streamed/WebSocket sessions — active probe at startup |
+| Telnet NAWS (RFC 1073) | Telnet sessions — negotiated at connection |
+| `@@repl:` control protocol | WebSocket/SignalR clients — client-pushed JSON |
+| Default fallback | 120 columns |
 
-## Response files
+### DTTERM probe
 
-Any argument prefixed with `@` is a response file:
+For sessions over a stream pair (WebSocket, named pipe, custom transport), Repl sends `ESC[c` (Device Attributes) followed by `ESC[18t` (DTTERM window size request) immediately after connection. The terminal's response to `ESC[8;rows;cols t` is parsed as the initial size.
 
-```bash
-myapp @deploy.rsp
-```
+Resize events — when the user resizes the terminal window during a session — are delivered as the same `ESC[8;rows;cols t` sequence and processed continuously.
 
-`deploy.rsp`:
+### Telnet NAWS
+
+`Repl.Telnet` negotiates the Telnet NAWS option (RFC 1073) during the connection handshake. Window dimensions are received via subnegotiation and updated on resize. `Repl.Telnet` also negotiates TERMINAL-TYPE (RFC 1091) to obtain the terminal identity string.
+
+### `@@repl:` control protocol
+
+Custom transport clients (WebSocket, SignalR) can push metadata by writing a `@@repl:` JSON control message to the input stream. The framework parses `hello` and `resize` verbs:
+
 ```text
-deploy
---environment
-production
---region
-us-east-1
+@@repl:{"verb":"hello","terminal":"xterm-256color","cols":220,"rows":50,"ansi":true}
+@@repl:{"verb":"resize","cols":160,"rows":40}
 ```
 
-Tokens are read one per line. Useful for long or repeatable invocations. Response files are not recursive.
+This is Repl's own convention — not a terminal standard. Client libraries that wrap the `StreamedReplHost` can use it to pass terminal state.
 
-## Terminal metadata in hosted sessions
+---
 
-Each session carries metadata about the connecting terminal, accessible via `ITerminalInfo` (namespace `Repl.Interaction`):
+## Keyboard input
+
+For sessions over a stream pair (`StreamedReplHost`, Telnet, WebSocket), Repl decodes VT escape sequences from the input stream. The following key events are recognized:
+
+| Keys | VT sequence shape |
+|---|---|
+| Arrow keys (Up/Down/Left/Right) | `CSI A` / `B` / `C` / `D` |
+| Home / End | `CSI H` / `F` or `CSI 1~` / `4~` |
+| Insert / Delete | `CSI 2~` / `3~` |
+| Page Up / Page Down | `CSI 5~` / `6~` |
+| F1–F4 | `SS3 P` / `Q` / `R` / `S` |
+
+<Aside type="caution">
+**Modifier keys (Shift, Alt, Ctrl) are not decoded.** Key events are always reported with `shift: false`, `alt: false`, `control: false`, regardless of what modifiers were held. This is a known limitation of the current VT key reader.
+</Aside>
+
+For local interactive mode, keyboard input goes through the standard `Console.ReadKey` path, which handles modifiers natively on the host OS.
+
+---
+
+## Progress reporting (OSC 9;4)
+
+Repl emits OSC 9;4 progress notifications — supported by Windows Terminal, ConEmu, WezTerm, iTerm2, and Ghostty — so the host shows a progress indicator in the taskbar or title bar.
+
+The escape sequence format:
+```
+ESC ] 9;4;<state>;<percent> BEL
+```
+
+State codes:
+
+| State | Code | Meaning |
+|---|---|---|
+| Normal | `1` | In progress, known percent |
+| Error | `2` | Failed |
+| Indeterminate | `3` | In progress, percent unknown |
+| Warning | `4` | Completing with warnings |
+| Clear | `0` | Done — remove progress indicator |
+
+### Configuration
+
+Control emission with `InteractionOptions.AdvancedProgressMode`:
 
 ```csharp
-using Repl.Interaction;
-
-app.Map("info", (ITerminalInfo terminal) => new
+app.Options(o =>
 {
-    terminal.WindowSize,
-    terminal.IsAnsiSupported,
-    terminal.CanReadKeys,
+    o.Interaction.AdvancedProgressMode = AdvancedProgressMode.Auto;   // default
+    // AdvancedProgressMode.Always — always emit
+    // AdvancedProgressMode.Never  — never emit
 });
 ```
 
-For WebSocket/SignalR sessions, clients can push metadata with the `@@repl:*` convention in their input stream:
+In `Auto` mode, OSC 9;4 is emitted when any of the following is true:
 
-```text
-@@repl:width=120;height=40;ansi=truecolor
+- The local environment sets `WT_SESSION` (Windows Terminal), `ConEmuANSI=ON` (ConEmu), or `TERM_PROGRAM=WezTerm`.
+- The session's terminal capabilities include `ProgressReporting` (see [Terminal capabilities](#terminal-capabilities) below).
+
+Emission is suppressed when `TMUX` is set or `TERM` starts with `screen` or `tmux`, since multiplexers pass the raw escape sequence to the outer terminal unparsed.
+
+OSC 9;4 is never emitted when ANSI output is disabled or when the session is in protocol-passthrough mode (e.g., MCP serve).
+
+---
+
+## Terminal capabilities
+
+When a session connects, Repl classifies its terminal identity to determine which capabilities to enable. The identity string comes from:
+
+- **Telnet TERMINAL-TYPE** negotiation (`Repl.Telnet`)
+- **`@@repl:hello`** JSON control message (`terminal` field)
+- **`TerminalSessionOverrides.TerminalIdentity`** — explicit override
+
+The classifier maps substrings of the identity string to capability flags:
+
+| Terminal identity contains | `AnsiSupport` | `ProgressReporting` |
+|---|---|---|
+| `windows terminal` | ✓ | ✓ |
+| `wezterm` | ✓ | ✓ |
+| `iterm` | ✓ | ✓ |
+| `ghostty` | ✓ | ✓ |
+| `conemu` | ✓ | ✓ |
+| `xterm`, `vt`, `ansi` | ✓ | |
+| `alacritty`, `rxvt`, `konsole`, `gnome`, `linux` | ✓ | |
+| `screen`, `tmux` | ✓ | |
+| `dumb` | | |
+
+Matching is case-insensitive and substring-based — `xterm-256color` matches `xterm`.
+
+For local sessions (no identity string), terminal detection falls back to environment variables: `WT_SESSION`, `ConEmuANSI`, and `TERM_PROGRAM` are checked for OSC 9;4 gating.
+
+Override capabilities when the auto-detection doesn't fit:
+
+```csharp
+// In a hosted session:
+new TerminalSessionOverrides
+{
+    TerminalIdentity = "xterm-256color",
+    TerminalCapabilities = TerminalCapabilities.Ansi | TerminalCapabilities.ProgressReporting,
+}
 ```
 
-For Telnet sessions, metadata is negotiated via NAWS (window size, RFC 1073) and TERMINAL-TYPE (RFC 1091).
+---
 
 ## Adapting output to terminal capabilities
 
-Handlers can query capabilities to adapt their output:
+Handlers can query terminal properties to adapt their output:
 
 ```csharp
 using Repl.Interaction;
@@ -137,8 +180,37 @@ app.Map("report", (ITerminalInfo terminal, IDataStore store) =>
 });
 ```
 
-With `Repl.Spectre`, capability detection is automatic — Spectre.Console degrades gracefully when the terminal doesn't support colors or Unicode.
+With `Repl.Spectre`, adaptation is automatic — Spectre.Console degrades gracefully when the terminal doesn't support colors or Unicode.
+
+---
 
 ## Suppressing framework output
 
-In CLI mode, Repl suppresses banners and interactive prompts automatically. For protocol commands (like the completion bridge or MCP server), all framework diagnostics go to `stderr` and structured output goes to `stdout` — making the output safe to pipe.
+In CLI mode, Repl suppresses banners and interactive prompts automatically. For protocol commands (the completion bridge, `mcp serve`), all framework diagnostics go to `stderr` and structured output to `stdout`, making output safe to pipe.
+
+---
+
+## Toward a TUI mode
+
+The features above — size detection, VT keyboard parsing, ANSI 256-color, screen clear (`CSI 2J H`), cursor show/hide (`CSI ?25h/l`) — are the foundation for a future dedicated TUI mode.
+
+**Currently in place:**
+
+- OSC 9;4 progress in supported terminals
+- ANSI 256-color rendering (default) and 24-bit color via `Repl.Spectre`
+- Screen clear and cursor positioning for interactive menus
+- VT key decoding (arrows, Home/End, PgUp/PgDn, F1-F4)
+- Terminal size probing and live resize events
+- Terminal identity classification (15+ terminal families)
+
+**Not yet implemented:**
+
+- Kitty Keyboard Protocol — extended modifier-aware key input (`CSI <code>;<mods> u`)
+- Mouse reporting (`?1000` / `?1006` and variants)
+- Alternate screen buffer (`?1049`)
+- Bracketed paste mode (`?2004`)
+- Sixel and Kitty graphics
+- OSC 7 (working directory), OSC 8 (hyperlinks), OSC 52 (clipboard), OSC 133 (shell integration marks)
+- True-color palette in the default renderer (256-color only; 24-bit available via `Repl.Spectre`)
+
+These primitives form the foundation for a future TUI mode — full-screen, keystroke-driven surfaces (panels, menus, live updates) that will compose with the same command graph. The current `Repl.Spectre` integration covers static rich rendering; a dedicated `Repl.Tui` package is on the roadmap.
