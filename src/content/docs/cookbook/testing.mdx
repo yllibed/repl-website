@@ -41,7 +41,7 @@ var host = ReplTestHost.Create(app =>
 
 ```csharp
 [TestMethod]
-[Description("Adding a contact returns a success result and persists to the store.")]
+[Description("Verifies the full route-to-store binding: add command exits 0, and the new entry is visible in a subsequent list.")]
 public async Task When_AddContact_Then_SuccessAndPersisted()
 {
     await using var session = await host.OpenSessionAsync();

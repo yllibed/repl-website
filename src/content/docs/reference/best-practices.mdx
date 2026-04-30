@@ -157,7 +157,7 @@ In CLI mode, "scoped" means per invocation — it's still correct, just not sign
 
 ```csharp
 [TestMethod]
-[Description("Adding a contact via the add command persists it and returns its ID.")]
+[Description("Verifies that the add route binds both arguments, delegates to the store, and returns a zero exit code — catches routing and binding regressions that unit-testing the handler alone would miss.")]
 public async Task When_AddContact_Then_ContactPersistedAndIdReturned()
 {
     await using var session = await host.OpenSessionAsync();

@@ -240,7 +240,7 @@ For clients without native roots support, provide a setup command that stores a 
 ```csharp
 app.Map("init {path}", (string path, IMcpClientRoots roots) =>
 {
-    // Canonicalize the path before building the URI to prevent path-traversal
+    // Normalize to absolute form; root-containment is enforced by IsAllowed below
     var canonical = Path.GetFullPath(path);
     roots.SetSoftRoots([new Uri(canonical)]);
     roots.InvalidateRouting();  // rebuild tool graph with new context

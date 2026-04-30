@@ -3,6 +3,8 @@ title: Dependency Injection
 description: How DI works in Repl Toolkit — service registration, handler injection, context values, and global options.
 ---
 
+import { Aside } from '@astrojs/starlight/components';
+
 Repl Toolkit uses **Microsoft.Extensions.DependencyInjection** through `ReplApp` (the `Repl.Defaults` package). `Repl.Core` (`CoreReplApp`) has no DI container — services are passed explicitly.
 
 ## Service registration
@@ -84,6 +86,10 @@ Static lambdas prevent accidental closures and make handlers independently testa
 | `Transient` | New instance per command handler invocation |
 
 Use `Scoped` for per-user state in hosted sessions (shopping cart, authentication context, cursor position). Use `Singleton` for shared data stores.
+
+<Aside type="caution">
+  **Singleton stores must be thread-safe.** In hosted sessions (WebSocket, MCP server), multiple sessions run concurrently and call into the same Singleton instance simultaneously. A store backed by `List<T>` or `Dictionary<K,V>` will race and corrupt. Use `ConcurrentDictionary<K,V>`, an `ImmutableList<T>` with replacement, or a `lock`-guarded wrapper. If the store is per-user, register it as `Scoped` instead.
+</Aside>
 
 ## Global options
 

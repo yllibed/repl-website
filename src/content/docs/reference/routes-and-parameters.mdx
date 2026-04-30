@@ -137,9 +137,9 @@ When multiple commands share the same options, extract them into a class:
 public class PagingOptions
 {
     [ReplOption(Aliases = ["-n"])]
-    public int Limit { get; set; } = 20;
+    public int Limit { get; init; } = 20;
 
-    public int Page { get; set; } = 1;
+    public int Page { get; init; } = 1;
 }
 
 app.Map("list", (PagingOptions paging, IStore store) => store.Page(paging.Page, paging.Limit));

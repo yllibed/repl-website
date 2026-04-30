@@ -28,7 +28,7 @@ using Repl.WebSocket;
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddReplWebSocket();
 
-// register shared services
+// register shared services — must be thread-safe (see caution below)
 builder.Services.AddSingleton<IContactStore, ContactStore>();
 
 var app = builder.Build();
@@ -47,6 +47,10 @@ app.Run();
 ```
 
 Connect with any WebSocket client (browser, `wscat`, terminal emulator).
+
+<Aside type="caution">
+  **Singleton stores must be thread-safe.** Multiple sessions run concurrently and share every Singleton instance. A store backed by `List<T>` or bare `Dictionary<K,V>` will race. Use `ConcurrentDictionary<K,V>`, an immutable+swap pattern, or a `lock`-guarded wrapper. For per-user state, register as `AddScoped<T>` instead.
+</Aside>
 
 <Aside type="caution">
 `MapReplWebSocket` exposes your entire command graph to any connecting client with no authentication by default. Place the endpoint behind ASP.NET Core authentication middleware (`app.UseAuthentication()` / `app.UseAuthorization()`) and apply `[Authorize]` policies, or add an auth guard as Repl middleware, before using in production.

@@ -155,9 +155,9 @@ webApp.UseWebSockets();
 webApp.MapReplWebSocket("/repl");   // REPL sessions
 webApp.MapGet("/api/contacts", (IContactStore store) => store.All());  // REST API
 
-// Repl command graph — same services
+// Repl command graph — same services; register all routes before RunAsync
 var repl = webApp.Services.GetRequiredService<IReplApp>();
-repl.Map("contacts list", (IContactStore store) => store.All());
+repl.Map("contacts list", static (IContactStore store) => store.All());
 
 await webApp.RunAsync();
 ```
