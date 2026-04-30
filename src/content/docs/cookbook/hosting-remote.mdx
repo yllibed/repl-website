@@ -1,17 +1,24 @@
 ---
 title: Hosting Remote Sessions
-description: Session hosting over WebSocket, Telnet, and SignalR with shared state.
+description: Run the same command surface over any text-based session transport — concurrent sessions, per-session scope, and shared singletons.
 ---
 
 import { Aside } from '@astrojs/starlight/components';
 
-Repl can host multiple concurrent sessions over network transports. Each session gets its own scope, history, and context — shared state is opt-in via DI singletons.
+Repl can host multiple concurrent sessions over any transport that delivers a stream pair — a reader and a writer. Each session gets its own scope, history, and context; shared state is opt-in via DI singletons.
+
+The built-in packages cover the most common cases:
+
+- **`Repl.WebSocket`** — WebSocket transport, served from ASP.NET Core. Good for browser clients, reverse-proxy friendly.
+- **`Repl.Telnet`** — Telnet *session protocol* (framing + NAWS terminal-size negotiation) layered on top of a WebSocket transport. For terminal emulators and Telnet clients. Note: Telnet and WebSocket are not at the same level — WebSocket is the network transport, Telnet is the session framing protocol above it.
+
+Any other transport — SSH, named pipes, TCP sockets, gRPC streams — works by implementing `StreamedReplHost` and wiring it to your own `(TextReader, TextWriter)` pair.
 
 <Aside type="tip">
   Full runnable code: [`samples/05-hosting-remote`](https://github.com/yllibed/repl/tree/main/samples/05-hosting-remote)
 </Aside>
 
-## WebSocket sessions
+## WebSocket transport (`Repl.WebSocket`)
 
 Add `Repl.WebSocket` and wire it into ASP.NET Core:
 
@@ -41,22 +48,23 @@ app.Run();
 
 Connect with any WebSocket client (browser, `wscat`, terminal emulator).
 
-## Telnet sessions
+## Telnet session protocol (`Repl.Telnet`)
 
-`Repl.Telnet` adds Telnet framing with NAWS window-size negotiation:
+`Repl.Telnet` layers Telnet framing and NAWS window-size negotiation on top of the WebSocket transport. The network layer is still WebSocket; Telnet is the session protocol above it:
 
 ```csharp
 using Repl.Telnet;
 
-app.MapReplTelnet("/telnet");  // Telnet-over-WebSocket endpoint
+app.MapReplTelnet("/telnet");
 ```
 
-Connect with:
+Connect with a Telnet-to-WebSocket bridge or a terminal emulator that supports WebSocket:
 
 ```bash
 wscat -c ws://localhost:5000/telnet
-# or via a Telnet-to-WebSocket bridge
 ```
+
+Terminal size and type are negotiated automatically via NAWS (RFC 1073) and TERMINAL-TYPE (RFC 1091).
 
 ## Session visibility
 

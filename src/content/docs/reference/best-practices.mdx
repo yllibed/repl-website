@@ -185,6 +185,93 @@ await session.ExecuteAsync("contacts add");  // prompts are answered from the qu
 
 ---
 
+## Output — never use `Console` directly
+
+`Console.Write` and `Console.WriteLine` bypass Repl's session-routing layer. In hosted sessions, `Console.Out` doesn't correspond to any connected client. In protocol passthrough mode (MCP stdio), `Console.Out` **is the wire** — writing arbitrary text to it corrupts the protocol. In tests, you can't capture it.
+
+### Inject `IReplIoContext` for raw text output
+
+`IReplIoContext` is injectable as a handler parameter. `io.Output` is always the correct writer for the active session, regardless of execution mode:
+
+```csharp
+app.Map("dump {file}", async (string file, IReplIoContext io, CancellationToken ct) =>
+{
+    await io.Output.WriteLineAsync($"Reading {file}…");
+    // …
+});
+```
+
+In CLI mode `io.Output` is stdout. In a hosted session it routes to that client's stream. In protocol passthrough mode the framework redirects `io.Output` to the protocol stream and uses stderr for its own diagnostics — all automatically.
+
+### Inject `IAnsiConsole` for Spectre richness (`Repl.Spectre`)
+
+`Repl.Spectre` registers `IAnsiConsole` in DI backed by a delegating writer that resolves to `ReplSessionIO` at call time. Inject it in any handler — it routes to the right client even across concurrent hosted sessions:
+
+```csharp
+app.Map("status", (IAnsiConsole console) =>
+{
+    console.Write(new Panel("[green]All systems go[/]"));
+    return Results.Success();
+});
+```
+
+Works in CLI mode, hosted sessions, and tests. Never use `AnsiConsole` (the static class) directly — it writes to the process stdout regardless of session context.
+
+---
+
+## Logging
+
+### Use `ILogger<T>`, not output writes
+
+Logging is observability. Output is what the user or agent sees. Mixing them pollutes command results and breaks structured consumers — `--json` output with embedded log lines is unparseable, and MCP agents receive diagnostic noise in tool results:
+
+```csharp
+// Good — diagnostic stays in the logging subsystem
+app.Map("sync", async (IMyService svc, ILogger<Program> log) =>
+{
+    log.LogInformation("Starting sync");
+    return Results.Success($"Synced {await svc.SyncAsync()} records.");
+});
+
+// Bad — diagnostic contaminates command output
+app.Map("sync", async (IMyService svc, IReplIoContext io) =>
+{
+    await io.Output.WriteLineAsync("Starting sync");  // appears in --json
+    return Results.Success($"Synced {await svc.SyncAsync()} records.");
+});
+```
+
+### Logging is silent by default
+
+`ReplApp.Create()` wires `Microsoft.Extensions.Logging` but registers no provider. Handlers can freely inject `ILogger<T>` — add the provider you want when you need it:
+
+```csharp
+var app = ReplApp.Create();
+app.Logging(logging =>
+{
+    logging.AddConsole();          // local dev
+    // logging.AddOpenTelemetry() // production
+});
+```
+
+Without an explicit provider, log calls are no-ops. This is intentional — it keeps the default output clean.
+
+### Structured scope is pre-wired
+
+`ReplLoggingMiddleware` (active by default) pushes a structured scope for every command execution. Every log statement emitted from a handler automatically carries:
+
+| Property | Value |
+|---|---|
+| `ReplSessionId` | Unique session identifier |
+| `ReplHostedSession` | `true` for remote transport sessions |
+| `ReplProtocolPassthrough` | `true` in MCP stdio mode |
+| `ReplTransport` | `websocket`, `telnet`, `local`, … |
+| `ReplRemotePeer` | Client address for hosted sessions |
+
+No opt-in needed — the scope appears automatically in any structured provider (OpenTelemetry, Serilog, etc.).
+
+---
+
 ## FAQ
 
 **Q: Should I use `ReplApp` or `CoreReplApp`?**

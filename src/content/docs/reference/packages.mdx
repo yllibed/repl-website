@@ -81,11 +81,11 @@ dotnet add package Repl.Spectre
 
 ## `Repl.WebSocket`
 
-WebSocket session host:
+WebSocket transport for hosted sessions — serves REPL sessions over WebSocket connections from an ASP.NET Core app:
 
-- `app.MapReplWebSocket("/repl")` on an ASP.NET Core app
-- Per-session scope, shared singletons, terminal metadata
-- Session registry
+- `app.MapReplWebSocket("/repl")` — registers the WebSocket endpoint
+- Per-session scope, shared singletons, terminal metadata, session registry
+- Network-transport layer only; combine with `Repl.Telnet` to add session-protocol framing
 
 ```bash
 dotnet add package Repl.WebSocket
@@ -93,11 +93,11 @@ dotnet add package Repl.WebSocket
 
 ## `Repl.Telnet`
 
-Telnet session host (Telnet framing over WebSocket):
+Telnet session protocol layered over a WebSocket transport — adds Telnet framing and terminal negotiation for clients that speak Telnet:
 
 - `app.MapReplTelnet("/telnet")`
-- NAWS window-size negotiation
-- Compatible with Telnet clients via WebSocket bridge
+- NAWS (RFC 1073) window-size negotiation and TERMINAL-TYPE (RFC 1091) detection
+- WebSocket is the network transport; Telnet is the session protocol above it
 
 ```bash
 dotnet add package Repl.Telnet

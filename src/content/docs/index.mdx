@@ -30,7 +30,7 @@ import { Card, CardGrid, Tabs, TabItem, Badge, LinkButton } from '@astrojs/starl
 		Pass arguments: one-shot CLI with `--json`, `--xml`, `--yaml` output and `--help` at every level. No arguments: an interactive REPL with scoped navigation, history, and autocomplete.
 	</Card>
 	<Card title="Hosted sessions" icon="laptop">
-		The same command surface runs over WebSocket or Telnet. Multiple concurrent sessions, each with its own scope. Add it to an ASP.NET Core app with `app.MapReplWebSocket("/repl")`.
+		The same command surface runs over any text-based session transport. Multiple concurrent sessions, each with its own scope. `Repl.WebSocket` and `Repl.Telnet` are built-in implementations; any transport that delivers a stream pair works.
 	</Card>
 	<Card title="AI-ready in one line" icon="puzzle">
 		`app.UseMcpServer()` exposes every command as an MCP tool. Add resources, prompts, and MCP Apps UI surfaces for capable clients like Claude.

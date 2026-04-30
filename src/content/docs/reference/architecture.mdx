@@ -11,8 +11,8 @@ description: How Repl Toolkit's packages and layers fit together.
 | `Repl.Defaults` | DI-enabled facade (`ReplApp`), lifecycle orchestration, default composition profiles (`UseDefaultInteractive`, `UseCliProfile`) |
 | `Repl` | Meta-package — bundles Core + Defaults + Protocol. Start here. |
 | `Repl.Protocol` | Machine-readable contracts: help schemas, error contracts, minimal MCP manifest types |
-| `Repl.WebSocket` | WebSocket session host (`ReplWebSocketSession`) over `StreamedReplHost` |
-| `Repl.Telnet` | Telnet framing/session with NAWS window-size negotiation |
+| `Repl.WebSocket` | WebSocket transport for hosted sessions (`ReplWebSocketSession` over `StreamedReplHost`) |
+| `Repl.Telnet` | Telnet session protocol (framing + NAWS negotiation) layered over `Repl.WebSocket` |
 | `Repl.Spectre` | Spectre.Console integration: rich prompts, renderables, `IAnsiConsole` DI injection |
 | `Repl.Mcp` | MCP server: `UseMcpServer()`, tool/resource/prompt mapping, MCP Apps, transport factory |
 | `Repl.Testing` | In-memory multi-session test harness: `ReplTestHost`, `ReplSessionHandle`, typed results/events |
@@ -32,7 +32,7 @@ description: How Repl Toolkit's packages and layers fit together.
        │ dispatches to runtime channels
        ▼
 ┌────────────────────────────────────────────────────────────────────────────────────┐
-│  Local console  │  Repl.WebSocket  │  Repl.Telnet  │  Repl.Mcp  │  Repl.Testing  │
+│  Local console  │  Repl.WebSocket  │  Repl.Telnet  │  Repl.Mcp  │  Repl.Testing  │  custom…  │
 └────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -49,6 +49,8 @@ description: How Repl Toolkit's packages and layers fit together.
 ## Channel model
 
 A *channel* is the transport through which a session runs. The same command graph is executed on all channels. Each channel implementation adapts input/output to its transport protocol.
+
+Custom transports implement `StreamedReplHost`, which accepts any `(TextReader, TextWriter)` pair. The built-in `Repl.WebSocket` and `Repl.Telnet` packages are examples — SSH, named pipes, TCP sockets, or gRPC streams fit the same model.
 
 ## Key abstractions
 
