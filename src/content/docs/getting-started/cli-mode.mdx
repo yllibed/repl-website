@@ -1,0 +1,101 @@
+---
+title: CLI Mode
+description: Run your Repl app as a one-shot command-line tool.
+---
+
+When you pass arguments to your app, Repl dispatches the command and exits — standard CLI behavior.
+
+## Invocation
+
+```bash
+myapp <route> [arguments] [options]
+```
+
+Examples:
+
+```bash
+myapp client list
+myapp client 42 show
+myapp client 42 show --json
+```
+
+## Output formats
+
+Every command supports output format flags out of the box:
+
+| Flag | Output |
+|------|--------|
+| *(none)* | Human-readable text / table |
+| `--json` | JSON |
+| `--xml` | XML |
+| `--yaml` | YAML |
+| `--markdown` | Markdown table |
+
+```bash
+$ myapp contacts list --json
+[
+  { "id": 1, "name": "Alice" },
+  { "id": 2, "name": "Bob" }
+]
+```
+
+## Help and discovery
+
+`--help` is built in at every level:
+
+```bash
+$ myapp --help
+Commands:
+  client
+  report
+
+$ myapp client --help
+Commands:
+  client list
+  client {id} show
+  client {id} remove
+```
+
+## Shell completion
+
+Register Repl's completion scripts to get tab completion in your shell:
+
+```bash
+# Bash
+myapp completion bash >> ~/.bashrc
+
+# PowerShell
+myapp completion powershell >> $PROFILE
+
+# Zsh, Fish, Nushell also supported
+myapp completion --help
+```
+
+## Machine-readable help
+
+Add `--help --json` to get a structured help payload — useful for agents and tooling:
+
+```bash
+$ myapp client --help --json
+{
+  "name": "client",
+  "commands": [
+    { "route": "list", "description": "..." },
+    { "route": "{id:int} show", "description": "..." }
+  ]
+}
+```
+
+## Exit codes
+
+| Condition | Exit code |
+|-----------|-----------|
+| Success | `0` |
+| Command not found | `1` |
+| Validation error | `2` |
+| Cancelled | `3` |
+| Unhandled exception | `5` |
+
+## Next step
+
+→ [REPL Mode](/getting-started/repl-mode/)

@@ -1,0 +1,107 @@
+---
+title: Your First App
+description: Build a minimal Repl Toolkit app in under a minute.
+---
+
+import { Steps } from '@astrojs/starlight/components';
+
+This tutorial builds the smallest useful Repl app — a `hello` command that runs as both a CLI tool and an interactive REPL.
+
+<Steps>
+
+1. **Create a console project**
+
+   ```bash
+   dotnet new console -n HelloRepl
+   cd HelloRepl
+   dotnet add package Repl
+   ```
+
+2. **Replace `Program.cs`**
+
+   ```csharp
+   using Repl;
+
+   var app = ReplApp.Create().UseDefaultInteractive();
+   app.Map("hello", () => "world");
+   return app.Run(args);
+   ```
+
+3. **Run in CLI mode**
+
+   ```bash
+   dotnet run -- hello
+   # world
+   ```
+
+4. **Run in REPL mode**
+
+   ```bash
+   dotnet run
+   # > hello
+   # world
+   # > exit
+   ```
+
+5. **Get help for free**
+
+   ```bash
+   dotnet run -- --help
+   # Commands:
+   #   hello
+   ```
+
+</Steps>
+
+## What just happened
+
+- `ReplApp.Create()` wires up the DI container, routing, and output pipeline.
+- `UseDefaultInteractive()` activates the interactive REPL when no arguments are given.
+- `app.Map("hello", () => "world")` registers a route. The return value is rendered automatically.
+- `app.Run(args)` dispatches: CLI if `args` is non-empty, REPL otherwise.
+
+No argument-parsing library. No interactive-loop wiring. No output formatting.
+
+## Typed parameters
+
+Routes accept typed parameters directly:
+
+```csharp
+app.Map("greet {name}", (string name) => $"Hello, {name}!");
+app.Map("add {a:int} {b:int}", (int a, int b) => a + b);
+```
+
+```text
+$ myapp greet Alice
+Hello, Alice!
+
+$ myapp add 3 4
+7
+```
+
+Route constraints like `:int`, `:email`, `:guid` are validated at parse time — invalid input is rejected before your handler runs.
+
+## Structured output
+
+Return any object and Repl renders it:
+
+```csharp
+record Contact(int Id, string Name, string Email);
+
+app.Map("contact {id:int}", (int id) => new Contact(id, "Alice", "alice@example.com"));
+```
+
+```text
+$ myapp contact 1
+Id  Name   Email
+1   Alice  alice@example.com
+
+$ myapp contact 1 --json
+{ "id": 1, "name": "Alice", "email": "alice@example.com" }
+```
+
+## Next steps
+
+- [CLI Mode](/getting-started/cli-mode/) — output formats, help, shell completion
+- [REPL Mode](/getting-started/repl-mode/) — scoped navigation, history, autocomplete
+- [MCP Mode](/getting-started/mcp-mode/) — expose commands to AI agents

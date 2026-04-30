@@ -1,0 +1,117 @@
+---
+title: Spectre.Console
+description: Rich terminal output — tables, charts, progress, prompts — with Repl.Spectre.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+`Repl.Spectre` integrates [Spectre.Console](https://spectreconsole.net/) into Repl. Your handlers return plain .NET objects; Spectre.Console renders them as rich terminal output.
+
+<Aside type="tip">
+  Full runnable code: [`samples/07-spectre`](https://github.com/yllibed/repl/tree/main/samples/07-spectre)
+</Aside>
+
+## Setup
+
+```bash
+dotnet add package Repl.Spectre
+```
+
+```csharp
+var builder = ReplApp.CreateBuilder();
+builder.Services.AddSpectreInteraction();   // rich prompts
+builder.Services.AddSpectreOutput();        // rich renderables
+
+var app = builder.Build().UseDefaultInteractive();
+```
+
+## Rich output renderables
+
+Return a Spectre.Console `IRenderable` directly from your handler:
+
+```csharp
+app.Map("contacts table", (IContactStore store) =>
+{
+    var table = new Table()
+        .AddColumn("Id")
+        .AddColumn("Name")
+        .AddColumn("Email");
+
+    foreach (var c in store.All())
+        table.AddRow(c.Id.ToString(), c.Name, c.Email);
+
+    return table;
+});
+```
+
+```text
+┌────┬───────┬──────────────────────┐
+│ Id │ Name  │ Email                │
+├────┼───────┼──────────────────────┤
+│ 1  │ Alice │ alice@example.com    │
+│ 2  │ Bob   │ bob@example.com      │
+└────┴───────┴──────────────────────┘
+```
+
+## Charts
+
+```csharp
+app.Map("stats chart", (IContactStore store) =>
+{
+    var chart = new BarChart()
+        .Width(60)
+        .Label("Contacts by domain");
+
+    foreach (var g in store.All().GroupBy(c => c.Email.Split('@')[1]))
+        chart.AddItem(g.Key, g.Count(), Color.Blue);
+
+    return chart;
+});
+```
+
+## Progress bars
+
+```csharp
+app.Map("import {file}", async (string file, IInteraction ui, CancellationToken ct) =>
+{
+    var lines = await File.ReadAllLinesAsync(file, ct);
+
+    await using var progress = await ui.StartProgress($"Importing {lines.Length} records...");
+
+    for (int i = 0; i < lines.Length; i++)
+    {
+        await ImportLine(lines[i], ct);
+        progress.Report((double)i / lines.Length);
+    }
+});
+```
+
+With `AddSpectreInteraction()`, the progress bar is a live Spectre.Console `Progress` display.
+
+## Rich prompts
+
+`AddSpectreInteraction()` upgrades all `IInteraction` prompts to Spectre.Console widgets:
+
+```csharp
+// Ask → TextPrompt<string>
+var name = await ui.Ask("Name:");
+
+// SelectOne → SelectionPrompt
+var role = await ui.SelectOne("Role:", new[] { "admin", "user", "guest" });
+
+// SelectMany → MultiSelectionPrompt
+var permissions = await ui.SelectMany("Permissions:", allPermissions);
+
+// Confirm → ConfirmationPrompt
+var ok = await ui.Confirm("Proceed?");
+```
+
+No handler changes are needed — just register `AddSpectreInteraction()` and all prompts upgrade automatically.
+
+## Available renderables
+
+Any Spectre.Console renderable works as a return value: `Table`, `Panel`, `Tree`, `BarChart`, `BreakdownChart`, `Calendar`, `JsonText`, `Markup`, `FigletText`, `TextPath`, `Grid`, `Columns`, `Rule`.
+
+## Capability detection
+
+Spectre.Console detects terminal capabilities automatically. On terminals without color support, output degrades gracefully to plain text.

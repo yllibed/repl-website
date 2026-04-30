@@ -1,0 +1,98 @@
+---
+title: Hosting Remote Sessions
+description: Session hosting over WebSocket, Telnet, and SignalR with shared state.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Repl can host multiple concurrent sessions over network transports. Each session gets its own scope, history, and context — shared state is opt-in via DI singletons.
+
+<Aside type="tip">
+  Full runnable code: [`samples/05-hosting-remote`](https://github.com/yllibed/repl/tree/main/samples/05-hosting-remote)
+</Aside>
+
+## WebSocket sessions
+
+Add `Repl.WebSocket` and wire it into ASP.NET Core:
+
+```csharp
+using Repl.WebSocket;
+
+var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddReplWebSocket();
+
+// register shared services
+builder.Services.AddSingleton<IContactStore, ContactStore>();
+
+var app = builder.Build();
+app.UseWebSockets();
+app.MapReplWebSocket("/repl");  // WebSocket endpoint
+
+// define command graph
+var repl = app.Services.GetRequiredService<IReplApp>();
+repl.Context("client", client =>
+{
+    client.Map("list", (IContactStore store) => store.All());
+    // ...
+});
+
+app.Run();
+```
+
+Connect with any WebSocket client (browser, `wscat`, terminal emulator).
+
+## Telnet sessions
+
+`Repl.Telnet` adds Telnet framing with NAWS window-size negotiation:
+
+```csharp
+using Repl.Telnet;
+
+app.MapReplTelnet("/telnet");  // Telnet-over-WebSocket endpoint
+```
+
+Connect with:
+
+```bash
+wscat -c ws://localhost:5000/telnet
+# or via a Telnet-to-WebSocket bridge
+```
+
+## Session visibility
+
+Commands can inspect other active sessions:
+
+```csharp
+app.Map("sessions", (ISessionRegistry registry) =>
+    registry.Active.Select(s => new { s.Id, s.ConnectedAt, s.RemoteAddress }));
+```
+
+## Terminal metadata
+
+Each session carries terminal metadata — size, capabilities, user identity:
+
+```csharp
+app.Map("info", (ITerminalContext terminal) => new
+{
+    terminal.Width,
+    terminal.Height,
+    terminal.ColorDepth,
+    terminal.UserName,
+});
+```
+
+Handlers can adapt output to the terminal width, or reject connections from unsupported clients.
+
+## Shared vs. per-session state
+
+| Registration | Scope |
+|---|---|
+| `AddSingleton<T>` | Shared across all sessions |
+| `AddScoped<T>` | One instance per session |
+| `AddTransient<T>` | New instance per command invocation |
+
+Use `AddScoped<T>` for per-user state (shopping cart, selection, cursor position).
+
+## Graceful shutdown
+
+Active sessions are notified on server shutdown. Implement `IReplSessionLifetime` to send a goodbye message or flush state before disconnect.

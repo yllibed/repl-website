@@ -1,0 +1,18 @@
+apiRules:
+- exclude:
+    uidRegex: ^Repl\.(Tests|IntegrationTests|ProtocolTests|McpTests|SpectreTests|ShellCompletionTestHost)
+    type: Namespace
+- exclude:
+    hasAttribute:
+      uid: System.Runtime.CompilerServices.CompilerGeneratedAttribute
+- include:
+    hasAttribute:
+      uid: System.ComponentModel.EditorBrowsableAttribute
+      ctorArguments:
+      - System.ComponentModel.EditorBrowsableState.Never
+    type: Member
+- exclude:
+    hasAttribute:
+      uid: System.ComponentModel.EditorBrowsableAttribute
+      ctorArguments:
+      - System.ComponentModel.EditorBrowsableState.Never

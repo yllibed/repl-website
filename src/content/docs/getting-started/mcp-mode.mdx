@@ -1,0 +1,102 @@
+---
+title: MCP Mode
+description: Expose your command surface to AI agents via the Model Context Protocol.
+---
+
+import { Steps } from '@astrojs/starlight/components';
+
+Repl can expose your entire command graph as an [MCP server](https://modelcontextprotocol.io/), making every command available as an MCP tool to any compatible AI agent — Claude, Cursor, Copilot, and others.
+
+## Enable MCP
+
+<Steps>
+
+1. **Add the package**
+
+   ```bash
+   dotnet add package Repl.Mcp
+   ```
+
+2. **Register the MCP server**
+
+   ```csharp
+   using Repl;
+   using Repl.Mcp;
+
+   var app = ReplApp.Create().UseDefaultInteractive();
+
+   // ... your commands ...
+
+   app.UseMcpServer();  // one line
+
+   return app.Run(args);
+   ```
+
+3. **Configure your agent**
+
+   ```json
+   {
+     "mcpServers": {
+       "myapp": {
+         "command": "myapp",
+         "args": ["mcp", "serve"]
+       }
+     }
+   }
+   ```
+
+</Steps>
+
+That's it — every `Map(...)` call is now an MCP tool.
+
+## How mapping works
+
+Repl translates your command graph to MCP concepts automatically:
+
+| Repl concept | MCP concept |
+|---|---|
+| `app.Map("list", handler)` | Tool `list` |
+| Return value | Tool result |
+| `[Description]` attribute | Tool description |
+| `Results.Error(...)` | Tool error |
+| `AsMcpResource()` | Resource |
+| `AsMcpPrompt()` | Prompt |
+
+## MCP Apps
+
+MCP Apps are host-rendered UI surfaces for capable clients (e.g., Claude). Register an HTML-returning command as an App resource:
+
+```csharp
+app.Map("dashboard", (IContactStore contacts) => BuildHtml(contacts))
+    .WithDescription("Open the contacts dashboard")
+    .AsMcpAppResource();
+```
+
+The client renders the HTML in a webview panel — your command logic, surfaced as interactive UI.
+
+## Behavioral annotations
+
+Control how the agent sees your commands:
+
+```csharp
+app.Map("delete {id:int}", (int id) => Delete(id))
+    .WithAnnotations(new McpToolAnnotations
+    {
+        Destructive = true,
+        RequiresConfirmation = true
+    });
+```
+
+## Automation visibility
+
+Some commands should be available to humans in REPL mode but hidden from agents:
+
+```csharp
+app.Map("debug reset", Reset)
+    .WithChannelFilter(c => !c.IsAutomation);
+```
+
+## Next steps
+
+- [MCP Server cookbook](/cookbook/mcp-server/) — tools, resources, prompts, MCP Apps in depth
+- [Testing](/cookbook/testing/) — test your MCP surface with `Repl.Testing`

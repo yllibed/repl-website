@@ -1,0 +1,118 @@
+---
+title: Packages
+description: All Repl Toolkit NuGet packages and what they provide.
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+All packages target **.NET 8+** and are published to NuGet under the `Repl` family.
+
+## `Repl` <Badge text="start here" variant="tip" />
+
+The meta-package. Bundles `Repl.Core` + `Repl.Defaults` + `Repl.Protocol`.
+
+**Install this** for most apps — it's the single reference that covers routing, the interactive REPL, DI, output formats, and machine-readable contracts.
+
+```bash
+dotnet add package Repl
+```
+
+## `Repl.Core`
+
+The dependency-free foundation. No DI, no hosting, just routing, binding, constraints, and the output pipeline.
+
+Use `CoreReplApp.Create()` to build apps that don't need DI.
+
+```bash
+dotnet add package Repl.Core
+```
+
+## `Repl.Defaults`
+
+DI-enabled app facade (`ReplApp`), lifecycle orchestration, and default profiles:
+
+- `UseDefaultInteractive()` — REPL when no args, CLI when args given
+- `UseCliProfile()` — CLI-only, no interactive loop
+- `UseEmbeddedConsoleProfile()` — embedded in a larger host
+
+```bash
+dotnet add package Repl.Defaults
+```
+
+## `Repl.Protocol`
+
+Machine-readable contracts — useful for tooling, agents, and testing pipelines:
+
+- Help contracts (structured `--help --json` responses)
+- Error contracts
+- Minimal MCP manifest types
+
+```bash
+dotnet add package Repl.Protocol
+```
+
+## `Repl.Mcp`
+
+Expose your entire command graph as an MCP server:
+
+- `app.UseMcpServer()` — one line to activate
+- Tools, resources, prompts
+- MCP Apps UI resources
+- Behavioral annotations (`Destructive`, `RequiresConfirmation`, etc.)
+- Client roots support
+- Transport factory
+
+```bash
+dotnet add package Repl.Mcp
+```
+
+## `Repl.Spectre`
+
+[Spectre.Console](https://spectreconsole.net/) integration:
+
+- Rich renderables as command return values (Table, Panel, Tree, BarChart, Calendar, ...)
+- `AddSpectreInteraction()` — upgrades all IInteraction prompts to Spectre widgets
+- `IAnsiConsole` DI injection
+- Automatic capability detection and graceful degradation
+
+```bash
+dotnet add package Repl.Spectre
+```
+
+## `Repl.WebSocket`
+
+WebSocket session host:
+
+- `app.MapReplWebSocket("/repl")` on an ASP.NET Core app
+- Per-session scope, shared singletons, terminal metadata
+- Session registry
+
+```bash
+dotnet add package Repl.WebSocket
+```
+
+## `Repl.Telnet`
+
+Telnet session host (Telnet framing over WebSocket):
+
+- `app.MapReplTelnet("/telnet")`
+- NAWS window-size negotiation
+- Compatible with Telnet clients via WebSocket bridge
+
+```bash
+dotnet add package Repl.Telnet
+```
+
+## `Repl.Testing`
+
+In-memory multi-session test harness:
+
+- `ReplTestHost` — builds your command graph in memory
+- `ReplSessionHandle` — runs commands, inspects results
+- Typed result assertions
+- Interaction timeline (prompts, answers, output events)
+- Multi-session shared-state tests
+
+```bash
+dotnet add package Repl.Testing
+```

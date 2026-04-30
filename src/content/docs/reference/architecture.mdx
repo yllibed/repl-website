@@ -1,0 +1,66 @@
+---
+title: Architecture
+description: How Repl Toolkit's packages and layers fit together.
+---
+
+## Package boundaries
+
+| Package | Purpose |
+|---------|---------|
+| `Repl.Core` | Dependency-free authoring/runtime core: routing, parsing, binding, output pipeline, `CoreReplApp`, `IReplMap`, `Results.*` |
+| `Repl.Defaults` | DI-enabled facade (`ReplApp`), lifecycle orchestration, default composition profiles (`UseDefaultInteractive`, `UseCliProfile`) |
+| `Repl` | Meta-package — bundles Core + Defaults + Protocol. Start here. |
+| `Repl.Protocol` | Machine-readable contracts: help schemas, error contracts, minimal MCP manifest types |
+| `Repl.WebSocket` | WebSocket session host (`ReplWebSocketSession`) over `StreamedReplHost` |
+| `Repl.Telnet` | Telnet framing/session with NAWS window-size negotiation |
+| `Repl.Spectre` | Spectre.Console integration: rich prompts, renderables, `IAnsiConsole` DI injection |
+| `Repl.Mcp` | MCP server: `UseMcpServer()`, tool/resource/prompt mapping, MCP Apps, transport factory |
+| `Repl.Testing` | In-memory multi-session test harness: `ReplTestHost`, `ReplSessionHandle`, typed results/events |
+
+## Layering
+
+```
+┌────────────────────────────────────────────────────────┐
+│                    Your application                     │
+└──────────────┬─────────────────────────────────────────┘
+               │ registers commands via
+               ▼
+┌──────────────────────────────────────────────────────────────────┐
+│  Repl.Defaults  (ReplApp, UseDefaultInteractive, UseCliProfile)  │
+│  Repl.Core      (routing, binding, output)                       │
+└──────┬───────────────────────────────────────────────────────────┘
+       │ dispatches to runtime channels
+       ▼
+┌────────────────────────────────────────────────────────────────────────────────────┐
+│  Local console  │  Repl.WebSocket  │  Repl.Telnet  │  Repl.Mcp  │  Repl.Testing  │
+└────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+`Repl.Core` has no dependencies outside the .NET BCL. All integration packages depend on Core but not on each other — you pick what you need.
+
+## Execution pipeline
+
+1. **Parse** — route matched, parameters bound and validated against constraints
+2. **Middleware** — ordered pipeline of `IReplMiddleware` (auth, logging, tracing, etc.)
+3. **Dispatch** — handler invoked via DI
+4. **Output** — return value passed to the output transformer for the active channel
+5. **Render** — formatter (text/JSON/YAML/XML/Spectre) writes to the channel's output stream
+
+## Channel model
+
+A *channel* is the transport through which a session runs. The same command graph is executed on all channels. Each channel implementation adapts input/output to its transport protocol.
+
+## Key abstractions
+
+| Type | Role |
+|------|------|
+| `IReplMap` | Registration interface — `Map(...)`, `Context(...)`, `WithChannelFilter(...)` |
+| `IReplApp` | Runtime interface — `Run(args)` |
+| `IInteraction` | Prompt/progress channel injected into handlers |
+| `ITerminalContext` | Session metadata (width, height, user, capabilities) |
+| `IChannelContext` | Active channel info (`IsAutomation`, `IsMcp`, `IsLocalConsole`, ...) |
+| `Results` | Semantic return helpers — `Results.Success()`, `Results.Error()`, `Results.Cancelled()` |
+
+## Source
+
+Full architecture documentation (with diagrams): [`docs/architecture.md`](https://github.com/yllibed/repl/blob/main/docs/architecture.md) in the source repository.

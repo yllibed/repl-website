@@ -1,0 +1,60 @@
+---
+title: Installation
+description: Add Repl Toolkit to your .NET project.
+---
+
+import { Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+
+Repl Toolkit targets **.NET 8+** and ships as a set of focused NuGet packages.
+
+## The quick way
+
+For most projects, install the `Repl` meta-package — it bundles Core, Defaults, and Protocol:
+
+```bash
+dotnet add package Repl
+```
+
+That's it. You're ready to [write your first app](/getting-started/first-app/).
+
+## Prerequisites
+
+- .NET 8 SDK or later (`dotnet --version`)
+- Any project type works: `console`, `webapi`, `worker`, class library
+
+## Package breakdown
+
+Install only what you need:
+
+| Package | When to add it |
+|---------|---------------|
+| `Repl` | Starting point for most apps |
+| `Repl.Mcp` | Exposing commands to AI agents via MCP |
+| `Repl.Spectre` | Rich terminal output with Spectre.Console |
+| `Repl.WebSocket` | Hosting sessions over WebSocket |
+| `Repl.Telnet` | Hosting sessions over Telnet |
+| `Repl.Testing` | Testing your command surface |
+
+<Tabs>
+<TabItem label="dotnet CLI">
+```bash
+dotnet add package Repl
+dotnet add package Repl.Mcp        # optional: MCP support
+dotnet add package Repl.Spectre    # optional: rich output
+dotnet add package Repl.Testing    # optional: test harness
+```
+</TabItem>
+<TabItem label="PackageReference">
+```xml
+<PackageReference Include="Repl" Version="*" />
+<!-- optional extras -->
+<PackageReference Include="Repl.Mcp" Version="*" />
+<PackageReference Include="Repl.Spectre" Version="*" />
+<PackageReference Include="Repl.Testing" Version="*" />
+```
+</TabItem>
+</Tabs>
+
+## Next step
+
+→ [Your First App](/getting-started/first-app/)

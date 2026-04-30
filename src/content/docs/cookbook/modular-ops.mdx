@@ -1,0 +1,97 @@
+---
+title: Modular Ops
+description: Composable modules, generic CRUD, and reusing the same module under multiple contexts.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Modules let you define a command set once and mount it at multiple points in your command graph — DRY at the routing level.
+
+<Aside type="tip">
+  Full runnable code: [`samples/03-modular-ops`](https://github.com/yllibed/repl/tree/main/samples/03-modular-ops)
+</Aside>
+
+## Defining a module
+
+A module is a method (or class) that registers commands onto an `IReplMap`:
+
+```csharp
+void RegisterCrudCommands<T>(IReplMap map, IStore<T> store) where T : IEntity
+{
+    map.Map("list", () => store.All());
+    map.Map("show {id:int}", (int id) => store.Get(id));
+    map.Map("delete {id:int}", (int id) =>
+    {
+        store.Delete(id);
+        return Results.Success($"Deleted {id}.");
+    });
+}
+```
+
+## Mounting the module
+
+```csharp
+app.Context("contacts", contacts =>
+    RegisterCrudCommands(contacts, contactStore));
+
+app.Context("products", products =>
+    RegisterCrudCommands(products, productStore));
+```
+
+Both `contacts` and `products` now expose the same `list`, `show`, and `delete` commands against their respective stores.
+
+## With DI and open generics
+
+Register a generic store and let the DI container resolve per-type:
+
+```csharp
+builder.Services.AddSingleton(typeof(IStore<>), typeof(InMemoryStore<>));
+```
+
+```csharp
+app.Context("contacts", contacts =>
+{
+    contacts.Map("list", (IStore<Contact> store) => store.All());
+    contacts.Map("show {id:int}", (int id, IStore<Contact> store) => store.Get(id));
+});
+```
+
+## Conditional modules
+
+Mount a module only when a certain channel capability is present:
+
+```csharp
+app.Context("admin", admin =>
+{
+    admin.Map("purge-all", (IStore<Contact> store) => store.DeleteAll());
+})
+.WithChannelFilter(c => c.IsLocalConsole); // only available in local interactive sessions
+```
+
+## Reusing the same module under multiple contexts
+
+```csharp
+void RegisterAuditLog(IReplMap map, string entityType)
+{
+    map.Map("log", (IAuditLog log) => log.GetEntries(entityType));
+    map.Map("log clear", (IAuditLog log) =>
+    {
+        log.Clear(entityType);
+        return Results.Success();
+    });
+}
+
+app.Context("contacts", contacts =>
+{
+    RegisterCrudCommands(contacts, contactStore);
+    RegisterAuditLog(contacts, "contact");
+});
+
+app.Context("products", products =>
+{
+    RegisterCrudCommands(products, productStore);
+    RegisterAuditLog(products, "product");
+});
+```
+
+This composes cleanly: each context has both CRUD and audit commands without copy-pasting routes.

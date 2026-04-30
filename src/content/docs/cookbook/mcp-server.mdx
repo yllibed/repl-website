@@ -1,0 +1,154 @@
+---
+title: MCP Server
+description: Tools, resources, prompts, MCP Apps, and behavioral annotations with Repl.Mcp.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+`Repl.Mcp` turns your entire command graph into an MCP server. Every `Map(...)` becomes a tool; return values, resources, and prompts are all first-class.
+
+<Aside type="tip">
+  Full runnable code: [`samples/08-mcp-server`](https://github.com/yllibed/repl/tree/main/samples/08-mcp-server)
+</Aside>
+
+## Enable the MCP server
+
+```csharp
+using Repl.Mcp;
+
+app.UseMcpServer();
+```
+
+Start with:
+
+```bash
+myapp mcp serve
+```
+
+Configure in your agent (Claude Desktop, Cursor, etc.):
+
+```json
+{
+  "mcpServers": {
+    "myapp": {
+      "command": "myapp",
+      "args": ["mcp", "serve"]
+    }
+  }
+}
+```
+
+## Tools
+
+Every `Map(...)` becomes an MCP tool automatically. The tool name is the route, description comes from `[Description]` or `.WithDescription(...)`.
+
+```csharp
+app.Map("contacts list", (IContactStore store) => store.All())
+    .WithDescription("List all contacts");
+
+app.Map("contacts add {name} {email:email}", (string name, string email, IContactStore store) =>
+{
+    store.Add(name, email);
+    return Results.Success($"Added {name}.");
+})
+.WithDescription("Add a new contact");
+```
+
+## Resources
+
+Expose read-only data as MCP resources:
+
+```csharp
+app.Map("contacts export", (IContactStore store) => store.All())
+    .AsMcpResource(uri: "contacts://all", mimeType: "application/json")
+    .WithDescription("All contacts as a JSON resource");
+```
+
+## Prompts
+
+Register reusable prompt templates:
+
+```csharp
+app.Map("prompts summarize {contact_id:int}", (int contactId, IContactStore store) =>
+{
+    var contact = store.Get(contactId);
+    return new McpPromptResult
+    {
+        Messages = [new McpMessage(McpRole.User, $"Summarize the following contact: {contact}")]
+    };
+})
+.AsMcpPrompt()
+.WithDescription("Generate a summary prompt for a contact");
+```
+
+## MCP Apps
+
+Return HTML from a command and register it as an MCP App resource — the client renders it as an interactive panel:
+
+```csharp
+app.Map("contacts dashboard", (IContactStore store) =>
+{
+    var contacts = store.All().ToList();
+    return $"""
+        <html>
+          <body>
+            <h1>Contacts ({contacts.Count})</h1>
+            <ul>{string.Join("", contacts.Select(c => $"<li>{c.Name}</li>"))}</ul>
+          </body>
+        </html>
+        """;
+})
+.AsMcpAppResource()
+.WithDescription("Open the contacts dashboard");
+```
+
+## Behavioral annotations
+
+Tell the agent how it should handle your tools:
+
+```csharp
+app.Map("contacts delete {id:int}", (int id, IContactStore store) =>
+{
+    store.Delete(id);
+    return Results.Success();
+})
+.WithAnnotations(new McpToolAnnotations
+{
+    Destructive = true,
+    RequiresConfirmation = true,
+    IdempotentOnRetry = false,
+})
+.WithDescription("Delete a contact permanently");
+```
+
+| Annotation | Meaning |
+|---|---|
+| `Destructive = true` | Agent should warn before calling |
+| `RequiresConfirmation = true` | Agent should ask user before calling |
+| `IdempotentOnRetry = true` | Safe to retry on failure |
+| `ReadOnly = true` | No side effects |
+
+## Automation visibility
+
+Some commands are useful for humans in REPL but should be hidden from agents:
+
+```csharp
+app.Map("debug reset", () => store.Clear())
+    .WithChannelFilter(c => !c.IsAutomation);
+```
+
+`.WithChannelFilter` lets a command appear only in matching channel types (local console, automation, remote session, MCP).
+
+## Client roots
+
+Expose the client's file system roots to your tools:
+
+```csharp
+app.Map("analyze {path}", async (string path, IMcpClientRoots roots) =>
+{
+    if (!roots.IsAllowed(path))
+        return Results.Error($"Path '{path}' is not within an allowed root.");
+
+    return await AnalyzeFile(path);
+});
+```

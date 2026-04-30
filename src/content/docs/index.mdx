@@ -1,0 +1,126 @@
+---
+title: Repl Toolkit
+description: A .NET framework for building composable command surfaces — CLI, REPL, remote sessions, and MCP tools from one command graph.
+template: splash
+head:
+  - tag: title
+    content: Repl Toolkit — .NET Command Surface Framework
+hero:
+  tagline: One command graph. CLI, REPL, remote sessions, and AI agents — all from the same code.
+  actions:
+    - text: Get Started
+      link: /getting-started/installation/
+      icon: right-arrow
+      variant: primary
+    - text: View on GitHub
+      link: https://github.com/yllibed/repl
+      icon: github
+      variant: minimal
+---
+
+import { Card, CardGrid, Tabs, TabItem, Badge, Code, Steps } from '@astrojs/starlight/components';
+
+## Define once. Run everywhere.
+
+<CardGrid stagger>
+	<Card title="CLI mode" icon="terminal">
+		Ship a polished command-line tool with typed parameters, constraints, help, and JSON/YAML output — no argument-parsing library needed.
+	</Card>
+	<Card title="Interactive REPL" icon="forward-slash">
+		The same command graph runs interactively with scoped navigation, history, autocomplete, and a context-aware prompt.
+	</Card>
+	<Card title="Remote sessions" icon="laptop">
+		Host sessions over WebSocket or Telnet. Each client gets its own scope, state, and terminal metadata.
+	</Card>
+	<Card title="MCP tools for AI agents" icon="puzzle">
+		One line — `app.UseMcpServer()` — exposes every command as an MCP tool. Add MCP Apps UI resources for capable clients.
+	</Card>
+	<Card title="Testable by design" icon="approve-check">
+		`Repl.Testing` provides an in-memory multi-session harness. Run full interaction sequences in unit tests with typed assertions.
+	</Card>
+	<Card title="Spectre.Console integration" icon="list-format">
+		Rich tables, charts, progress bars, and prompts via `Repl.Spectre` — same command handlers, richer output.
+	</Card>
+</CardGrid>
+
+## Quick start
+
+```bash
+dotnet add package Repl
+```
+
+<Tabs>
+<TabItem label="Write commands">
+```csharp
+using Repl;
+
+var app = ReplApp.Create().UseDefaultInteractive();
+
+app.Context("client", client =>
+{
+    client.Map("list", () => new { Clients = new[] { "ACME", "Globex" } });
+
+    client.Context("{id:int}", scoped =>
+    {
+        scoped.Map("show", (int id) => new { Id = id, Name = "ACME" });
+        scoped.Map("remove", (int id) => Results.Cancelled($"Remove {id} cancelled."));
+    });
+});
+
+return app.Run(args);
+```
+</TabItem>
+<TabItem label="CLI mode">
+```text
+$ myapp client list --json
+{
+  "clients": ["ACME", "Globex"]
+}
+
+$ myapp client 42 show --json
+{ "id": 42, "name": "ACME" }
+```
+</TabItem>
+<TabItem label="REPL mode">
+```text
+$ myapp
+> client 42 show --json
+{ "id": 42, "name": "ACME" }
+
+> client
+[client]> list
+ACME
+Globex
+
+[client]> ..
+> 
+```
+</TabItem>
+<TabItem label="MCP mode">
+```csharp
+using Repl.Mcp;
+
+app.UseMcpServer();  // add one line
+```
+
+```json
+{ "command": "myapp", "args": ["mcp", "serve"] }
+```
+
+Every `Map(...)` call becomes an MCP tool, discoverable by any MCP-compatible AI agent.
+</TabItem>
+</Tabs>
+
+## Packages
+
+| Package | What it does |
+|---------|-------------|
+| [`Repl`](https://www.nuget.org/packages/Repl) <Badge text="start here" variant="tip" /> | Meta-package: Core + Defaults + Protocol |
+| [`Repl.Core`](https://www.nuget.org/packages/Repl.Core) | Routing, binding, constraints, output formats |
+| [`Repl.Defaults`](https://www.nuget.org/packages/Repl.Defaults) | DI-enabled facade, interactive REPL, CLI profile |
+| [`Repl.Mcp`](https://www.nuget.org/packages/Repl.Mcp) | MCP server — tools, resources, prompts, MCP Apps |
+| [`Repl.Spectre`](https://www.nuget.org/packages/Repl.Spectre) | Spectre.Console rich output and prompts |
+| [`Repl.WebSocket`](https://www.nuget.org/packages/Repl.WebSocket) | WebSocket session host |
+| [`Repl.Telnet`](https://www.nuget.org/packages/Repl.Telnet) | Telnet session host |
+| [`Repl.Testing`](https://www.nuget.org/packages/Repl.Testing) | In-memory multi-session test harness |
+| [`Repl.Protocol`](https://www.nuget.org/packages/Repl.Protocol) | Machine-readable help and error contracts |

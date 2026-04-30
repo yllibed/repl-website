@@ -1,0 +1,24 @@
+/* Landing hero enhancements */
+.hero {
+	padding-block: 4rem;
+}
+
+.hero .tagline {
+	font-size: var(--sl-text-xl);
+	max-width: 50ch;
+}
+
+/* Feature grid spacing */
+.card-grid {
+	margin-block: 2rem;
+}
+
+/* Code tab enhancements */
+starlight-tabs {
+	margin-block: 1.5rem;
+}
+
+/* Badge alignment in tables */
+.badge {
+	vertical-align: middle;
+}

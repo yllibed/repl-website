@@ -1,0 +1,85 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  repository_dispatch:
+    types: [repl-released]
+  schedule:
+    - cron: '0 6 * * *'
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout website
+        uses: actions/checkout@v4
+
+      - name: Resolve latest Repl release tag
+        id: latest-tag
+        run: |
+          tag=$(gh release list --repo yllibed/repl --limit 1 --json tagName -q '.[0].tagName')
+          echo "Resolved tag: $tag"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout Repl source at release tag
+        uses: actions/checkout@v4
+        with:
+          repository: yllibed/repl
+          ref: ${{ steps.latest-tag.outputs.tag }}
+          path: ./repl-source
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.x'
+
+      - name: Install DocFX
+        run: dotnet tool install -g docfx
+
+      - name: Build API reference with DocFX
+        run: docfx ./docfx/docfx.json
+        continue-on-error: true
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Build Astro site
+        run: npm run build
+
+      - name: Index with Pagefind (unified search across all content)
+        run: npx pagefind --site dist
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

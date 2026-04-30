@@ -1,0 +1,90 @@
+---
+title: REPL Mode
+description: Explore your command surface interactively.
+---
+
+When you run your app with no arguments, Repl starts an interactive session. The same routes your CLI uses are available interactively — no separate implementation.
+
+## Starting a session
+
+```bash
+$ myapp
+> 
+```
+
+The `>` prompt signals REPL mode. Type any command from your graph:
+
+```text
+> client list
+Alice
+Bob
+
+> client 42 show --json
+{ "id": 42, "name": "ACME" }
+
+> exit
+```
+
+## Scoped navigation
+
+`app.Context(...)` creates sub-scopes. You can enter a scope and run commands relative to it:
+
+```text
+> client
+[client]> list
+Alice
+Bob
+
+[client]> 42
+[client/42]> show
+Id: 42, Name: ACME
+
+[client/42]> ..
+[client]> ..
+> 
+```
+
+- Enter a scope by typing its name (or a scoped value like `42`).
+- Go up with `..`.
+- The prompt shows your current position.
+
+## Ambient commands
+
+These are always available in REPL mode regardless of your command graph:
+
+| Command | Description |
+|---------|-------------|
+| `help` | List commands in current scope |
+| `help <route>` | Describe a specific command |
+| `exit` | End the session |
+| `clear` | Clear the screen |
+| `..` | Go up one scope level |
+
+## History and completion
+
+- **Up/Down arrows** navigate command history.
+- **Tab** triggers autocomplete for routes and parameters (requires `UseDefaultInteractive()`).
+- History persists across sessions in the user's profile directory.
+
+## Customizing the prompt
+
+```csharp
+app.WithBanner("""
+    Welcome to MyApp REPL.
+    Type 'help' to list commands.
+    """);
+```
+
+## Driving from scripts
+
+REPL mode can be driven by a script using `--answer:*` options — useful for demos and deterministic testing:
+
+```bash
+myapp --answer:1=Alice --answer:2=alice@example.com
+```
+
+The `--answer:N` flag pre-fills interactive prompts in order.
+
+## Next step
+
+→ [MCP Mode](/getting-started/mcp-mode/)

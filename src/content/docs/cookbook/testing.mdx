@@ -1,0 +1,133 @@
+---
+title: Testing
+description: In-memory multi-session testing with Repl.Testing.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+`Repl.Testing` provides an in-memory harness that runs your full command graph without a real terminal — typed assertions, multi-session, interaction recording.
+
+<Aside type="tip">
+  Full runnable code: [`samples/06-testing`](https://github.com/yllibed/repl/tree/main/samples/06-testing)
+</Aside>
+
+## Setup
+
+```bash
+dotnet add package Repl.Testing
+```
+
+```csharp
+using Repl.Testing;
+
+// Reuse your app factory
+var host = ReplTestHost.Create(app =>
+{
+    app.Map("list", (IContactStore store) => store.All());
+    app.Map("add {name} {email:email}", (string name, string email, IContactStore store) =>
+    {
+        store.Add(name, email);
+        return Results.Success($"Added {name}.");
+    });
+}, services =>
+{
+    services.AddSingleton<IContactStore, ContactStore>();
+});
+```
+
+## Single-command execution
+
+```csharp
+[TestMethod]
+[Description("Adding a contact returns a success result and persists to the store.")]
+public async Task When_AddContact_Then_SuccessAndPersisted()
+{
+    await using var session = await host.CreateSessionAsync();
+
+    var result = await session.ExecuteAsync<SuccessResult>("add Alice alice@example.com");
+
+    result.Should().NotBeNull();
+    result.Message.Should().Contain("Alice");
+
+    var list = await session.ExecuteAsync<IEnumerable<Contact>>("list");
+    list.Should().ContainSingle(c => c.Name == "Alice");
+}
+```
+
+## Multi-step sequences
+
+```csharp
+[TestMethod]
+[Description("Scoped navigation enters the context and runs commands relative to it.")]
+public async Task When_EnteringScope_Then_ScopedCommandsExecute()
+{
+    await using var session = await host.CreateSessionAsync();
+
+    await session.ExecuteAsync("add Alice alice@example.com");
+    await session.EnterContextAsync("client");
+    await session.EnterContextAsync("1");
+
+    var contact = await session.ExecuteAsync<Contact>("show");
+    contact.Name.Should().Be("Alice");
+}
+```
+
+## Multi-session tests
+
+```csharp
+[TestMethod]
+[Description("Changes made by one session are visible to another via shared store.")]
+public async Task When_TwoSessions_Then_SharedStateIsVisible()
+{
+    await using var session1 = await host.CreateSessionAsync();
+    await using var session2 = await host.CreateSessionAsync();
+
+    await session1.ExecuteAsync("add Bob bob@example.com");
+
+    var list = await session2.ExecuteAsync<IEnumerable<Contact>>("list");
+    list.Should().ContainSingle(c => c.Name == "Bob");
+}
+```
+
+## Testing interactions (prompts)
+
+Pre-fill prompts via `AnswerQueue`:
+
+```csharp
+[TestMethod]
+[Description("Interactive add command reads name and email from the answer queue.")]
+public async Task When_InteractiveAdd_WithAnswers_Then_ContactCreated()
+{
+    await using var session = await host.CreateSessionAsync();
+    session.AnswerQueue.Enqueue("Bob");
+    session.AnswerQueue.Enqueue("bob@example.com");
+
+    await session.ExecuteAsync("add");
+
+    var list = await session.ExecuteAsync<IEnumerable<Contact>>("list");
+    list.Should().ContainSingle(c => c.Name == "Bob");
+}
+```
+
+## Interaction timeline
+
+Inspect every event — prompts shown, answers given, output emitted:
+
+```csharp
+var events = session.Timeline;
+events.Should().ContainInOrder(
+    new PromptEvent("Full name:"),
+    new AnswerEvent("Bob"),
+    new PromptEvent("Email:"),
+    new AnswerEvent("bob@example.com")
+);
+```
+
+## Testing MCP surface
+
+With `Repl.Mcp` + `Repl.Testing`:
+
+```csharp
+var toolList = await session.ExecuteAsync<McpToolList>("mcp tools");
+toolList.Tools.Should().ContainSingle(t => t.Name == "list");
+```

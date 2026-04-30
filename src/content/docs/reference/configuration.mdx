@@ -1,0 +1,128 @@
+---
+title: Configuration Reference
+description: All configuration options for Repl Toolkit.
+---
+
+## App creation
+
+### `CoreReplApp.Create()`
+
+Creates a lightweight app with no DI container. Use when you don't need dependency injection.
+
+```csharp
+var app = CoreReplApp.Create()
+    .WithDescription("My app description")
+    .WithBanner("Welcome message shown in REPL mode");
+```
+
+### `ReplApp.Create()`
+
+Creates an app with a default DI container (Microsoft.Extensions.DependencyInjection).
+
+```csharp
+var app = ReplApp.Create().UseDefaultInteractive();
+```
+
+### `ReplApp.CreateBuilder()`
+
+For apps that need to configure services before building:
+
+```csharp
+var builder = ReplApp.CreateBuilder();
+builder.Services.AddSingleton<IMyService, MyService>();
+var app = builder.Build().UseDefaultInteractive();
+```
+
+## Profiles
+
+### `UseDefaultInteractive()`
+
+Activates interactive REPL mode when no arguments are passed. This is the standard starting point for most apps.
+
+### `UseCliProfile()`
+
+Disables the interactive REPL. The app only runs in one-shot CLI mode.
+
+### `UseEmbeddedConsoleProfile()`
+
+For apps embedded in a larger host — no entry-point management, just command dispatching.
+
+## Route registration
+
+### `Map(route, handler)`
+
+```csharp
+app.Map("greet {name}", (string name) => $"Hello, {name}!");
+```
+
+- Route parameters: `{name}`, `{id:int}`, `{email:email}`, `{token:guid}`, etc.
+- Handler can be a delegate, method group, or lambda.
+- Parameters are bound from route segments + DI.
+
+### `Context(segment, configure)`
+
+```csharp
+app.Context("admin", admin =>
+{
+    admin.Map("list-users", ...);
+});
+```
+
+### Fluent modifiers on routes
+
+| Method | Effect |
+|--------|--------|
+| `.WithDescription("...")` | Sets the command description shown in help |
+| `.WithChannelFilter(c => ...)` | Restricts to matching channels |
+| `.WithAnnotations(new McpToolAnnotations { ... })` | Adds MCP behavioral hints |
+| `.AsMcpResource(uri, mimeType)` | Registers as an MCP resource |
+| `.AsMcpPrompt()` | Registers as an MCP prompt template |
+| `.AsMcpAppResource()` | Registers as an MCP Apps UI resource |
+| `.WithCompletion(provider)` | Registers Tab completion for this route |
+
+## Parameters
+
+### Route constraints
+
+| Constraint | Matches |
+|------------|---------|
+| `{x:int}` | Integer (`int`) |
+| `{x:long}` | Long integer |
+| `{x:double}` | Floating-point number |
+| `{x:bool}` | `true` / `false` |
+| `{x:guid}` | GUID |
+| `{x:email}` | Email address |
+| `{x:datetime}` | `DateTime` (ISO 8601) |
+
+Types are also inferred from the handler parameter type, so `:int` is implicit when the parameter is `int id`.
+
+### Options groups
+
+```csharp
+[ReplOptionsGroup]
+public class MyOptions
+{
+    [Option("--format")]
+    public string Format { get; set; } = "text";
+}
+```
+
+Handlers that accept `MyOptions` receive all flags in the group.
+
+### Temporal ranges
+
+`ReplDateRange` accepts:
+- `2024-01-15..2024-02-15` (start..end)
+- `2024-01-15@30d` (start@duration, whole days only)
+
+## Interactive options
+
+| Flag (CLI) | Effect |
+|------------|--------|
+| `--json` | Output as JSON |
+| `--xml` | Output as XML |
+| `--yaml` | Output as YAML |
+| `--markdown` | Output as Markdown table |
+| `--help` | Show help for this route |
+| `--help --json` | Machine-readable help |
+| `--answer:N=value` | Pre-fill the Nth interactive prompt |

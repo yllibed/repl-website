@@ -1,0 +1,66 @@
+{
+  "metadata": [
+    {
+      "src": [
+        {
+          "files": ["*.csproj"],
+          "src": "../repl-source/src/Repl",
+          "exclude": ["**/bin/**", "**/obj/**"]
+        },
+        {
+          "files": ["*.csproj"],
+          "src": "../repl-source/src/Repl.Core"
+        },
+        {
+          "files": ["*.csproj"],
+          "src": "../repl-source/src/Repl.Defaults"
+        },
+        {
+          "files": ["*.csproj"],
+          "src": "../repl-source/src/Repl.Mcp"
+        },
+        {
+          "files": ["*.csproj"],
+          "src": "../repl-source/src/Repl.Protocol"
+        },
+        {
+          "files": ["*.csproj"],
+          "src": "../repl-source/src/Repl.Spectre"
+        },
+        {
+          "files": ["*.csproj"],
+          "src": "../repl-source/src/Repl.Testing"
+        },
+        {
+          "files": ["*.csproj"],
+          "src": "../repl-source/src/Repl.WebSocket"
+        },
+        {
+          "files": ["*.csproj"],
+          "src": "../repl-source/src/Repl.Telnet"
+        }
+      ],
+      "dest": "api",
+      "filter": "filterConfig.yml",
+      "includePrivateMembers": false,
+      "globalNamespaceId": "Global"
+    }
+  ],
+  "build": {
+    "content": [
+      {
+        "files": ["api/**.yml", "api/index.md"]
+      }
+    ],
+    "dest": "../public/api",
+    "globalMetadata": {
+      "_appTitle": "Repl Toolkit API Reference",
+      "_appFaviconPath": "favicon.ico",
+      "_enableSearch": false,
+      "_disableContribution": true,
+      "_gitContribute": null
+    },
+    "template": ["default", "modern"],
+    "postProcessors": []
+  }
+}

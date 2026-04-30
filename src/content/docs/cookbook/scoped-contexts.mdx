@@ -1,0 +1,126 @@
+---
+title: Scoped Contexts
+description: Dynamic scopes, REPL navigation, and DI-backed handlers.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Scoped contexts let users navigate into sub-trees of your command graph — like `cd` for your app's data model.
+
+<Aside type="tip">
+  Full runnable code: [`samples/02-scoped-contacts`](https://github.com/yllibed/repl/tree/main/samples/02-scoped-contacts)
+</Aside>
+
+## Defining contexts
+
+```csharp
+app.Context("client", client =>
+{
+    client.Map("list", () => contactStore.All());
+
+    client.Context("{id:int}", scoped =>
+    {
+        scoped.Map("show", (int id) => contactStore.Get(id));
+        scoped.Map("remove", (int id) =>
+        {
+            contactStore.Remove(id);
+            return Results.Success();
+        });
+    });
+});
+```
+
+The shape of this graph:
+
+```
+myapp
+└── client
+    ├── list
+    └── {id:int}
+        ├── show
+        └── remove
+```
+
+## REPL navigation
+
+In REPL mode, enter a context by typing its name. Use `..` to go up:
+
+```text
+> client
+[client]> list
+Alice (1)
+Bob (2)
+
+[client]> 1
+[client/1]> show
+Id: 1  Name: Alice
+
+[client/1]> ..
+[client]> ..
+> 
+```
+
+In CLI mode, the same routes work as a flat command:
+
+```bash
+myapp client 1 show
+myapp client 1 remove
+```
+
+## DI-backed handlers
+
+With `ReplApp` (vs. the lighter `CoreReplApp`), handlers can take DI-injected services:
+
+```csharp
+var builder = ReplApp.CreateBuilder();
+builder.Services.AddSingleton<IContactStore, ContactStore>();
+
+var app = builder.Build().UseDefaultInteractive();
+
+app.Context("client", client =>
+{
+    client.Map("list", (IContactStore store) => store.All());
+
+    client.Context("{id:int}", scoped =>
+    {
+        scoped.Map("show", (int id, IContactStore store) => store.Get(id));
+    });
+});
+
+return app.Run(args);
+```
+
+Parameters that match registered services are injected automatically. Parameters that match route segments are bound from the route.
+
+## Scoped state
+
+A context can carry state captured at navigation time:
+
+```csharp
+client.Context("{id:int}", (int id, IContactStore store) =>
+{
+    var contact = store.Get(id) ?? throw new KeyNotFoundException($"Contact {id} not found.");
+
+    return scoped =>
+    {
+        scoped.Map("show", () => contact);
+        scoped.Map("update {name}", (string name) =>
+        {
+            contact.Name = name;
+            store.Save(contact);
+        });
+    };
+});
+```
+
+The outer lambda resolves `contact` once when the scope is entered. All commands inside use that resolved value.
+
+## Completion providers
+
+Register a completion provider to populate Tab suggestions in REPL mode:
+
+```csharp
+client.Context("{id:int}", scoped => { /* ... */ })
+    .WithCompletion((IContactStore store) =>
+        store.All().Select(c => new CompletionItem(c.Id.ToString(), c.Name)));
+```
