@@ -64,7 +64,7 @@ These are always available in REPL mode regardless of your command graph:
 
 - **Up/Down arrows** navigate command history.
 - **Tab** triggers autocomplete for routes and parameters (requires `UseDefaultInteractive()`).
-- History persists across sessions in the user's profile directory.
+- History is in-memory by default and does not persist across sessions. Inject a custom `IHistoryProvider` to add persistence (file, database, or any backing store).
 
 ## Customizing the prompt
 
