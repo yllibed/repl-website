@@ -53,7 +53,7 @@ if (!confirmed)
 ### Single-choice selection
 
 ```csharp
-var options   = new[] { "admin", "editor", "viewer" };
+string[] options = ["admin", "editor", "viewer"];
 var roleIndex = await ui.AskChoiceAsync("role", "Assign role:", options, ct: ct);
 var role      = options[roleIndex];
 ```
@@ -63,7 +63,7 @@ var role      = options[roleIndex];
 ### Multi-choice selection
 
 ```csharp
-var allPerms = new[] { "read", "write", "delete", "export" };
+string[] allPerms = ["read", "write", "delete", "export"];
 var indices  = await ui.AskMultiChoiceAsync("permissions", "Select permissions:", allPerms, ct: ct);
 var selected = indices.Select(i => allPerms[i]).ToArray();
 ```

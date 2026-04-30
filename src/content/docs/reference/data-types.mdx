@@ -176,7 +176,7 @@ The timestamp format depends on the range type:
 
 The duration part accepts all [TimeSpan formats](#timespan--time-span) listed above, subject to the type constraint:
 
-- `ReplDateRange@duration` — whole days only, e.g. `@30d`, `@P1M` is **not** valid
+- `ReplDateRange@duration` — whole-day units only: `@30d`, `@P30D` are valid; sub-day or calendar units (`@8h`, `@P1M`, `@PT30M`) are **not** valid
 - `ReplDateTimeRange@duration` — any `TimeSpan` format, e.g. `@8h30m`
 - `ReplDateTimeOffsetRange@duration` — any `TimeSpan` format
 

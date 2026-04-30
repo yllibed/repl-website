@@ -39,18 +39,14 @@ Both `contacts` and `products` now expose `list`, `show`, and `delete` — witho
 Use `app.MapModule(...)` with a class that implements `IReplModule`:
 
 ```csharp
-public class AuditModule : IReplModule
+public class AuditModule(IAuditLog log) : IReplModule
 {
-    private readonly IAuditLog _log;
-
-    public AuditModule(IAuditLog log) => _log = log;
-
     public void Map(IReplMap map)
     {
-        map.Map("audit list", () => _log.All());
+        map.Map("audit list", () => log.All());
         map.Map("audit clear", () =>
         {
-            _log.Clear();
+            log.Clear();
             return Results.Success("Audit log cleared.");
         });
     }

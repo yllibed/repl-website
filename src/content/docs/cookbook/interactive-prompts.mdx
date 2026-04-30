@@ -33,7 +33,7 @@ In REPL mode this presents an interactive prompt. In CLI mode with `--answer:*` 
 ## Choice prompts
 
 ```csharp
-var options = new[] { "admin", "editor", "viewer" };
+string[] options = ["admin", "editor", "viewer"];
 var roleIndex = await ui.AskChoiceAsync("role", "Assign role:", options, ct: ct);
 var role = options[roleIndex];
 ```

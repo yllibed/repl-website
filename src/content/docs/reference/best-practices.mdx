@@ -294,6 +294,8 @@ Without any provider, log calls are no-ops. This is intentional — the default 
 
 No opt-in needed — the scope appears automatically in any structured provider (OpenTelemetry, Serilog, etc.).
 
+`ReplTerminalIdentity` and `ReplRemotePeer` originate from the remote client — treat them as untrusted strings in your log queries and dashboards. Do not pipe them into a raw terminal or console that interprets ANSI escape sequences.
+
 ---
 
 ## FAQ
