@@ -1,5 +1,5 @@
 ---
-title: MCP In Depth
+title: MCP Server
 description: Everything about exposing your Repl commands as MCP tools, resources, prompts, and MCP Apps for AI agents.
 ---
 
@@ -223,14 +223,6 @@ app.Map("contacts add {name} {email:email}", handler)
 
 ---
 
-## Client roots
-
-`IMcpClientRoots` exposes the workspace boundaries the MCP client reports. Inject it into any handler to read native roots or configure soft roots for clients that don't support them.
-
-→ [MCP — Advanced: Client roots and soft roots](/reference/mcp-advanced/#client-roots-and-soft-roots)
-
----
-
 ## Controlling tool visibility
 
 Hide individual commands from MCP:
@@ -257,20 +249,7 @@ app.MapModule(
     (IAuthService auth) => auth.IsAdmin());
 ```
 
----
-
-## Dynamic tool compatibility
-
-Some MCP clients struggle with tool lists that change at runtime. Enable shim mode for maximum compatibility:
-
-```csharp
-app.UseMcpServer(o =>
-{
-    o.DynamicToolCompatibility = DynamicToolCompatibilityMode.DiscoverAndCallShim;
-});
-```
-
-→ [MCP — Advanced: Dynamic tool compatibility](/reference/mcp-advanced/#dynamic-tool-compatibility)
+To scope visibility to workspace roots (native MCP roots or soft-root fallbacks), see [Client roots and soft roots](/reference/mcp-advanced/#client-roots-and-soft-roots).
 
 ---
 
@@ -285,7 +264,7 @@ app.UseMcpServer(o =>
     o.ResourceFallbackToTools  = true;   // resources also callable as tools (compatibility fallback)
     o.PromptFallbackToTools    = true;   // AsPrompt() tools also callable as tools
     o.CommandFilter            = cmd => true;
-    o.DynamicToolCompatibility = DynamicToolCompatibilityMode.Disabled;
+    o.DynamicToolCompatibility = DynamicToolCompatibilityMode.Disabled;  // → see MCP — Advanced for shim mode
 });
 ```
 

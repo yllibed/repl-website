@@ -149,21 +149,23 @@ When a session connects, Repl classifies its terminal identity to determine whic
 
 The classifier maps substrings of the identity string to capability flags:
 
-| Terminal identity contains | `AnsiSupport` | `ProgressReporting` |
-|---|---|---|
-| `windows terminal` | ✓ | ✓ |
-| `wezterm` | ✓ | ✓ |
-| `iterm` | ✓ | ✓ |
-| `ghostty` | ✓ | ✓ |
-| `conemu` | ✓ | ✓ |
-| `xterm`, `vt`, `ansi` | ✓ | |
-| `alacritty`, `rxvt`, `konsole`, `gnome`, `linux` | ✓ | |
-| `screen`, `tmux` | ✓ | |
-| `dumb` | | |
+| Terminal identity contains | `Ansi` | `ProgressReporting` | `VtInput` | `ResizeReporting` |
+|---|---|---|---|---|
+| `windows terminal` | ✓ | ✓ | ✓ | ✓ |
+| `wezterm` | ✓ | ✓ | ✓ | ✓ |
+| `iterm` | ✓ | ✓ | ✓ | ✓ |
+| `ghostty` | ✓ | ✓ | ✓ | ✓ |
+| `conemu` | ✓ | ✓ | ✓ | ✓ |
+| `xterm`, `vt`, `ansi` | ✓ | | ✓ | ✓ |
+| `alacritty`, `rxvt`, `konsole`, `gnome`, `linux` | ✓ | | ✓ | ✓ |
+| `screen`, `tmux` | ✓ | | ✓ | ✓ |
+| `dumb` | | | | |
 
 Matching is case-insensitive and substring-based — `xterm-256color` matches `xterm`.
 
-For local sessions (no identity string), terminal detection falls back to environment variables: `WT_SESSION`, `ConEmuANSI`, and `TERM_PROGRAM` are checked for OSC 9;4 gating.
+`VtInput` enables VT keyboard sequence decoding. `ResizeReporting` enables live terminal resize events. Omitting either flag in a `TerminalSessionOverrides` override will silently suppress that behavior.
+
+For local sessions (no identity string), terminal detection falls back to environment variables: `WT_SESSION`, `ConEmuANSI` (any case — `on`, `On`, `ON` all match), and `TERM_PROGRAM` are checked for OSC 9;4 gating.
 
 Override capabilities when the auto-detection doesn't fit:
 
@@ -172,7 +174,9 @@ Override capabilities when the auto-detection doesn't fit:
 new TerminalSessionOverrides
 {
     TerminalIdentity = "xterm-256color",
-    TerminalCapabilities = TerminalCapabilities.Ansi | TerminalCapabilities.ProgressReporting,
+    TerminalCapabilities = TerminalCapabilities.Ansi
+                         | TerminalCapabilities.VtInput
+                         | TerminalCapabilities.ResizeReporting,
 }
 ```
 
@@ -205,8 +209,6 @@ In CLI mode, Repl suppresses banners and interactive prompts automatically. For 
 ---
 
 ## Toward a TUI mode
-
-The features above — size detection, VT keyboard parsing, ANSI 256-color, screen clear (`CSI 2J H`), cursor show/hide (`CSI ?25h/l`) — are the foundation for a future dedicated TUI mode.
 
 **Currently in place:**
 

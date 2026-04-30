@@ -138,11 +138,10 @@ $ myapp client --help --json
 | Condition | Exit code |
 |-----------|-----------|
 | Success | `0` |
-| Command not found | `1` |
-| Validation error | `2` |
-| Cancelled | `3` |
-| *(reserved)* | `4` |
-| Unhandled exception | `5` |
+| All named errors — command not found, validation failure, cancellation, unhandled exception | `1` |
+| Custom (explicit) | any `N` — use `Results.Exit(N)` in a handler to return an arbitrary code |
+
+All error conditions produce exit code `1` by default. To signal a specific failure mode to callers or scripts, return `Results.Exit(N)` from your handler with the code that makes sense for your application.
 
 ## Next step
 

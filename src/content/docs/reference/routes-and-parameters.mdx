@@ -34,7 +34,7 @@ app.Map("log {from:date} {to:date}", static (DateOnly from, DateOnly to) => ...)
 app.Map("order {id:int} tag {label}", static (int id, string label) => ...);
 
 // Multiple optional trailing parameters
-app.Map("contact add {name?} {email?:email}", static (string? name, string? email) => ...);
+app.Map("client add {name?} {email?:email}", static (string? name, string? email) => ...);
 ```
 
 There is no limit on the number of dynamic segments. Optional segments are the only ones that must be at the end — required segments can appear anywhere.
@@ -283,13 +283,13 @@ Override with `[ReplOption(Mode = ReplParameterMode.OptionOnly)]` or `[ReplArgum
 You never have to type full command names. Before routing, the framework expands each segment to its unique prefix match. This works identically in CLI and REPL modes.
 
 ```text
-myapp co li         # → contact list
-myapp co 42 sh      # → contact 42 show
+myapp cl li         # → client list
+myapp cl 42 sh      # → client 42 show
 ```
 
 In the REPL:
 ```text
-> co                # enters [client] context
+> cl                # enters [client] context
 [client]> li        # runs list
 [client]> 42 sh     # runs 42 show
 ```
@@ -301,7 +301,7 @@ Prefix expansion is **position-aware**: `li` is matched against the candidates r
 If two candidates share the same prefix at the same position, the framework reports an error listing all matches:
 
 ```text
-> contact l
+> client l
 error: ambiguous prefix "l" — matches: list, load
 ```
 
@@ -309,7 +309,7 @@ Type enough characters to make the prefix unique — `li` for `list`, `lo` for `
 
 #### Case insensitivity
 
-Literal segment matching is case-insensitive. `Contact`, `contact`, and `CONTACT` all resolve to the same route.
+Literal segment matching is case-insensitive. `Client`, `client`, and `CLIENT` all resolve to the same route.
 
 ### Specificity and disambiguation
 
@@ -320,17 +320,17 @@ When multiple routes could match the same input, the framework picks the most sp
 - Routes that match more segments score higher overall
 
 ```csharp
-app.Map("contact list",         static (...) => ...);  // literal "list"
-app.Map("contact {id:int} show", static (...) => ...);  // int param + literal "show"
-app.Map("contact {id:int} remove", static (...) => ...); // int param + literal "remove"
+app.Map("client list",         static (...) => ...);  // literal "list"
+app.Map("client {id:int} show", static (...) => ...);  // int param + literal "show"
+app.Map("client {id:int} remove", static (...) => ...); // int param + literal "remove"
 ```
 
 | Input | Route matched | Reason |
 |-------|---------------|--------|
-| `contact list` | `contact list` | `list` is a literal — scores higher than `{id:int}` for that token |
-| `contact 42 show` | `contact {id:int} show` | `42` satisfies `:int`; literal `show` confirms the route |
-| `co li` | `contact list` | `co` → `contact`, `li` → `list` via prefix expansion |
-| `co 42 sh` | `contact {id:int} show` | `co` → `contact`, `42` → `:int` match, `sh` → `show` |
+| `client list` | `client list` | `list` is a literal — scores higher than `{id:int}` for that token |
+| `client 42 show` | `client {id:int} show` | `42` satisfies `:int`; literal `show` confirms the route |
+| `cl li` | `client list` | `cl` → `client`, `li` → `list` via prefix expansion |
+| `cl 42 sh` | `client {id:int} show` | `cl` → `client`, `42` → `:int` match, `sh` → `show` |
 
 Ambiguity at the route level — two registered routes that could match the same input — is detected at **startup**, not at runtime. The framework throws if the route graph is ambiguous, so it can never occur in production.
 
@@ -339,6 +339,6 @@ Ambiguity at the route level — two registered routes that could match the same
 When input matches nothing and no prefix can be resolved, the framework suggests similar commands using edit distance:
 
 ```text
-> contac lis
-error: no command found. Did you mean: contact list?
+> clien lis
+error: no command found. Did you mean: client list?
 ```

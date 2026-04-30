@@ -52,7 +52,8 @@ using Repl;
 
 var app = ReplApp.Create().UseDefaultInteractive();
 
-app.Map("add {a:int} {b:int}", static (int a, int b) => a + b);
+app.Map("add {a:int} {b:int}", static (int a, int b) => a + b)
+    .WithDescription("Sum two integers");
 
 return app.Run(args);
 ```

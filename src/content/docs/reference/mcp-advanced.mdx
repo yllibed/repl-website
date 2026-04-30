@@ -25,6 +25,8 @@ app.Map("classify {text}",
             return Results.Error("sampling_unavailable",
                 "This tool requires an AI client with sampling support.");
 
+        // Note: `text` is interpolated directly into the prompt.
+        // Cap length and consider structural separation if the source is untrusted.
         var category = await sampling.SampleAsync(
             $"Classify the following text with one word (positive/negative/neutral): \"{text}\"",
             maxTokens: 10,
@@ -54,7 +56,7 @@ public interface IMcpSampling
 
 **Current limitations:** single-message, text-only. The wrapper does not expose system prompts, temperature, model preferences, or multi-turn conversation — those are available in the underlying SDK if you need them.
 
-**Design guidance:** prefer passing all necessary data as route parameters and returning a structured result rather than relying on sampling for core logic. Sampling is best for tasks where LLM judgment genuinely adds value and the command can degrade gracefully without it (as in the CSV import sample in `samples/08-mcp-server`).
+**Design guidance:** prefer passing all necessary data as route parameters and returning a structured result rather than relying on sampling for core logic. Sampling is best for tasks where LLM judgment genuinely adds value and the command can degrade gracefully without it (as in the [CSV import sample](https://github.com/yllibed/repl/tree/main/samples/08-mcp-server) in `samples/08-mcp-server`).
 
 ---
 
@@ -129,20 +131,27 @@ using Repl.Mcp;
 app.Map("read {path}",
     (string path, IMcpClientRoots roots) =>
     {
-        var isUnderRoot = roots.Current.Any(r =>
+        // Compute the canonical path anchored to each root and reuse it at the read site.
+        // Using Path.GetFullPath(path) without a base would anchor on the process CWD,
+        // which diverges from the root-anchored check and creates a traversal bypass.
+        string? safePath = null;
+        foreach (var r in roots.Current)
         {
             var rootPath = r.Uri.LocalPath;
-            // GetRelativePath returns a path starting with ".." if 'path' escapes the root.
-            // Anchoring GetFullPath on rootPath prevents cwd-relative bypass.
-            var rel = Path.GetRelativePath(rootPath, Path.GetFullPath(path, rootPath));
-            return !rel.StartsWith("..", StringComparison.Ordinal) && !Path.IsPathRooted(rel);
-        });
+            var full     = Path.GetFullPath(path, rootPath);
+            var rel      = Path.GetRelativePath(rootPath, full);
+            if (!rel.StartsWith("..", StringComparison.Ordinal) && !Path.IsPathRooted(rel))
+            {
+                safePath = full;
+                break;
+            }
+        }
 
-        if (!isUnderRoot)
+        if (safePath is null)
             return Results.Error("outside_root",
                 $"'{path}' is outside the configured workspace roots.");
 
-        return Results.Text(File.ReadAllText(Path.GetFullPath(path)));
+        return Results.Text(File.ReadAllText(safePath));
     })
     .ReadOnly()
     .WithDescription("Read a file within the workspace.");
@@ -174,7 +183,7 @@ public sealed record McpClientRoot(Uri Uri, string? Name = null);
 
 ### Soft roots — the fallback
 
-Soft roots are a Repl-specific application-level convention — not part of the MCP specification. They exist for clients that don't support the native roots capability. Calling `SetSoftRoots` internally triggers routing invalidation, so any presence predicates depending on root state are re-evaluated.
+Soft roots are a Repl-specific application-level convention — not part of the MCP specification. They exist for clients that don't support the native roots capability. `SetSoftRoots` triggers a routing invalidation; any presence predicates that depend on root state are re-evaluated immediately.
 
 The typical pattern: map a `workspace init` command only when the client has no native roots, and use it to register a soft root:
 
