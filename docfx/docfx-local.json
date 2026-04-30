@@ -1,0 +1,33 @@
+{
+  "metadata": [
+    {
+      "src": [
+        { "files": ["*.csproj"], "src": "C:/src/Repl-Public/src/Repl" },
+        { "files": ["*.csproj"], "src": "C:/src/Repl-Public/src/Repl.Core" },
+        { "files": ["*.csproj"], "src": "C:/src/Repl-Public/src/Repl.Defaults" },
+        { "files": ["*.csproj"], "src": "C:/src/Repl-Public/src/Repl.Mcp" },
+        { "files": ["*.csproj"], "src": "C:/src/Repl-Public/src/Repl.Protocol" },
+        { "files": ["*.csproj"], "src": "C:/src/Repl-Public/src/Repl.Spectre" },
+        { "files": ["*.csproj"], "src": "C:/src/Repl-Public/src/Repl.Testing" },
+        { "files": ["*.csproj"], "src": "C:/src/Repl-Public/src/Repl.WebSocket" },
+        { "files": ["*.csproj"], "src": "C:/src/Repl-Public/src/Repl.Telnet" }
+      ],
+      "dest": "api",
+      "filter": "filterConfig.yml",
+      "includePrivateMembers": false
+    }
+  ],
+  "build": {
+    "content": [
+      { "files": ["index.md", "toc.yml"] },
+      { "files": ["api/**.yml", "api/index.md", "api/toc.yml"] }
+    ],
+    "dest": "../public/api",
+    "globalMetadata": {
+      "_appTitle": "Repl Toolkit API Reference",
+      "_enableSearch": false,
+      "_disableContribution": true
+    },
+    "template": ["default", "modern"]
+  }
+}

@@ -1,0 +1,142 @@
+---
+title: Terminal Integration
+description: ANSI levels, CLI vs TUI, shell autocomplete, response files, and terminal metadata.
+---
+
+Repl Toolkit is designed to work across a wide range of terminal environments — from a basic CI pipe to a full 24-bit color TUI. This page explains how terminal capabilities are detected, negotiated, and used.
+
+## CLI vs TUI
+
+Repl adapts its output style based on how the process is invoked:
+
+| Mode | Input | Output |
+|---|---|---|
+| **CLI** (non-interactive) | `args[]` | Structured, streamed to `stdout` |
+| **Interactive REPL** | Keyboard | VT/ANSI rendering, cursor positioning |
+| **Hosted session** | Network transport | Adapted to terminal capabilities of the client |
+
+In CLI mode, Repl never emits ANSI escape sequences to `stdout` — only plain text or structured formats. Prompts and interactive elements are disabled. This makes CLI output safe for pipes, scripts, and CI.
+
+In interactive mode, Repl reads VT sequences from `stdin` (arrow keys, `Ctrl+C`, etc.) and emits ANSI to `stdout` when the terminal supports it.
+
+## ANSI capability levels
+
+Repl detects the terminal's color and rendering capability at startup:
+
+| Level | Meaning |
+|---|---|
+| `None` | No ANSI, plain text only |
+| `Basic` | 16 colors |
+| `Extended` | 256 colors |
+| `TrueColor` | 24-bit colors |
+
+Detection uses environment variables (`TERM`, `COLORTERM`, `NO_COLOR`, `FORCE_COLOR`) and platform-specific heuristics. Override with `TerminalSessionOverrides` if needed.
+
+The `NO_COLOR` convention is respected: if `NO_COLOR` is set (to any value), Repl disables all ANSI output.
+
+## Terminal width
+
+Repl uses the terminal width for output formatting (table column widths, word wrap, etc.). It's obtained from:
+
+1. `COLUMNS` environment variable (if set)
+2. Console window size query
+3. Telnet NAWS negotiation (hosted Telnet sessions)
+4. DTTERM push resize sequence (WebSocket/SignalR sessions)
+5. Default fallback (80 columns)
+
+The width is re-read on `SIGWINCH` / DTTERM resize events in interactive mode.
+
+## Shell autocomplete
+
+Register completion scripts for your app's executable once:
+
+```bash
+myapp completion install            # auto-detects current shell
+myapp completion install --shell powershell
+myapp completion install --shell bash
+myapp completion install --shell zsh
+myapp completion install --shell fish
+myapp completion install --shell nu
+```
+
+This writes a managed block to the shell's profile file. Tab completion then works for all routes, context segments, and option names.
+
+**Other commands:**
+
+```bash
+myapp completion status             # show current status
+myapp completion uninstall          # remove managed block
+myapp completion detect-shell       # show detected shell
+```
+
+The completion bridge (`completion __complete`) is hidden from help — it's a protocol command used by the shell scripts.
+
+**SetupMode options** (in `ReplOptions.ShellCompletion`):
+
+| Mode | Behavior |
+|---|---|
+| `Manual` (default) | User runs `install` manually |
+| `Prompt` | Offers installation once on first interactive startup |
+| `Auto` | Installs automatically when a supported shell is detected |
+
+## Response files
+
+Any argument prefixed with `@` is a response file:
+
+```bash
+myapp @deploy.rsp
+```
+
+`deploy.rsp`:
+```text
+deploy
+--environment
+production
+--region
+us-east-1
+```
+
+Tokens are read one per line. Useful for long or repeatable invocations. Response files are not recursive.
+
+## Terminal metadata in hosted sessions
+
+Each session carries metadata about the connecting terminal, accessible via `ITerminalContext`:
+
+```csharp
+app.Map("info", (ITerminalContext terminal) => new
+{
+    terminal.Width,
+    terminal.Height,
+    terminal.AnsiSupport,
+    terminal.TransportName,
+    terminal.UserName,
+});
+```
+
+For WebSocket/SignalR sessions, clients can push metadata with the `@@repl:*` convention in their input stream:
+
+```text
+@@repl:width=120;height=40;ansi=truecolor
+```
+
+For Telnet sessions, metadata is negotiated via NAWS (window size, RFC 1073) and TERMINAL-TYPE (RFC 1091).
+
+## Adapting output to terminal capabilities
+
+Handlers can query capabilities to adapt their output:
+
+```csharp
+app.Map("report", (ITerminalContext terminal, IDataStore store) =>
+{
+    if (terminal.Width >= 120)
+        return BuildWideReport(store);
+    else
+        return BuildCompactReport(store);
+});
+```
+
+With `Repl.Spectre`, capability detection is automatic — Spectre.Console degrades gracefully when the terminal doesn't support colors or Unicode.
+
+## Suppressing framework output
+
+In CLI mode, Repl suppresses banners and interactive prompts automatically. For protocol commands (like the completion bridge or MCP server), all framework diagnostics go to `stderr` and structured output goes to `stdout` — making the output safe to pipe.

@@ -6,7 +6,7 @@ head:
   - tag: title
     content: Repl Toolkit — .NET Command Surface Framework
 hero:
-  tagline: One command graph. CLI, REPL, remote sessions, and AI agents — all from the same code.
+  tagline: Map your commands like ASP.NET Core routes. Run them as a CLI tool, an interactive REPL, hosted sessions, or MCP tools for AI agents — all from the same code.
   actions:
     - text: Get Started
       link: /getting-started/installation/
@@ -18,28 +18,28 @@ hero:
       variant: minimal
 ---
 
-import { Card, CardGrid, Tabs, TabItem, Badge, Code, Steps } from '@astrojs/starlight/components';
+import { Card, CardGrid, Tabs, TabItem, Badge, LinkButton } from '@astrojs/starlight/components';
 
-## Define once. Run everywhere.
+## One graph. Every surface.
 
 <CardGrid stagger>
-	<Card title="CLI mode" icon="terminal">
-		Ship a polished command-line tool with typed parameters, constraints, help, and JSON/YAML output — no argument-parsing library needed.
+	<Card title="Familiar minimal-API style" icon="seti:config">
+		`app.Map("user {id:int}", handler)` — typed routes, constraints, parameter binding, and structured output. If you've used ASP.NET Core minimal APIs, you already know the pattern.
 	</Card>
-	<Card title="Interactive REPL" icon="forward-slash">
-		The same command graph runs interactively with scoped navigation, history, autocomplete, and a context-aware prompt.
+	<Card title="CLI + REPL from the same graph" icon="terminal">
+		Pass arguments: one-shot CLI with `--json`, `--xml`, `--yaml` output and `--help` at every level. No arguments: an interactive REPL with scoped navigation, history, and autocomplete.
 	</Card>
-	<Card title="Remote sessions" icon="laptop">
-		Host sessions over WebSocket or Telnet. Each client gets its own scope, state, and terminal metadata.
+	<Card title="Hosted sessions" icon="laptop">
+		The same command surface runs over WebSocket or Telnet. Multiple concurrent sessions, each with its own scope. Add it to an ASP.NET Core app with `app.MapReplWebSocket("/repl")`.
 	</Card>
-	<Card title="MCP tools for AI agents" icon="puzzle">
-		One line — `app.UseMcpServer()` — exposes every command as an MCP tool. Add MCP Apps UI resources for capable clients.
+	<Card title="AI-ready in one line" icon="puzzle">
+		`app.UseMcpServer()` exposes every command as an MCP tool. Add resources, prompts, and MCP Apps UI surfaces for capable clients like Claude.
 	</Card>
-	<Card title="Testable by design" icon="approve-check">
-		`Repl.Testing` provides an in-memory multi-session harness. Run full interaction sequences in unit tests with typed assertions.
+	<Card title="Zero-dependency core" icon="approve-check-circle">
+		`Repl.Core` has zero NuGet dependencies. Build embedded command surfaces in strict environments. Compose only what you need.
 	</Card>
-	<Card title="Spectre.Console integration" icon="list-format">
-		Rich tables, charts, progress bars, and prompts via `Repl.Spectre` — same command handlers, richer output.
+	<Card title="Test every interaction path" icon="approve-check">
+		`Repl.Testing` runs your full command graph in memory — multi-session, multi-step, with a typed assertion API. Test prompts, scoped navigation, and MCP tools without a real terminal.
 	</Card>
 </CardGrid>
 
@@ -50,7 +50,7 @@ dotnet add package Repl
 ```
 
 <Tabs>
-<TabItem label="Write commands">
+<TabItem label="Define commands">
 ```csharp
 using Repl;
 
@@ -58,69 +58,104 @@ var app = ReplApp.Create().UseDefaultInteractive();
 
 app.Context("client", client =>
 {
-    client.Map("list", () => new { Clients = new[] { "ACME", "Globex" } });
+    client.Map("list", (IClientStore store) => store.All());
 
     client.Context("{id:int}", scoped =>
     {
-        scoped.Map("show", (int id) => new { Id = id, Name = "ACME" });
-        scoped.Map("remove", (int id) => Results.Cancelled($"Remove {id} cancelled."));
+        scoped.Map("show", (int id, IClientStore store) => store.Get(id));
+        scoped.Map("remove", (int id, IClientStore store) =>
+        {
+            store.Remove(id);
+            return Results.Success($"Removed {id}.");
+        });
     });
 });
 
 return app.Run(args);
 ```
 </TabItem>
-<TabItem label="CLI mode">
+<TabItem label="CLI">
 ```text
 $ myapp client list --json
-{
-  "clients": ["ACME", "Globex"]
-}
+[{ "id": 1, "name": "ACME" }, { "id": 2, "name": "Globex" }]
 
-$ myapp client 42 show --json
-{ "id": 42, "name": "ACME" }
+$ myapp client 42 show
+Id:   42
+Name: ACME
+
+$ myapp client --help
+Commands:
+  client list
+  client {id} show
+  client {id} remove
 ```
 </TabItem>
-<TabItem label="REPL mode">
+<TabItem label="REPL">
 ```text
 $ myapp
-> client 42 show --json
-{ "id": 42, "name": "ACME" }
-
 > client
 [client]> list
-ACME
-Globex
+ACME  (1)
+Globex  (2)
 
-[client]> ..
-> 
+[client]> 42
+[client/42]> show
+Id:   42
+Name: ACME
+
+[client/42]> ..
+[client]> 
 ```
 </TabItem>
-<TabItem label="MCP mode">
+<TabItem label="MCP (one line)">
 ```csharp
 using Repl.Mcp;
-
-app.UseMcpServer();  // add one line
+app.UseMcpServer();  // every Map(...) becomes an MCP tool
 ```
 
 ```json
-{ "command": "myapp", "args": ["mcp", "serve"] }
+{
+  "mcpServers": {
+    "myapp": { "command": "myapp", "args": ["mcp", "serve"] }
+  }
+}
 ```
 
-Every `Map(...)` call becomes an MCP tool, discoverable by any MCP-compatible AI agent.
+Every command is now discoverable as an MCP tool — the AI agent calls `client list`, `client 42 show`, etc. directly.
 </TabItem>
 </Tabs>
 
-## Packages
+## Where to go next
 
-| Package | What it does |
-|---------|-------------|
-| [`Repl`](https://www.nuget.org/packages/Repl) <Badge text="start here" variant="tip" /> | Meta-package: Core + Defaults + Protocol |
-| [`Repl.Core`](https://www.nuget.org/packages/Repl.Core) | Routing, binding, constraints, output formats |
-| [`Repl.Defaults`](https://www.nuget.org/packages/Repl.Defaults) | DI-enabled facade, interactive REPL, CLI profile |
-| [`Repl.Mcp`](https://www.nuget.org/packages/Repl.Mcp) | MCP server — tools, resources, prompts, MCP Apps |
-| [`Repl.Spectre`](https://www.nuget.org/packages/Repl.Spectre) | Spectre.Console rich output and prompts |
-| [`Repl.WebSocket`](https://www.nuget.org/packages/Repl.WebSocket) | WebSocket session host |
-| [`Repl.Telnet`](https://www.nuget.org/packages/Repl.Telnet) | Telnet session host |
-| [`Repl.Testing`](https://www.nuget.org/packages/Repl.Testing) | In-memory multi-session test harness |
-| [`Repl.Protocol`](https://www.nuget.org/packages/Repl.Protocol) | Machine-readable help and error contracts |
+<CardGrid>
+	<Card title="Getting Started" icon="rocket">
+		Install the package, write your first app, and understand the three execution modes in 10 minutes.
+
+		[Start here →](/getting-started/installation/)
+	</Card>
+	<Card title="Cookbook" icon="open-book">
+		Eight recipes from core routing to MCP servers, each backed by a full runnable sample.
+
+		[Browse recipes →](/cookbook/core-basics/)
+	</Card>
+	<Card title="Concepts" icon="information">
+		Routes and constraints, modules, DI, terminal integration, and best practices.
+
+		[Read the docs →](/reference/architecture/)
+	</Card>
+	<Card title="API Reference" icon="list-format">
+		Complete generated API reference from the `Repl.*` assemblies.
+
+		[Browse API →](/api/index.html)
+	</Card>
+</CardGrid>
+
+## The full story
+
+Start with `dotnet add package Repl`. That single package gives you routing, typed parameter binding, an interactive REPL, CLI dispatch, and JSON/XML/YAML/Markdown output — no other dependencies required.
+
+When your users need AI-agent access, add `Repl.Mcp` and call `app.UseMcpServer()`. Every command becomes an MCP tool with no handler changes. Add `Repl.Spectre` to upgrade all output and prompts to Spectre.Console richness — again, zero handler changes.
+
+Test the whole thing with `Repl.Testing`: an in-memory harness that runs full multi-step interaction sequences, including prompts and scoped navigation, with typed assertions.
+
+If you're embedding Repl in a constrained environment, `Repl.Core` is the zero-dependency foundation — pull only what you need.

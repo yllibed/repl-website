@@ -1,0 +1,218 @@
+---
+title: Best Practices & FAQ
+description: Patterns, pitfalls, and answers to common questions when building with Repl Toolkit.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+## Command graph design
+
+### Prefer a noun-verb shape
+
+Model your graph as `<noun> <verb>` (or `<noun> <id> <verb>` for scoped resources). This mirrors how users think and makes help output self-explaining.
+
+```csharp
+// Good — noun-verb
+app.Context("contact", contact =>
+{
+    contact.Map("list", ...);
+    contact.Context("{id:int}", scoped =>
+    {
+        scoped.Map("show", ...);
+        scoped.Map("edit {name}", ...);
+        scoped.Map("delete", ...);
+    });
+});
+
+// Avoid — verb-noun (harder to navigate in REPL)
+app.Map("list-contacts", ...);
+app.Map("show-contact {id:int}", ...);
+```
+
+### Keep routes flat where depth isn't meaningful
+
+Don't introduce a context just to group commands — only do it when the nesting represents a real navigation boundary (entering a specific entity's scope, changing the "current" object).
+
+### Use modules for anything reused
+
+The moment you write the same `Map(...)` in two places, extract it into a module. See [Modules](/reference/modules/).
+
+---
+
+## Mapping
+
+### Use typed constraints
+
+Constraints give you validation for free:
+
+```csharp
+// Validated at parse time — handler only runs for valid integers
+app.Map("user {id:int}", (int id) => ...);
+
+// Not validated — handler gets whatever the user typed
+app.Map("user {id}", (string id) => int.Parse(id));  // parse error at runtime instead
+```
+
+Full constraint table: [Routes & Parameters](/reference/routes-and-parameters/).
+
+### Use static lambdas
+
+Static lambdas prevent accidental captures and make the framework's expression compilation more efficient:
+
+```csharp
+app.Map("list", static (IStore store) => store.All());   // good
+app.Map("list", () => store.All());                       // captures — avoid
+```
+
+### Return semantic types, not strings
+
+Return objects and let Repl format them. Use `Results.*` for control flow:
+
+```csharp
+// Good
+app.Map("show {id:int}", (int id, IStore store) => store.Get(id));       // renders as table or JSON
+app.Map("delete {id:int}", (int id, IStore store) =>
+{
+    store.Delete(id);
+    return Results.Success($"Deleted {id}.");
+});
+
+// Avoid
+app.Map("show {id:int}", (int id, IStore store) => store.Get(id)?.ToString() ?? "not found");
+```
+
+### Don't map administrative commands as the default route
+
+The empty route (`""`) or very short routes are easy to trigger accidentally in REPL mode. Put admin/destructive commands behind a context or prefix:
+
+```csharp
+app.Context("admin", admin =>
+{
+    admin.Map("purge", ...);  // user must type 'admin purge', not just 'purge'
+})
+.WithChannelFilter(c => c.IsLocalConsole);
+```
+
+---
+
+## Documenting commands
+
+### Use `[Description]` on handlers and parameters
+
+It's the only work you need to do to get good `--help` output and MCP tool descriptions:
+
+```csharp
+[Description("List all contacts, optionally filtered by name")]
+public IEnumerable<Contact> List(
+    [Description("Name to filter by (substring match)")] string? filter = null)
+{
+    return filter is null ? _store.All() : _store.Where(c => c.Name.Contains(filter));
+}
+```
+
+### Use `.WithDescription(...)` on lambda handlers
+
+```csharp
+app.Map("list", (IStore store) => store.All())
+    .WithDescription("List all contacts");
+```
+
+### Write the description for both humans and agents
+
+The same description is shown in `--help` and sent to MCP clients as the tool description. Write it as a complete sentence that explains what the command does, not just its name.
+
+### Use `.WithBanner(...)` for the interactive startup message
+
+Give users a quick hint at what commands are available when they enter REPL mode:
+
+```csharp
+app.WithBanner("Try: contacts list, contacts add, contacts 1 show");
+```
+
+---
+
+## DI and services
+
+### Inject, don't capture
+
+Never close over a service instance — inject it as a handler parameter. See [Dependency Injection](/reference/dependency-injection/).
+
+### Use `AddScoped` for per-session state in hosted sessions
+
+If you're building a hosted session app, per-user state (cart, auth context, cursor) should be `Scoped`:
+
+```csharp
+builder.Services.AddScoped<IUserSession, UserSession>();
+```
+
+In CLI mode, "scoped" means per invocation — it's still correct, just not significant.
+
+---
+
+## Testing
+
+### Write tests first
+
+`Repl.Testing` makes test-first practical for CLI commands. Write the test that asserts the behavior, then implement it.
+
+```csharp
+[TestMethod]
+[Description("Adding a contact via the add command persists it and returns its ID.")]
+public async Task When_AddContact_Then_ContactPersistedAndIdReturned()
+{
+    await using var session = await host.CreateSessionAsync();
+
+    var result = await session.ExecuteAsync<Contact>("contacts add Alice alice@example.com");
+
+    result.Name.Should().Be("Alice");
+
+    var list = await session.ExecuteAsync<IEnumerable<Contact>>("contacts list");
+    list.Should().ContainSingle(c => c.Name == "Alice");
+}
+```
+
+### Test the interaction, not the handler
+
+Test at the command level (full route → output), not at the handler method level. This catches routing bugs, binding bugs, and output formatting issues that unit-testing the handler method alone won't catch.
+
+### Use `AnswerQueue` for interactive commands
+
+```csharp
+session.AnswerQueue.Enqueue("Alice");
+session.AnswerQueue.Enqueue("alice@example.com");
+await session.ExecuteAsync("contacts add");  // prompts are answered from the queue
+```
+
+---
+
+## FAQ
+
+**Q: Should I use `ReplApp` or `CoreReplApp`?**
+
+Use `ReplApp` (from the `Repl` meta-package) unless you're in an environment where DI is unavailable or you want zero dependencies. `CoreReplApp` (from `Repl.Core`) is the dependency-free base — great for embedding in a larger host.
+
+**Q: Can I mix CLI and REPL mode in tests?**
+
+Yes. `Repl.Testing` runs commands in a session context, which is equivalent to REPL mode. For CLI-mode-specific behavior (no prompts, plain output), pass `ChannelType.Cli` when creating the test session.
+
+**Q: How do I hide a command from help but keep it runnable?**
+
+Decorate the handler with `[Browsable(false)]`. The command still runs if invoked directly but doesn't appear in `--help` or discovery.
+
+**Q: How do I show a command only in local interactive mode?**
+
+```csharp
+.WithChannelFilter(c => c.IsLocalConsole && !c.IsAutomation)
+```
+
+**Q: My MCP client doesn't see my commands. Why?**
+
+Make sure `app.UseMcpServer()` is called before `app.Run(args)`, and that the MCP server is started with `myapp mcp serve`. Use `myapp mcp list-tools` to verify which commands are exposed.
+
+**Q: How do I version my command surface?**
+
+Route under a version prefix: `app.Context("v2", v2 => { ... })`. For backward compatibility in MCP, keep old tools alive alongside new ones using `.WithAnnotations(new McpToolAnnotations { Deprecated = true })`.
+
+**Q: Can I use Repl in an ASP.NET Core app alongside HTTP endpoints?**
+
+Yes. `ReplApp.CreateBuilder()` integrates with `WebApplicationBuilder`. Your HTTP endpoints and REPL commands share the same DI container and the same `IServiceProvider`.

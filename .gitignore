@@ -27,3 +27,4 @@ docfx/_site/
 
 # Playwright MCP output
 .playwright-mcp/
+public/api/

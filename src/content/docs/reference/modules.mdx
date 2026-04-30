@@ -1,0 +1,154 @@
+---
+title: Modules
+description: Composable command sets, dynamic routes, and conditional presence.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Modules are the primary composition unit in Repl Toolkit. A module is a self-contained set of commands that can be registered at any point in the command graph — once, or under multiple contexts.
+
+## What is a module?
+
+Any method or class that calls `Map(...)` and `Context(...)` on an `IReplMap` is a module. There's no base class or interface to implement — it's a convention, not a framework type.
+
+```csharp
+// A simple module as a static method
+static void RegisterCrudCommands<T>(IReplMap map, IStore<T> store) where T : IEntity
+{
+    map.Map("list", () => store.All());
+    map.Map("show {id:int}", (int id) => store.Get(id));
+    map.Map("delete {id:int}", (int id) =>
+    {
+        store.Delete(id);
+        return Results.Success($"Deleted {id}.");
+    });
+}
+```
+
+Register it anywhere in the graph:
+
+```csharp
+app.Context("contacts", contacts => RegisterCrudCommands(contacts, contactStore));
+app.Context("products", products => RegisterCrudCommands(products, productStore));
+```
+
+Both `contacts` and `products` now expose `list`, `show`, and `delete` — without copy-pasting routes.
+
+## `MapModule` for class-based modules
+
+Use `app.MapModule(...)` with a class that implements `IReplModule`:
+
+```csharp
+public class AuditModule : IReplModule
+{
+    private readonly IAuditLog _log;
+
+    public AuditModule(IAuditLog log) => _log = log;
+
+    public void Register(IReplMap map)
+    {
+        map.Map("audit list", () => _log.All());
+        map.Map("audit clear", () =>
+        {
+            _log.Clear();
+            return Results.Success("Audit log cleared.");
+        });
+    }
+}
+```
+
+```csharp
+app.MapModule<AuditModule>();  // DI resolves the constructor
+```
+
+## Dynamic context routes
+
+A context factory receives the captured route values and can do work before returning the command registrar. This is the canonical pattern for "enter scope, validate, then expose commands":
+
+```csharp
+app.Context("project {id:int}", (int id, IProjectStore store) =>
+{
+    var project = store.Get(id)
+        ?? throw new KeyNotFoundException($"Project {id} not found.");
+
+    return (IReplMap scoped) =>
+    {
+        scoped.Map("show", () => project);
+        scoped.Map("archive", () =>
+        {
+            project.Archive();
+            store.Save(project);
+            return Results.Success($"Archived '{project.Name}'.");
+        });
+    };
+});
+```
+
+The outer factory runs once when the scope is entered. All commands inside the returned lambda close over the resolved `project` — they don't re-fetch on every invocation.
+
+This pattern is also where you enforce access control: throw or return `Results.Error(...)` from the factory to block entry.
+
+## Conditional module presence
+
+Mount a module only when a condition is met at invocation time:
+
+```csharp
+app.MapModule(
+    new AdminModule(),
+    context =>
+        context.Channel != ReplRuntimeChannel.Session   // not in hosted sessions
+        && context.SessionState.TryGet<bool>("auth.admin", out var isAdmin)
+        && isAdmin);
+```
+
+Or with DI-injected predicates:
+
+```csharp
+app.MapModule(
+    new AdminModule(),
+    (IAuthService auth, ReplRuntimeChannel channel) =>
+        channel == ReplRuntimeChannel.Interactive && auth.IsAdmin());
+```
+
+`ModulePresenceContext` provides:
+- `Channel`: `Cli`, `Interactive`, or `Session`
+- `SessionState`: current mutable session state
+- `SessionInfo`: current read-only session metadata
+
+## Channel-specific commands
+
+Use `.WithChannelFilter(...)` on individual routes instead of wrapping a whole module:
+
+```csharp
+app.Map("debug reset", () => store.Clear())
+    .WithChannelFilter(c => c.IsLocalConsole && !c.IsAutomation);
+
+app.Map("contacts dashboard", BuildDashboard)
+    .WithChannelFilter(c => c.IsMcp)
+    .AsMcpAppResource();
+```
+
+## Composing modules with modules
+
+Modules can register other modules — compose freely:
+
+```csharp
+public class ContactsModule : IReplModule
+{
+    public void Register(IReplMap map)
+    {
+        map.Context("contacts", contacts =>
+        {
+            RegisterCrud(contacts);
+            RegisterAudit(contacts, "contact");
+            RegisterImportExport(contacts);
+        });
+    }
+}
+```
+
+There's no depth limit and no performance penalty — routes are compiled at startup.
+
+<Aside type="tip">
+Modules are the answer to "how do I avoid duplicating command registrations?" Reach for them as soon as you see the same `Map(...)` calls appearing in two places.
+</Aside>

@@ -37,12 +37,22 @@ export default defineConfig({
 					],
 				},
 				{
+					label: 'Concepts',
+					items: [
+						{ label: 'Routes & Parameters', slug: 'reference/routes-and-parameters' },
+						{ label: 'Modules', slug: 'reference/modules' },
+						{ label: 'Dependency Injection', slug: 'reference/dependency-injection' },
+						{ label: 'Terminal Integration', slug: 'reference/terminal-integration' },
+						{ label: 'Architecture', slug: 'reference/architecture' },
+					],
+				},
+				{
 					label: 'Reference',
 					items: [
-						{ label: 'API Reference', link: '/api/' },
-						{ label: 'Architecture', slug: 'reference/architecture' },
+						{ label: 'API Reference', link: '/api/index.html' },
 						{ label: 'Configuration', slug: 'reference/configuration' },
 						{ label: 'Packages', slug: 'reference/packages' },
+						{ label: 'Best Practices & FAQ', slug: 'reference/best-practices' },
 					],
 				},
 			],

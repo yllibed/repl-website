@@ -1,0 +1,141 @@
+---
+title: Dependency Injection
+description: How DI works in Repl Toolkit — service registration, handler injection, context values, and global options.
+---
+
+Repl Toolkit uses **Microsoft.Extensions.DependencyInjection** through `ReplApp` (the `Repl.Defaults` package). `Repl.Core` (`CoreReplApp`) has no DI container — services are passed explicitly.
+
+## Service registration
+
+```csharp
+var builder = ReplApp.CreateBuilder();
+
+builder.Services.AddSingleton<IContactStore, InMemoryContactStore>();
+builder.Services.AddSingleton(typeof(IStore<>), typeof(InMemoryStore<>));  // open generic
+builder.Services.AddScoped<ICurrentUser, HttpContextUser>();               // per-session
+
+var app = builder.Build().UseDefaultInteractive();
+```
+
+Or with the factory overload:
+
+```csharp
+var app = ReplApp.Create(services =>
+{
+    services.AddSingleton<IContactStore, InMemoryContactStore>();
+}).UseDefaultInteractive();
+```
+
+## Injecting into handlers
+
+Handler parameters that match registered services are injected automatically. No attribute is needed:
+
+```csharp
+app.Map("list", (IContactStore store) => store.All());
+
+app.Map("add {name} {email:email}",
+    (string name, string email, IContactStore store) =>
+    {
+        store.Add(name, email);
+        return Results.Success($"Added {name}.");
+    });
+```
+
+Repl resolves parameters in a specific order — route values, then options, then DI. If a parameter name matches a route segment, it gets the route value. Otherwise Repl tries DI.
+
+Use `[FromServices]` to force DI resolution when disambiguation is needed:
+
+```csharp
+app.Map("show {id}", ([FromServices] IContactStore store, int id) => store.Get(id));
+```
+
+## Context values and `[FromContext]`
+
+Route values from parent contexts are available in child scopes via `[FromContext]`:
+
+```csharp
+app.Context("project {id:int}", project =>
+{
+    project.Map("status",
+        ([FromContext] int id, IProjectService svc) => svc.GetStatus(id));
+
+    project.Map("archive",
+        ([FromContext] int id, IProjectService svc) =>
+        {
+            svc.Archive(id);
+            return Results.Success();
+        });
+});
+```
+
+`[FromContext]` binds by parameter name matching the route segment name.
+
+## Prefer static lambdas
+
+Use `static` lambdas to avoid accidental closures. All services should be injected, not captured:
+
+```csharp
+// Good — static, services injected
+app.Map("list", static (IContactStore store) => store.All());
+
+// Avoid — captures 'store' from outer scope
+var store = new ContactStore();
+app.Map("list", () => store.All());
+```
+
+Static lambdas enable expression tree compilation and make handlers independently testable.
+
+## Service lifetimes in Repl
+
+| Lifetime | Scope in Repl |
+|---|---|
+| `Singleton` | Shared across all sessions and all commands |
+| `Scoped` | One instance per session (in hosted sessions) or per invocation (in CLI mode) |
+| `Transient` | New instance per command handler invocation |
+
+Use `Scoped` for per-user state in hosted sessions (shopping cart, authentication context, cursor position). Use `Singleton` for shared data stores.
+
+## Global options
+
+Global options are flags available on every command invocation, parsed before the route:
+
+```csharp
+app.Options(o =>
+{
+    o.Parsing.AddGlobalOption<string>("tenant");
+    o.Parsing.AddGlobalOption<bool>("verbose");
+});
+```
+
+Access them in DI factory registrations:
+
+```csharp
+builder.Services.AddSingleton<ITenantClient>(sp =>
+{
+    var globals = sp.GetRequiredService<IGlobalOptionsAccessor>();
+    return new TenantClient(globals.GetValue<string>("tenant", "default")!);
+});
+```
+
+For many global options, use a typed class:
+
+```csharp
+app.UseGlobalOptions<MyGlobalOptions>();
+
+// then inject anywhere
+app.Map("info", (MyGlobalOptions opts) => opts);
+```
+
+**Note:** Singleton factories are resolved once. If a global option can change between REPL commands (e.g. `--tenant` can be toggled interactively), inject `IGlobalOptionsAccessor` directly and read at call time rather than in the factory.
+
+## Modules and DI
+
+`IReplModule` implementations are resolved from DI:
+
+```csharp
+builder.Services.AddSingleton<AuditModule>();
+// ...
+app.MapModule<AuditModule>();
+```
+
+This lets modules declare their own dependencies in constructors — the same way any other DI service does.

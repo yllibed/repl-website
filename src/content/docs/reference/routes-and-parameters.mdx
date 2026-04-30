@@ -1,0 +1,173 @@
+---
+title: Routes & Parameters
+description: How route templates, constraints, type inference, and parameter binding work in Repl Toolkit.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+## Route templates
+
+A route template is the string you pass to `app.Map(...)`. It defines both the command name and how input tokens are bound to handler parameters.
+
+```csharp
+app.Map("user {id:int}", handler);         // static + one dynamic segment
+app.Map("file {path:uri}", handler);       // typed constraint
+app.Map("search {query}", handler);        // untyped, defaults to string
+app.Map("archive {date?}", handler);       // optional trailing segment
+app.Map("client {id} show", handler);      // dynamic segment in the middle
+```
+
+Segments are separated by spaces. Static segments must match literally. Dynamic segments (`{name}`) capture an input token.
+
+### Constraints
+
+Constraints enforce the type of a segment at parse time. An invalid value is rejected before your handler runs.
+
+| Constraint | .NET Type | Examples accepted |
+|---|---|---|
+| `string` (default) | `string` | any token |
+| `alpha` | `string` | letters only |
+| `int` | `int` | `42`, `1_000` |
+| `long` | `long` | `1000000` |
+| `bool` | `bool` | `true`, `false` |
+| `double` | `double` | `3.14`, `-0.5` |
+| `guid` | `Guid` | `123e4567-e89b-...` |
+| `email` | `string` | `user@example.com` |
+| `uri` | `Uri` | `https://example.com` |
+| `url` | `Uri` | `https://` with valid host |
+| `date` | `DateOnly` | `2024-01-15` |
+| `datetime` | `DateTime` | `2024-01-15T10:30` |
+| `timespan` | `TimeSpan` | `2h30m`, `30d` |
+
+Write the constraint after a colon: `{id:int}`, `{email:email}`, `{when:date}`.
+
+### Type inference
+
+If you omit the constraint, Repl infers it from the handler parameter type:
+
+```csharp
+app.Map("user {id}", (int id) => ...);       // :int inferred
+app.Map("open {path}", (Uri path) => ...);   // :uri inferred
+app.Map("since {d}", (DateOnly d) => ...);   // :date inferred
+```
+
+Implicit types not available as constraint names: `FileInfo`, `DirectoryInfo`, `ReplDateRange`, `ReplDateTimeRange`.
+
+### Optional segments
+
+Optional segments must be at the end:
+
+```csharp
+app.Map("list {page?}", (int? page) => ...);
+```
+
+### Custom constraints
+
+```csharp
+app.Options(o => o.Parsing.AddRouteConstraint("ipv4", value =>
+    System.Net.IPAddress.TryParse(value, out var addr) &&
+    addr.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork));
+
+app.Map("connect {host:ipv4}", (string host) => ...);
+```
+
+### Temporal ranges
+
+`ReplDateRange` (and `ReplDateTimeRange`, `ReplDateTimeOffsetRange`) accept human-friendly intervals:
+
+```csharp
+app.Map("logs {range}", (ReplDateRange range) =>
+    GetLogs(range.From, range.To));
+```
+
+```text
+myapp logs 2024-01-01..2024-03-31     # start..end
+myapp logs 2024-01-01@30d             # start + duration
+```
+
+---
+
+## Parameter binding
+
+Handler parameters are resolved in this order:
+
+1. **`CancellationToken`** — injected from the execution context
+2. **Explicit attributes** — `[FromServices]`, `[FromContext]`
+3. **Options groups** — classes decorated with `[ReplOptionsGroup]`
+4. **Route values** — captured from dynamic segments
+5. **Named options** — `--option value` syntax
+6. **DI services** — resolved from the container
+7. **Positional arguments** — remaining tokens consumed left-to-right
+8. **Parameter defaults** — C# default values
+9. **`null`** — for nullable types with no other source
+
+### Named options syntax
+
+Options can be written as `--name value`, `--name=value`, or `--name:value`. Option parsing is case-sensitive by default.
+
+```text
+myapp report --format json --limit 50
+```
+
+```csharp
+app.Map("report", (string format = "text", int limit = 20) => ...);
+```
+
+### Options groups — reusable parameter sets
+
+When multiple commands share the same options, extract them into a class:
+
+```csharp
+[ReplOptionsGroup]
+public class PagingOptions
+{
+    [ReplOption(Aliases = ["-n"])]
+    public int Limit { get; set; } = 20;
+
+    public int Page { get; set; } = 1;
+}
+
+app.Map("list", (PagingOptions paging, IStore store) => store.Page(paging.Page, paging.Limit));
+app.Map("search {q}", (string q, PagingOptions paging, IStore store) => store.Search(q, paging));
+```
+
+Both commands now share `--limit`, `-n`, and `--page` without duplicating them.
+
+### Response files
+
+Any argument starting with `@` is treated as a response file. Tokens are read from the file, one per line:
+
+```bash
+myapp @opts.rsp
+# opts.rsp contains:
+# report
+# --format
+# json
+# --limit
+# 50
+```
+
+Useful for long or repeatable invocations. Response files are non-recursive.
+
+### Binding mode per parameter
+
+| Mode | Accepts |
+|---|---|
+| `OptionAndPositional` (default) | `--name value` or positional |
+| `OptionOnly` | `--name value` only |
+| `ArgumentOnly` | positional only |
+
+Override with `[ReplOption(Mode = ReplParameterMode.OptionOnly)]` or `[ReplArgument(Mode = ...)]`.
+
+---
+
+## Route resolution
+
+When the user types a command, Repl scores all registered routes:
+
+- **Static segments** score higher than dynamic ones
+- The best-scoring match wins
+- Ambiguous matches report alternatives
+- No match: the framework suggests similar commands (Levenshtein distance)
+
+Context routes are resolved relative to the current scope — the same segment string can mean different things at different depths.
