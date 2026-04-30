@@ -19,6 +19,26 @@ app.Map("client {id} show", handler);      // dynamic segment in the middle
 
 Segments are separated by spaces. Static segments must match literally. Dynamic segments (`{name}`) capture an input token.
 
+### Multiple dynamic segments
+
+A route can contain any number of dynamic segments, at any position. Each one is bound independently by name to the matching handler parameter:
+
+```csharp
+// Two consecutive parameters
+app.Map("settings set {key} {value}", static (string key, string value) => ...);
+
+// Typed parameters at different positions
+app.Map("log {from:date} {to:date}", static (DateOnly from, DateOnly to) => ...);
+
+// Dynamic between two literals
+app.Map("order {id:int} tag {label}", static (int id, string label) => ...);
+
+// Multiple optional trailing parameters
+app.Map("contact add {name?} {email?:email}", static (string? name, string? email) => ...);
+```
+
+There is no limit on the number of dynamic segments. Optional segments are the only ones that must be at the end — required segments can appear anywhere.
+
 ### Constraints
 
 Constraints enforce the type of a segment at parse time. An invalid value is rejected before your handler runs.
@@ -102,6 +122,86 @@ See [Built-in Types & Formats](/reference/data-types/#temporal-range-types) for 
 
 ---
 
+## Contexts
+
+`app.Context(...)` defines a navigable scope. Every `app.Map(...)` inside it produces a route prefixed by the context template.
+
+```csharp
+app.Context("client", client =>
+{
+    client.Map("list", static (IClientStore store) => store.All());
+    client.Map("{id:int} show", static (int id, IClientStore store) => store.Get(id));
+    client.Map("{id:int} remove", static (int id, IClientStore store) =>
+    {
+        store.Remove(id);
+        return Results.Success($"Removed client {id}.");
+    });
+});
+```
+
+This registers three complete routes: `client list`, `client {id:int} show`, `client {id:int} remove`.
+
+**CLI** — type the full path every time:
+```text
+myapp client list
+myapp client 42 show
+myapp client 42 remove
+```
+
+**REPL** — navigate into the context once; subsequent commands omit the prefix:
+```text
+> client
+[client]> list
+[client]> 42 show
+[client]> 42 remove
+[client]> ..
+>
+```
+
+Both modes resolve the same underlying routes — the REPL just holds the prefix in the session state.
+
+### Dynamic contexts
+
+A context template can itself contain dynamic segments. The captured value is visible to every handler inside the scope:
+
+```csharp
+app.Context("client {id:int}", client =>
+{
+    client.Map("show",   static (int id, IClientStore store) => store.Get(id));
+    client.Map("remove", static (int id, IClientStore store) => store.Remove(id));
+});
+```
+
+Full routes: `client {id:int} show` and `client {id:int} remove`. The `id` value is bound once (at context entry) and available to all inner handlers.
+
+In the REPL, `client 42` enters `[client/42]>` and binds `id = 42` for the rest of the session at that depth.
+
+### Nested contexts
+
+Contexts can nest freely. Flat routes and nested routes are equivalent — the two forms register the same paths:
+
+```csharp
+// Nested form
+app.Context("client", client =>
+{
+    client.Map("list", ...);
+    client.Context("{id:int}", c =>
+    {
+        c.Map("show", ...);
+        c.Map("remove", ...);
+    });
+});
+
+// Flat form — identical routes
+app.Map("client list", ...);
+app.Map("client {id:int} show", ...);
+app.Map("client {id:int} remove", ...);
+```
+
+Choose the nested form when you want REPL navigation depth; use the flat form when a shallow command graph is sufficient.
+
+---
+
 ## Parameter binding
 
 Handler parameters are resolved in this order:
@@ -178,11 +278,67 @@ Override with `[ReplOption(Mode = ReplParameterMode.OptionOnly)]` or `[ReplArgum
 
 ## Route resolution
 
-When the user types a command, Repl scores all registered routes:
+### Prefix matching
 
-- **Static segments** score higher than dynamic ones
-- The best-scoring match wins
-- Ambiguous matches report alternatives
-- No match: the framework suggests similar commands (Levenshtein distance)
+You never have to type full command names. Before routing, the framework expands each segment to its unique prefix match. This works identically in CLI and REPL modes.
 
-Context routes are resolved relative to the current scope — the same segment string can mean different things at different depths.
+```text
+myapp co li         # → contact list
+myapp co 42 sh      # → contact 42 show
+```
+
+In the REPL:
+```text
+> co                # enters [client] context
+[client]> li        # runs list
+[client]> 42 sh     # runs 42 show
+```
+
+Prefix expansion is **position-aware**: `li` is matched against the candidates reachable at that position in the command tree, not against every route globally. This means the same abbreviation can mean different things at different depths.
+
+#### Ambiguous prefixes
+
+If two candidates share the same prefix at the same position, the framework reports an error listing all matches:
+
+```text
+> contact l
+error: ambiguous prefix "l" — matches: list, load
+```
+
+Type enough characters to make the prefix unique — `li` for `list`, `lo` for `load`.
+
+#### Case insensitivity
+
+Literal segment matching is case-insensitive. `Contact`, `contact`, and `CONTACT` all resolve to the same route.
+
+### Specificity and disambiguation
+
+When multiple routes could match the same input, the framework picks the most specific one. Specificity is determined by a scoring system:
+
+- **Literal segments** score highest — `list` beats `{id}` for the token `"list"`
+- **Typed dynamic segments** score by constraint specificity: `int` > `long` > `guid` > `bool` > `alpha` > `string`
+- Routes that match more segments score higher overall
+
+```csharp
+app.Map("contact list",         static (...) => ...);  // literal "list"
+app.Map("contact {id:int} show", static (...) => ...);  // int param + literal "show"
+app.Map("contact {id:int} remove", static (...) => ...); // int param + literal "remove"
+```
+
+| Input | Route matched | Reason |
+|-------|---------------|--------|
+| `contact list` | `contact list` | `list` is a literal — scores higher than `{id:int}` for that token |
+| `contact 42 show` | `contact {id:int} show` | `42` satisfies `:int`; literal `show` confirms the route |
+| `co li` | `contact list` | `co` → `contact`, `li` → `list` via prefix expansion |
+| `co 42 sh` | `contact {id:int} show` | `co` → `contact`, `42` → `:int` match, `sh` → `show` |
+
+Ambiguity at the route level — two registered routes that could match the same input — is detected at **startup**, not at runtime. The framework throws if the route graph is ambiguous, so it can never occur in production.
+
+### No match: suggestions
+
+When input matches nothing and no prefix can be resolved, the framework suggests similar commands using edit distance:
+
+```text
+> contac lis
+error: no command found. Did you mean: contact list?
+```
