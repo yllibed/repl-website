@@ -1,0 +1,191 @@
+---
+title: Coming from CLI Frameworks
+description: Migrating from System.CommandLine or Spectre.Console.Cli — you're already most of the way there.
+---
+
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+
+If you've been using `System.CommandLine` or `Spectre.Console.Cli`, you already think in the right terms — commands, arguments, options, handlers. Repl is built on the same mental model and extends it to surfaces your current tool can't reach: an interactive REPL, MCP tools for AI agents, hosted sessions over WebSocket or Telnet, and an in-process test harness.
+
+The migration is mostly a find-and-replace of wiring code. Your handler logic moves over untouched.
+
+---
+
+## From System.CommandLine
+
+### Concept mapping
+
+| System.CommandLine | Repl equivalent |
+|---|---|
+| `RootCommand` | `ReplApp` |
+| `Command("name", ...)` | `app.Context("name", ...)` or `app.Map("name", ...)` |
+| `Argument<T>("name")` | Route segment `{name:type}` — e.g. `{id:int}` |
+| `Option<T>("--flag")` | Named option on the handler parameter, or `[ReplOptionsGroup]` |
+| `cmd.SetAction(parseResult => ...)` | Lambda passed directly to `Map(...)` — parameters are injected |
+| `parseResult.GetValue(option)` | Handler parameter — binder resolves it automatically |
+| `root.InvokeAsync(args)` | `app.Run(args)` |
+
+### Side by side
+
+<Tabs>
+<TabItem label="System.CommandLine">
+```csharp
+using System.CommandLine;
+
+var a   = new Argument<int>("a", "First number");
+var b   = new Argument<int>("b", "Second number");
+var cmd = new Command("add", "Sum two integers") { a, b };
+
+cmd.SetAction(parseResult =>
+{
+    var sum = parseResult.GetValue(a) + parseResult.GetValue(b);
+    Console.WriteLine(sum);
+});
+
+var root = new RootCommand("Calculator") { cmd };
+return await root.InvokeAsync(args);
+```
+</TabItem>
+<TabItem label="Repl">
+```csharp
+using Repl;
+
+var app = ReplApp.Create().UseDefaultInteractive();
+
+app.Map("add {a:int} {b:int}", static (int a, int b) => a + b);
+
+return app.Run(args);
+```
+</TabItem>
+</Tabs>
+
+### Migration steps
+
+1. **Keep your handler logic as-is.** If you have a method that does the real work, it doesn't change — only the wiring does.
+2. **Replace `RootCommand` + `Command` trees with `app.Map(...)` and `app.Context(...)`.**  
+   Flat commands become `Map("name route", handler)`. Nested subcommands become `Context("noun", sub => { sub.Map(...) })`.
+3. **Drop `Argument<T>` and `Option<T>` declarations.** Route segments (`{name:type}`) replace positional arguments. Named options are plain parameters on the handler (`string? filter = null`) or grouped into a `[ReplOptionsGroup]` class.
+4. **Add `.UseDefaultInteractive()`** to get the REPL mode for free when `args` is empty.
+5. **Add `.UseMcpServer()`** when you're ready to expose commands to AI agents.
+
+---
+
+## From Spectre.Console.Cli
+
+### Concept mapping
+
+| Spectre.Console.Cli | Repl equivalent |
+|---|---|
+| `CommandApp` | `ReplApp` |
+| `CommandSettings` with `[CommandOption]` / `[CommandArgument]` | `[ReplOptionsGroup]` class with `[ReplOption]` |
+| `Command<TSettings>` class | Handler method or lambda passed to `Map(...)` |
+| `Execute(CommandContext, TSettings)` | Handler with injected services + options |
+| `config.AddCommand<TCmd>("name")` | `app.Map("name route", handler)` |
+| `AnsiConsole` (static) | `IAnsiConsole` injected via `Repl.Spectre` |
+
+### Side by side
+
+<Tabs>
+<TabItem label="Spectre.Console.Cli">
+```csharp
+using Spectre.Console;
+using Spectre.Console.Cli;
+
+var app = new CommandApp();
+app.Configure(config => config.AddCommand<AddCommand>("add"));
+return app.Run(args);
+
+public sealed class AddSettings : CommandSettings
+{
+    [CommandArgument(0, "<a>")]
+    public int A { get; set; }
+
+    [CommandArgument(1, "<b>")]
+    public int B { get; set; }
+}
+
+public sealed class AddCommand : Command<AddSettings>
+{
+    public override int Execute(CommandContext context, AddSettings settings)
+    {
+        AnsiConsole.WriteLine(settings.A + settings.B);
+        return 0;
+    }
+}
+```
+</TabItem>
+<TabItem label="Repl">
+```csharp
+using Repl;
+
+var app = ReplApp.Create().UseDefaultInteractive();
+
+app.Map("add {a:int} {b:int}", static (int a, int b) => a + b);
+
+return app.Run(args);
+```
+</TabItem>
+</Tabs>
+
+### Migrating Settings classes
+
+`CommandSettings` classes become `[ReplOptionsGroup]` classes. Named options map one-to-one:
+
+<Tabs>
+<TabItem label="Spectre.Console.Cli">
+```csharp
+public sealed class ListSettings : CommandSettings
+{
+    [CommandOption("--limit <n>")]
+    public int Limit { get; set; } = 20;
+
+    [CommandOption("--filter <text>")]
+    public string? Filter { get; set; }
+}
+```
+</TabItem>
+<TabItem label="Repl">
+```csharp
+public sealed class ListOptions
+{
+    [ReplOption(Aliases = ["--limit"])]
+    public int Limit { get; init; } = 20;
+
+    [ReplOption(Aliases = ["--filter"])]
+    public string? Filter { get; init; }
+}
+```
+</TabItem>
+</Tabs>
+
+### Migration steps
+
+1. **Extract the body of `Execute(...)` into a plain method.** The handler no longer needs to be a class — it's a method or lambda that receives injected services and options.
+2. **Convert `CommandSettings` to `[ReplOptionsGroup]`.** Swap `[CommandOption]` for `[ReplOption(Aliases = ["--flag"])]` and `[CommandArgument]` for route segments.
+3. **Wire with `app.Map(...)`.** Replace `config.AddCommand<TCmd>("name")` with `app.Map("name route", handler)`.
+4. **Keep your Spectre renderables.** If your existing commands already use `IAnsiConsole`, add `Repl.Spectre` and call `app.UseSpectreConsole()`. Your widgets work unchanged — `IAnsiConsole` is injected and routes to the right client across concurrent sessions.
+
+<Aside type="tip">
+`Repl.Spectre` registers `IAnsiConsole` in the DI container backed by a session-aware delegating writer. Inject it the same way you already do — no static `AnsiConsole` calls needed.
+</Aside>
+
+---
+
+## What you unlock
+
+Once your commands are wired into Repl, you get the following without extra code:
+
+- **Interactive REPL** — call `.UseDefaultInteractive()` and users get tab completion, history, and command discovery when they run your app with no arguments.
+- **MCP server** — call `.UseMcpServer()` and every mapped command is immediately callable as an MCP tool by AI agents (Claude, Copilot, and others).
+- **Hosted sessions** — add `Repl.WebSocket` or `Repl.Telnet` to serve the same command surface over the network to multiple concurrent clients.
+- **In-process test harness** — `Repl.Testing` runs your full command graph in-memory: real routing, real binding, real output — no subprocess, no mocking.
+- **Structured logging per session** — every log statement emitted from a handler automatically carries session metadata (`ReplSessionId`, `ReplTransport`, etc.) with no configuration.
+
+---
+
+## Where to go next
+
+- [Core Basics cookbook](/cookbook/core-basics/) — the canonical patterns for mapping, options, and DI.
+- [Modules reference](/reference/modules/) — composing and reusing command sets across contexts.
+- [Spectre cookbook](/cookbook/spectre/) — rich output with `IAnsiConsole` and progress widgets.
+- [MCP Concepts reference](/reference/mcp-concepts/) — how Repl exposes commands as MCP tools.

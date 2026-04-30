@@ -22,6 +22,7 @@ export default defineConfig({
 					items: [
 						{ label: 'Installation', slug: 'getting-started/installation' },
 						{ label: 'Your First App', slug: 'getting-started/first-app' },
+						{ label: 'Coming from CLI Frameworks', slug: 'getting-started/migrating' },
 						{ label: 'CLI Mode', slug: 'getting-started/cli-mode' },
 						{ label: 'REPL Mode', slug: 'getting-started/repl-mode' },
 						{ label: 'MCP Mode', slug: 'getting-started/mcp-mode' },
