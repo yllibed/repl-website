@@ -61,6 +61,11 @@
       "_gitContribute": null
     },
     "template": ["default", "modern"],
-    "postProcessors": []
+    "postProcessors": [],
+    "sitemap": {
+      "baseUrl": "https://repl.yllibed.org/api/",
+      "priority": 0.3,
+      "changefreq": "weekly"
+    }
   }
 }

@@ -68,6 +68,10 @@ jobs:
         env:
           GOOGLE_ANALYTICS_ID: ${{ secrets.GOOGLE_ANALYTICS_ID }}
 
+      - name: Merge DocFX sitemap into Astro sitemap index
+        run: |
+          sed -i 's|</sitemapindex>|  <sitemap>\n    <loc>https://repl.yllibed.org/api/sitemap.xml</loc>\n  </sitemap>\n</sitemapindex>|' dist/sitemap-index.xml
+
       - name: Index with Pagefind (unified search across all content)
         run: npx pagefind --site dist
 
