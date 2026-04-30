@@ -17,6 +17,16 @@ A program you invoke from your shell with arguments — `myapp client list --jso
 
 ---
 
+### MCP — Model Context Protocol
+
+The open standard that lets AI assistants discover and invoke capabilities as structured tools. An agent receives a list of available tools (name, description, input schema), calls them with typed arguments, and reads structured results — without prompt engineering or HTML scraping.
+
+With Repl, `app.UseMcpServer()` maps every command in the graph to an MCP tool automatically. Route constraints become JSON Schema. Annotations (`.ReadOnly()`, `.Destructive()`) become behavioral hints.
+
+→ [MCP Mode](/getting-started/mcp-mode/) · [modelcontextprotocol.io](https://modelcontextprotocol.io) · [specification](https://spec.modelcontextprotocol.io/)
+
+---
+
 ### REPL — Read-Eval-Print Loop
 
 An interactive prompt that reads one command at a time, evaluates it, prints the result, and loops. Users navigate the command graph directly, building up context across commands. Comparable to `python`, `node`, or `dotnet fsi`, but scoped to your application's command graph.
@@ -33,13 +43,61 @@ A full-screen, keystroke-driven UI rendered in the terminal — panels, menus, l
 
 ---
 
-### MCP — Model Context Protocol
+## Terminal & protocols
 
-The open standard that lets AI assistants discover and invoke capabilities as structured tools. An agent receives a list of available tools (name, description, input schema), calls them with typed arguments, and reads structured results — without prompt engineering or HTML scraping.
+### ANSI escape sequences
 
-With Repl, `app.UseMcpServer()` maps every command in the graph to an MCP tool automatically. Route constraints become JSON Schema. Annotations (`.ReadOnly()`, `.Destructive()`) become behavioral hints.
+Control codes embedded in text output to instruct a terminal to change text color, move the cursor, clear the screen, and more. The name comes from the ANSI X3.64 standard (now part of ECMA-48 and ISO 6429). Modern terminals support a superset including 256-color and 24-bit (true-color) palettes.
 
-→ [MCP Mode](/getting-started/mcp-mode/) · [modelcontextprotocol.io](https://modelcontextprotocol.io) · [specification](https://spec.modelcontextprotocol.io/)
+Repl's default renderer uses ANSI 256-color mode. 24-bit color is available via `Repl.Spectre`. ANSI output is suppressed automatically when `NO_COLOR` is set, output is redirected, or `TERM=dumb`.
+
+→ [Terminal Integration](/reference/terminal-integration/)
+
+---
+
+### OSC — Operating System Command
+
+An ANSI escape sequence prefix (`ESC ]`) used to send commands to the terminal emulator itself — setting the window title, reporting progress, transmitting clipboard content, and more. Repl uses OSC 9;4 to report progress state (in-progress, error, done) to terminals that support it (Windows Terminal, WezTerm, iTerm2, Ghostty).
+
+→ [Terminal Integration — Progress reporting](/reference/terminal-integration/#progress-reporting-osc-94)
+
+---
+
+### Shell
+
+The command interpreter that reads what you type and launches programs. Common shells include Bash, Zsh, Fish, PowerShell, and Nushell. Repl generates shell completion scripts for all of them via `myapp completion install`.
+
+A shell is distinct from a *terminal*: the terminal is the window you see; the shell is the program running inside it.
+
+→ [CLI Mode — Shell completion](/getting-started/cli-mode/#shell-completion) · [Wikipedia](https://en.wikipedia.org/wiki/Unix_shell)
+
+---
+
+### Telnet
+
+A text-based network protocol (RFC 854) for remote terminal sessions. Repl ships `Repl.Telnet` for hosting command surfaces over Telnet connections, including NAWS (RFC 1073) for window-size negotiation and TERMINAL-TYPE (RFC 1091) for terminal identity.
+
+→ [Hosting Remote Sessions](/cookbook/hosting-remote/) · [Wikipedia](https://en.wikipedia.org/wiki/Telnet)
+
+---
+
+### Terminal (terminal emulator)
+
+A program that renders text output and accepts keyboard input, translating between the application's byte stream and what you see on screen. Modern terminals are *emulators* — software that mimics the behavior of physical hardware terminals from the 1970s. Examples: Windows Terminal, iTerm2, WezTerm, Ghostty, Alacritty, GNOME Terminal, Konsole.
+
+A terminal is distinct from a *shell*: the terminal is the window; the shell is the program running inside it.
+
+→ [Terminal Integration](/reference/terminal-integration/) · [Wikipedia](https://en.wikipedia.org/wiki/Terminal_emulator)
+
+---
+
+### VT sequences
+
+The family of escape sequences originating from DEC VT100 and VT220 hardware terminals, now the de facto standard for terminal control. VT sequences use `CSI` (`ESC [`), `SS3` (`ESC O`), and `OSC` (`ESC ]`) prefixes to encode cursor movement, color, keyboard events, and more. Most ANSI sequences are a subset of the VT standard.
+
+Repl decodes VT keyboard sequences (arrow keys, Home/End, F1–F4, etc.) for sessions running over a stream pair.
+
+→ [Terminal Integration — Keyboard input](/reference/terminal-integration/#keyboard-input)
 
 ---
 
@@ -59,11 +117,11 @@ One projection of the command graph onto a specific transport (shell arguments, 
 
 ---
 
-### Route
+### Hosted session
 
-The pattern that identifies a command, for example `client {id:int} show`. A route is made up of literal segments, typed parameters, and optional constraints. The framework matches incoming input against registered routes and binds the matched values to handler parameters.
+An instance of the command graph served over a text-based transport (WebSocket, Telnet, or any custom stream pair), each with its own scope and DI lifetime. Multiple sessions can run concurrently against the same application.
 
-→ [Routes & Parameters](/reference/routes-and-parameters/)
+→ [Hosting Remote Sessions](/cookbook/hosting-remote/)
 
 ---
 
@@ -75,6 +133,14 @@ A class that implements `IReplModule` and registers a group of related commands 
 
 ---
 
+### Route
+
+The pattern that identifies a command, for example `client {id:int} show`. A route is made up of literal segments, typed parameters, and optional constraints. The framework matches incoming input against registered routes and binds the matched values to handler parameters.
+
+→ [Routes & Parameters](/reference/routes-and-parameters/)
+
+---
+
 ### Scoped context
 
 A navigable subtree of the command graph where certain route segments are fixed. When a user (or agent) enters a context — for example `client 42` — subsequent commands run within that scope and see the bound values (`id = 42`) without repeating them on every line.
@@ -83,19 +149,19 @@ A navigable subtree of the command graph where certain route segments are fixed.
 
 ---
 
-### Hosted session
+## MCP in detail
 
-An instance of the command graph served over a text-based transport (WebSocket, Telnet, or any custom stream pair), each with its own scope and DI lifetime. Multiple sessions can run concurrently against the same application.
+### MCP App
 
-→ [Hosting Remote Sessions](/cookbook/hosting-remote/)
+A command marked `.AsMcpAppResource()` that returns HTML. Capable clients render it as an inline UI surface under a `ui://` URI, with optional preferences for display mode (fullscreen, sidebar…) and border style. Clients that do not support MCP Apps receive the normal text result instead.
+
+→ [MCP In Depth](/reference/mcp-concepts/) · [modelcontextprotocol.io](https://modelcontextprotocol.io)
 
 ---
 
-## MCP in detail
+### MCP prompt
 
-### MCP tool
-
-A command exposed to an AI agent as a callable function. Repl generates the tool name, description, and input schema from the route and its annotations. The agent calls the tool with typed arguments; Repl routes the call through the normal handler pipeline.
+A command marked `.AsPrompt()`. It is exposed as a reusable prompt template that agents and hosts can instantiate with arguments — a structured way to package common instructions or workflows.
 
 → [MCP In Depth](/reference/mcp-concepts/)
 
@@ -109,16 +175,8 @@ A command marked `.AsResource()`. It is exposed under a `repl://` URI that agent
 
 ---
 
-### MCP prompt
+### MCP tool
 
-A command marked `.AsPrompt()`. It is exposed as a reusable prompt template that agents and hosts can instantiate with arguments — a structured way to package common instructions or workflows.
+A command exposed to an AI agent as a callable function. Repl generates the tool name, description, and input schema from the route and its annotations. The agent calls the tool with typed arguments; Repl routes the call through the normal handler pipeline.
 
 → [MCP In Depth](/reference/mcp-concepts/)
-
----
-
-### MCP App
-
-A command marked `.AsMcpAppResource()` that returns HTML. Capable clients render it as an inline UI surface under a `ui://` URI, with optional preferences for display mode (fullscreen, sidebar…) and border style. Clients that do not support MCP Apps receive the normal text result instead.
-
-→ [MCP In Depth](/reference/mcp-concepts/) · [modelcontextprotocol.io](https://modelcontextprotocol.io)

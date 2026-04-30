@@ -7,13 +7,23 @@ import { Aside } from '@astrojs/starlight/components';
 
 Repl integrates with the host terminal at several levels: it detects window size, decodes VT keyboard sequences, emits progress notifications to capable terminals, and classifies terminal identity to adapt rendering. This page documents those interactions.
 
+**VT sequence notation used throughout this page:**
+
+| Abbreviation | Expansion | Hex |
+|---|---|---|
+| `ESC` | Escape | `0x1B` |
+| `CSI` | Control Sequence Introducer (`ESC [`) | `0x1B 0x5B` |
+| `OSC` | Operating System Command (`ESC ]`) | `0x1B 0x5D` |
+| `SS3` | Single Shift Three (`ESC O`) | `0x1B 0x4F` |
+| `BEL` | Bell | `0x07` |
+
 ---
 
 ## ANSI and color
 
 ANSI escape sequences are enabled or disabled based on a precedence chain:
 
-| Checked first | Source |
+| Precedence (highest → lowest) | Source |
 |---|---|
 | Session override | `TerminalSessionOverrides.AnsiSupported` |
 | Explicit config | `OutputOptions.AnsiMode = Always` / `Never` |
@@ -39,11 +49,11 @@ Repl uses the terminal window size to format output (table column widths, word w
 | `@@repl:` control protocol | WebSocket/SignalR clients — client-pushed JSON |
 | Default fallback | 120 columns |
 
-### DTTERM probe
+### VT probe (DA1 + DTTERM window size)
 
-For sessions over a stream pair (WebSocket, named pipe, custom transport), Repl sends `ESC[c` (Device Attributes) followed by `ESC[18t` (DTTERM window size request) immediately after connection. The terminal's response to `ESC[8;rows;cols t` is parsed as the initial size.
+For sessions over a stream pair (WebSocket, named pipe, custom transport), Repl sends `CSI c` (DA1 — Device Attributes) followed by `CSI 18 t` (DTTERM window size request) immediately after connection. The terminal's response (`CSI 8 ; rows ; cols t`) is parsed as the initial size.
 
-Resize events — when the user resizes the terminal window during a session — are delivered as the same `ESC[8;rows;cols t` sequence and processed continuously.
+Resize events — when the user resizes the terminal window during a session — are delivered as the same `CSI 8 ; rows ; cols t` sequence and processed continuously.
 
 ### Telnet NAWS
 
@@ -59,6 +69,10 @@ Custom transport clients (WebSocket, SignalR) can push metadata by writing a `@@
 ```
 
 This is Repl's own convention — not a terminal standard. Client libraries that wrap the `StreamedReplHost` can use it to pass terminal state.
+
+<Aside type="caution">
+When implementing a custom client that emits `@@repl:` messages, validate `cols` and `rows` before sending — zero or negative values will produce layout artifacts. The framework applies its own fallback, but client-side validation prevents misleading resize events.
+</Aside>
 
 ---
 
@@ -199,7 +213,7 @@ The features above — size detection, VT keyboard parsing, ANSI 256-color, scre
 - OSC 9;4 progress in supported terminals
 - ANSI 256-color rendering (default) and 24-bit color via `Repl.Spectre`
 - Screen clear and cursor positioning for interactive menus
-- VT key decoding (arrows, Home/End, PgUp/PgDn, F1-F4)
+- VT key decoding (arrows, Home/End, PgUp/PgDn, F1–F4)
 - Terminal size probing and live resize events
 - Terminal identity classification (15+ terminal families)
 

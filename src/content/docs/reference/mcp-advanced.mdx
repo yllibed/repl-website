@@ -129,23 +129,26 @@ using Repl.Mcp;
 app.Map("read {path}",
     (string path, IMcpClientRoots roots) =>
     {
-        var canonical = Path.GetFullPath(path);
         var isUnderRoot = roots.Current.Any(r =>
-            canonical.StartsWith(
-                r.Uri.LocalPath.TrimEnd('/', '\\'),
-                StringComparison.OrdinalIgnoreCase));
+        {
+            var rootPath = r.Uri.LocalPath;
+            // GetRelativePath returns a path starting with ".." if 'path' escapes the root.
+            // Anchoring GetFullPath on rootPath prevents cwd-relative bypass.
+            var rel = Path.GetRelativePath(rootPath, Path.GetFullPath(path, rootPath));
+            return !rel.StartsWith("..", StringComparison.Ordinal) && !Path.IsPathRooted(rel);
+        });
 
         if (!isUnderRoot)
             return Results.Error("outside_root",
                 $"'{path}' is outside the configured workspace roots.");
 
-        return Results.Text(File.ReadAllText(canonical));
+        return Results.Text(File.ReadAllText(Path.GetFullPath(path)));
     })
     .ReadOnly()
     .WithDescription("Read a file within the workspace.");
 ```
 
-`roots.Current` returns the latest list. Use `roots.GetAsync(ct)` to refresh native roots on demand:
+`roots.Current` returns the cached list. Use `roots.GetAsync(ct)` to re-fetch from the client on demand (only meaningful when `IsSupported` is true; for clients without native roots it behaves identically to `Current`):
 
 ```csharp
 var latest = await roots.GetAsync(ct);
@@ -260,7 +263,7 @@ McpServerOptions mcpOptions = app.BuildMcpServerOptions(o =>
 // await using var server = McpServer.Create(transport, mcpOptions, serviceProvider: app.Services);
 ```
 
-The `ICoreReplApp` overload is available when you don't have a full `ReplApp` reference:
+The `ICoreReplApp` overload is available when you don't have a full `ReplApp` reference. Pass an explicit `serviceProvider` — without it, DI in handlers won't resolve:
 
 ```csharp
 McpServerOptions mcpOptions = app.Core.BuildMcpServerOptions(configure, serviceProvider);
@@ -269,6 +272,24 @@ McpServerOptions mcpOptions = app.Core.BuildMcpServerOptions(configure, serviceP
 <Aside type="note">
 Repl does not ship HTTP/SSE transport wrappers. Obtain them from the `ModelContextProtocol` SDK or its ASP.NET Core integration package. `BuildMcpServerOptions` gives you the pre-wired command graph; you choose the transport.
 </Aside>
+
+---
+
+## MCP argument completions
+
+<Aside type="note">
+**Not to be confused with LLM completions (sampling).** The MCP `completions` capability is about tab-completing *arguments* — not generating text with a language model.
+</Aside>
+
+The MCP `completion/complete` request lets clients (Claude Desktop, VS Code Copilot, etc.) offer inline autocomplete suggestions for tool arguments and resource URI template variables. When a user starts typing a value for a parameter, the client sends a `completion/complete` request to the server; the server responds with a list of candidate values.
+
+**Example scenario:** a tool that takes a `{contactId}` argument could respond to a `completion/complete` request with the list of existing contact IDs — the client then shows them as inline suggestions as the user types.
+
+This is analogous to shell tab-completion (which Repl implements via `completion install`), but at the MCP protocol level, available to any MCP-capable client.
+
+**Status in Repl:** the `completions` server capability is **not yet implemented**. Repl does not advertise it and does not handle `completion/complete` requests. When implemented, it will draw from the same route constraint metadata that powers shell completion — typed constraints (`{id:int}`, `{status:alpha}`) will inform the schema, and handlers will be able to supply dynamic value lists via a new extensibility point.
+
+If you need this feature, open a request at [github.com/yllibed/repl](https://github.com/yllibed/repl/issues).
 
 ---
 
@@ -286,4 +307,4 @@ When an MCP client connects, Repl announces what the server supports:
 | `sampling` | Client capability | Repl **consumes** this. `IMcpSampling.IsSupported` reads it. |
 | `elicitation` | Client capability | Repl **consumes** this. `IMcpElicitation.IsSupported` reads it. |
 | `roots` | Client capability | Repl **consumes** this. `IMcpClientRoots.IsSupported` reads it. |
-| `completions` | Not implemented | The argument-completion capability is not yet exposed. |
+| `completions` | Not implemented | Argument autocomplete via `completion/complete` — not yet exposed. See [MCP argument completions](#mcp-argument-completions) above. |

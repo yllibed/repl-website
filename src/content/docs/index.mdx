@@ -45,7 +45,7 @@ import { Card, CardGrid, Tabs, TabItem, Badge, LinkButton } from '@astrojs/starl
 
 ## Production-grade by default
 
-Repl is a full-fledged command surface toolkit. It implements the working [CLI guidelines from clig.dev](https://clig.dev) — the de-facto reference for modern command-line tools — out of the box, then extends them for the era of AI agents and multi-channel automation.
+Repl is a complete command surface toolkit. It implements the working [CLI guidelines from clig.dev](https://clig.dev) — the de facto reference for modern command-line tools — out of the box, then extends them for the era of AI agents and multi-channel automation.
 
 <CardGrid>
 	<Card title="What clig.dev asks for, you already have" icon="approve-check">
@@ -155,7 +155,7 @@ Every command is now discoverable as an MCP tool — the AI agent calls `client 
 
 The most expensive part of autonomous agent development isn't writing code — it's the feedback loop. Screenshots consume tokens. HTML parsing is fragile. Visual context is slow to reason about.
 
-A Repl command surface eliminates all of it.
+A Repl command surface removes the need for it in agent workflows.
 
 ```bash
 # The agent discovers everything from one command
@@ -170,7 +170,7 @@ $ myapp contacts add "Alice Dupont" alice@example.com --json
 # → full multi-step interaction sequences with typed assertions
 ```
 
-**When the command surface is complete, the application is complete.** The business logic is implemented, tested, and working. Adding a web UI, a full-screen terminal app (TUI), or a desktop front-end is the last step — decoration on top of a finished application. By then, the real work is done.
+**When the command surface is complete, the application is complete.** The business logic is implemented, tested, and working. Adding a web UI, a full-screen terminal app (TUI), or a desktop front-end is the last step — layered on top of a command surface that is already fully tested and working. By then, the real work is done.
 
 [Read more about agent-native development →](/reference/agent-native/)
 

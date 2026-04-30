@@ -316,7 +316,7 @@ Literal segment matching is case-insensitive. `Contact`, `contact`, and `CONTACT
 When multiple routes could match the same input, the framework picks the most specific one. Specificity is determined by a scoring system:
 
 - **Literal segments** score highest — `list` beats `{id}` for the token `"list"`
-- **Typed dynamic segments** score by constraint specificity: `int` > `long` > `guid` > `bool` > `alpha` > `string`
+- **Typed dynamic segments** score by constraint specificity: `int` > `long` > `guid` > `timespan` > `datetimeoffset` > `datetime` > `date` > `time` > `urn` > `url` > `uri` > `email` > `bool` > `alpha` > `string`
 - Routes that match more segments score higher overall
 
 ```csharp

@@ -282,10 +282,10 @@ app.UseMcpServer(o =>
     o.ServerName               = "MyApp";
     o.ToolNamingSeparator      = ToolNamingSeparator.Underscore;
     o.InteractivityMode        = InteractivityMode.PrefillThenElicitation;
-    o.ResourceFallbackToTools  = true;   // ReadOnly() tools also registered as resources
+    o.ResourceFallbackToTools  = true;   // resources also callable as tools (compatibility fallback)
     o.PromptFallbackToTools    = true;   // AsPrompt() tools also callable as tools
     o.CommandFilter            = cmd => true;
-    o.DynamicToolCompatibility = DynamicToolCompatibilityMode.Default;
+    o.DynamicToolCompatibility = DynamicToolCompatibilityMode.Disabled;
 });
 ```
 
