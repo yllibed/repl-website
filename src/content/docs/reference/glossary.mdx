@@ -1,0 +1,124 @@
+---
+title: Glossary
+description: Definitions for the acronyms and concepts that appear throughout the Repl Toolkit documentation.
+---
+
+A quick reference for the terms used throughout this documentation.
+
+---
+
+## Surfaces & modes
+
+### CLI — Command Line Interface
+
+A program you invoke from your shell with arguments — `myapp client list --json`. One-shot: parse the arguments, run the command, exit. You can automate it, pipe its output, and call it from scripts.
+
+→ [CLI Mode](/getting-started/cli-mode/) · [Wikipedia](https://en.wikipedia.org/wiki/Command-line_interface)
+
+---
+
+### REPL — Read-Eval-Print Loop
+
+An interactive prompt that reads one command at a time, evaluates it, prints the result, and loops. Users navigate the command graph directly, building up context across commands. Comparable to `python`, `node`, or `dotnet fsi`, but scoped to your application's command graph.
+
+→ [REPL Mode](/getting-started/repl-mode/) · [Wikipedia](https://en.wikipedia.org/wiki/Read%E2%80%93eval%E2%80%93print_loop)
+
+---
+
+### TUI — Text User Interface
+
+A full-screen, keystroke-driven UI rendered in the terminal — panels, menus, live-updating widgets (think `htop` or `vim`). Repl is not a TUI framework on its own: it renders structured text output and interactive prompts. For richer full-screen surfaces, `Repl.Spectre` integrates [Spectre.Console](https://spectreconsole.net), which provides progress bars, tables, tree views, and more.
+
+→ [Cookbook: Spectre.Console](/cookbook/spectre/) · [Wikipedia](https://en.wikipedia.org/wiki/Text-based_user_interface)
+
+---
+
+### MCP — Model Context Protocol
+
+The open standard that lets AI assistants discover and invoke capabilities as structured tools. An agent receives a list of available tools (name, description, input schema), calls them with typed arguments, and reads structured results — without prompt engineering or HTML scraping.
+
+With Repl, `app.UseMcpServer()` maps every command in the graph to an MCP tool automatically. Route constraints become JSON Schema. Annotations (`.ReadOnly()`, `.Destructive()`) become behavioral hints.
+
+→ [MCP Mode](/getting-started/mcp-mode/) · [modelcontextprotocol.io](https://modelcontextprotocol.io) · [specification](https://spec.modelcontextprotocol.io/)
+
+---
+
+## Repl concepts
+
+### Command graph
+
+The full tree of commands registered via `app.Map(...)` and `app.Context(...)`. It is the single source of truth for everything the application can do — projected unchanged onto CLI, REPL, hosted sessions, and MCP tools.
+
+→ [Routes & Parameters](/reference/routes-and-parameters/)
+
+---
+
+### Command surface
+
+One projection of the command graph onto a specific transport (shell arguments, interactive terminal, WebSocket, Telnet, MCP). The same handler code runs on every surface; only the I/O layer changes.
+
+---
+
+### Route
+
+The pattern that identifies a command, for example `client {id:int} show`. A route is made up of literal segments, typed parameters, and optional constraints. The framework matches incoming input against registered routes and binds the matched values to handler parameters.
+
+→ [Routes & Parameters](/reference/routes-and-parameters/)
+
+---
+
+### Module
+
+A class that implements `IReplModule` and registers a group of related commands via its `Map(IReplMap map)` method. Modules are the composition unit for larger applications: register a module once and all its commands become part of the graph.
+
+→ [Modules](/reference/modules/)
+
+---
+
+### Scoped context
+
+A navigable subtree of the command graph where certain route segments are fixed. When a user (or agent) enters a context — for example `client 42` — subsequent commands run within that scope and see the bound values (`id = 42`) without repeating them on every line.
+
+→ [Scoped Contexts](/cookbook/scoped-contexts/)
+
+---
+
+### Hosted session
+
+An instance of the command graph served over a text-based transport (WebSocket, Telnet, or any custom stream pair), each with its own scope and DI lifetime. Multiple sessions can run concurrently against the same application.
+
+→ [Hosting Remote Sessions](/cookbook/hosting-remote/)
+
+---
+
+## MCP in detail
+
+### MCP tool
+
+A command exposed to an AI agent as a callable function. Repl generates the tool name, description, and input schema from the route and its annotations. The agent calls the tool with typed arguments; Repl routes the call through the normal handler pipeline.
+
+→ [MCP In Depth](/reference/mcp-concepts/)
+
+---
+
+### MCP resource
+
+A command marked `.AsResource()`. It is exposed under a `repl://` URI that agents can read, subscribe to, or embed in context. Resources model data that can be fetched or watched, as opposed to actions that change state.
+
+→ [MCP In Depth](/reference/mcp-concepts/)
+
+---
+
+### MCP prompt
+
+A command marked `.AsPrompt()`. It is exposed as a reusable prompt template that agents and hosts can instantiate with arguments — a structured way to package common instructions or workflows.
+
+→ [MCP In Depth](/reference/mcp-concepts/)
+
+---
+
+### MCP App
+
+A command marked `.AsMcpAppResource()` that returns HTML. Capable clients render it as an inline UI surface under a `ui://` URI, with optional preferences for display mode (fullscreen, sidebar…) and border style. Clients that do not support MCP Apps receive the normal text result instead.
+
+→ [MCP In Depth](/reference/mcp-concepts/) · [modelcontextprotocol.io](https://modelcontextprotocol.io)

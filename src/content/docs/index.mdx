@@ -27,13 +27,13 @@ import { Card, CardGrid, Tabs, TabItem, Badge, LinkButton } from '@astrojs/starl
 		`app.Map("user {id:int}", handler)` — typed routes, constraints, parameter binding, and structured output. If you've used ASP.NET Core minimal APIs, you already know the pattern.
 	</Card>
 	<Card title="CLI + REPL from the same graph" icon="terminal">
-		Pass arguments: one-shot CLI with `--json`, `--xml`, `--yaml` output and `--help` at every level. No arguments: an interactive REPL with scoped navigation, history, and autocomplete.
+		Pass arguments and you have a one-shot CLI invocation from your shell — `--json`, `--xml`, `--yaml` output and `--help` at every level. Skip the arguments and you have a read-eval-print loop instead: type a command, see the result, repeat — with scoped navigation, history, and autocomplete.
 	</Card>
 	<Card title="Hosted sessions" icon="laptop">
 		The same command surface runs over any text-based session transport. Multiple concurrent sessions, each with its own scope. `Repl.WebSocket` and `Repl.Telnet` are built-in implementations; any transport that delivers a stream pair works.
 	</Card>
 	<Card title="AI-ready in one line" icon="puzzle">
-		`app.UseMcpServer()` exposes every command as an MCP tool. Add resources, prompts, and MCP Apps UI surfaces for capable clients like Claude.
+		`app.UseMcpServer()` exposes every command over the Model Context Protocol — the open standard AI assistants like Claude use to discover and call tools. Add resources, prompts, and MCP Apps UI surfaces for capable clients.
 	</Card>
 	<Card title="Zero-dependency core" icon="approve-check-circle">
 		`Repl.Core` has zero NuGet dependencies. Build embedded command surfaces in strict environments. Compose only what you need.
@@ -144,7 +144,7 @@ $ myapp contacts add "Alice Dupont" alice@example.com --json
 # → full multi-step interaction sequences with typed assertions
 ```
 
-**When the command surface is complete, the application is complete.** The business logic is implemented, tested, and working. Adding a web UI, a TUI, or a desktop front-end is the last step — decoration on top of a finished application. By then, the real work is done.
+**When the command surface is complete, the application is complete.** The business logic is implemented, tested, and working. Adding a web UI, a full-screen terminal app (TUI), or a desktop front-end is the last step — decoration on top of a finished application. By then, the real work is done.
 
 [Read more about agent-native development →](/reference/agent-native/)
 
