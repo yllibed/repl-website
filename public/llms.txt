@@ -1,0 +1,56 @@
+# Repl Toolkit
+
+> A .NET framework for building composable command surfaces — CLI, REPL, remote sessions, and MCP tools from one command graph. Write your commands like ASP.NET Core minimal-API routes and run them as a one-shot CLI, an interactive REPL, hosted WebSocket/Telnet sessions, or MCP tools for AI agents — all from the same handler code.
+
+## Getting Started
+
+- [Installation](https://repl.yllibed.org/getting-started/installation/): Add the Repl NuGet package and run your first app in minutes.
+- [Your First App](https://repl.yllibed.org/getting-started/first-app/): Build a minimal command surface with routing, DI, and structured output.
+- [CLI Mode](https://repl.yllibed.org/getting-started/cli-mode/): One-shot invocation, --json/--xml/--yaml output flags, --help at every level.
+- [REPL Mode](https://repl.yllibed.org/getting-started/repl-mode/): Interactive shell with scoped navigation, history, and autocomplete.
+- [MCP Mode](https://repl.yllibed.org/getting-started/mcp-mode/): Expose every command as an MCP tool with one line — app.UseMcpServer().
+
+## Cookbook
+
+- [Core Basics](https://repl.yllibed.org/cookbook/core-basics/): Routing, handlers, parameter binding, and structured output from scratch.
+- [Scoped Contexts](https://repl.yllibed.org/cookbook/scoped-contexts/): Hierarchical command trees with context.Map() and Context() nesting.
+- [Modular Ops](https://repl.yllibed.org/cookbook/modular-ops/): Compose large command surfaces from reusable IReplModule implementations.
+- [Interactive Prompts](https://repl.yllibed.org/cookbook/interactive-prompts/): Ask users for text, secrets, confirmations, and choices via IInteraction.
+- [Hosting Remote Sessions](https://repl.yllibed.org/cookbook/hosting-remote/): Run the same command surface over WebSocket or Telnet with concurrent sessions.
+- [Testing](https://repl.yllibed.org/cookbook/testing/): Use Repl.Testing to run full multi-step interaction sequences in memory with typed assertions.
+- [Spectre.Console](https://repl.yllibed.org/cookbook/spectre/): Upgrade all output and prompts to Spectre.Console richness with zero handler changes.
+- [MCP Server](https://repl.yllibed.org/cookbook/mcp-server/): Full MCP server setup with tools, resources, prompts, and MCP Apps UI surfaces.
+
+## Concepts
+
+- [Routes & Parameters](https://repl.yllibed.org/reference/routes-and-parameters/): Route syntax, typed constraints ({id:int}, {email:email}), parameter binding order, and response files.
+- [Modules](https://repl.yllibed.org/reference/modules/): IReplModule and MapModule() for composing large surfaces from independent modules.
+- [Dependency Injection](https://repl.yllibed.org/reference/dependency-injection/): Constructor injection, handler-parameter injection, scoped sessions, and integration with IHostBuilder.
+- [Interactivity](https://repl.yllibed.org/reference/interactivity/): IInteraction API (AskTextAsync, AskSecretAsync, AskConfirmationAsync, AskChoiceAsync), --answer:* prefill, AnswerQueue for tests.
+- [MCP In Depth](https://repl.yllibed.org/reference/mcp-concepts/): Full MCP concepts — tools, resources, prompts, MCP Apps, tool annotations (ReadOnly, Destructive, Idempotent), interaction tiers, client roots.
+- [Customization & Output](https://repl.yllibed.org/reference/customization/): Output formats (text, JSON, XML, YAML, Markdown), ANSI detection, render width, IReplOutputTransformer, Spectre renderables.
+- [Pipelines & Integration](https://repl.yllibed.org/reference/pipelining/): 12-stage execution pipeline, middleware, CLI scripting with pipes/jq, ASP.NET Core integration, IHostedService, graceful shutdown.
+- [Terminal Integration](https://repl.yllibed.org/reference/terminal-integration/): ANSI capability levels, NO_COLOR, shell autocomplete installation, response files, terminal detection.
+- [Architecture](https://repl.yllibed.org/reference/architecture/): Internal design, execution model, extension points, and how the packages compose.
+
+## Reference
+
+- [Agent-Native Development](https://repl.yllibed.org/reference/agent-native/): How Repl enables autonomous AI agents to build full-stack applications without screenshots — self-documenting via --help --json, token-efficient JSON output, tight development loop with Repl.Testing.
+- [Packaging & Distribution](https://repl.yllibed.org/reference/packaging/): Publish as a .NET global tool, MCP server registry entry, or self-contained binary. CI/CD with GitHub Actions and Nerdbank.GitVersioning.
+- [Best Practices & FAQ](https://repl.yllibed.org/reference/best-practices/): Design patterns, common mistakes, and answers to frequent questions.
+- [Configuration](https://repl.yllibed.org/reference/configuration/): All configuration options for ReplApp, execution modes, and add-on packages.
+- [Packages](https://repl.yllibed.org/reference/packages/): Overview of all Repl.* NuGet packages — Core, Defaults, Mcp, Spectre, Testing, Hosting.
+- [API Reference](https://repl.yllibed.org/api/index.html): Generated XML-doc API reference for all Repl.* assemblies.
+
+## Key APIs
+
+- `ReplApp.Create()` — entry point, returns IReplMap for route registration
+- `app.Map(route, handler)` — register a command at a route pattern
+- `app.Context(segment, configure)` — nest a scoped command context
+- `app.Use(middleware)` — register middleware in the execution pipeline
+- `app.MapModule<TModule>()` — load an IReplModule into the command surface
+- `app.UseMcpServer()` — expose all commands as MCP tools (one line, no handler changes)
+- `app.Run(args)` — dispatch: CLI if args present, REPL if interactive, MCP serve if args == ["mcp","serve"]
+- `Results.Success(value)` / `Results.Error(message)` / `Results.Exit(code)` — typed command results
+- `IInteraction` — ask users for input; fulfilled by terminal in interactive mode, --answer:* in CI, MCP elicitation in agents
+- `Repl.Testing` — in-memory harness for full multi-step interaction testing with typed assertions

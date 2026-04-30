@@ -64,6 +64,8 @@ jobs:
 
       - name: Build Astro site
         run: npm run build
+        env:
+          GOOGLE_ANALYTICS_ID: ${{ secrets.GOOGLE_ANALYTICS_ID }}
 
       - name: Index with Pagefind (unified search across all content)
         run: npx pagefind --site dist

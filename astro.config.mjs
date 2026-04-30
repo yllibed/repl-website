@@ -1,11 +1,15 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
+import sitemap from '@astrojs/sitemap';
+
+const gaId = process.env.GOOGLE_ANALYTICS_ID;
 
 // https://astro.build/config
 export default defineConfig({
 	site: 'https://repl.yllibed.org',
 	integrations: [
+		sitemap(),
 		starlight({
 			title: 'Repl Toolkit',
 			description: 'A .NET framework for building composable command surfaces — CLI, REPL, remote sessions, and MCP tools from one command graph.',
@@ -64,10 +68,21 @@ export default defineConfig({
 			],
 			customCss: ['./src/styles/custom.css'],
 			head: [
-				{
-					tag: 'meta',
-					attrs: { property: 'og:image', content: '/og-image.png' },
-				},
+				{ tag: 'meta', attrs: { property: 'og:image', content: '/og-image.png' } },
+				{ tag: 'meta', attrs: { property: 'og:type', content: 'website' } },
+				{ tag: 'meta', attrs: { property: 'og:locale', content: 'en_US' } },
+				{ tag: 'meta', attrs: { name: 'twitter:card', content: 'summary_large_image' } },
+				{ tag: 'meta', attrs: { name: 'twitter:image', content: '/og-image.png' } },
+				...(gaId ? [
+					{
+						tag: 'script',
+						attrs: { async: true, src: `https://www.googletagmanager.com/gtag/js?id=${gaId}` },
+					},
+					{
+						tag: 'script',
+						content: `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${gaId}');`,
+					},
+				] : []),
 			],
 		}),
 	],
