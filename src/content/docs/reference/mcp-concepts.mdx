@@ -1,0 +1,316 @@
+---
+title: MCP In Depth
+description: Everything about exposing your Repl commands as MCP tools, resources, prompts, and MCP Apps for AI agents.
+---
+
+import { Aside, Tabs, TabItem, Steps } from '@astrojs/starlight/components';
+
+The [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) is the open standard through which AI agents discover and call tools. `Repl.Mcp` makes your entire command surface MCP-native with one line of code — then lets you fine-tune every aspect of how it's exposed.
+
+## Enable MCP
+
+```csharp
+using Repl.Mcp;
+
+app.UseMcpServer();      // exposes everything as MCP tools
+return app.Run(args);
+```
+
+Start the server:
+
+```bash
+myapp mcp serve
+```
+
+Configure your agent (paths vary by client — see below):
+
+```json
+{
+  "mcpServers": {
+    "myapp": { "command": "myapp", "args": ["mcp", "serve"] }
+  }
+}
+```
+
+**Agent config file locations:**
+
+| Agent | Path |
+|---|---|
+| Claude Desktop | `%APPDATA%\Claude\claude_desktop_config.json` (Windows) / `~/.config/Claude/...` (macOS) |
+| Claude Code | `.claude/settings.json` or `~/.claude.json` |
+| VS Code Copilot | `.vscode/mcp.json` or `~/.mcp.json` |
+| Cursor | `.cursor/mcp.json` or `~/.cursor/mcp.json` |
+| MCP Inspector | UI-based |
+
+---
+
+## Command → MCP mapping
+
+Every `Map(...)` call becomes an MCP tool automatically. The tool name is derived from the route (spaces replaced by `_`). The description comes from `[Description]` or `.WithDescription(...)`.
+
+| Repl declaration | MCP surface | Notes |
+|---|---|---|
+| `app.Map(...)` | Tool | Default — always a tool |
+| `.ReadOnly()` | Tool + auto-promoted Resource | Route becomes a `resource://` URI |
+| `.AsResource(uri)` | Resource only | Not callable as tool |
+| `.AsPrompt()` | Prompt | Callable as MCP prompt |
+| `.AsMcpAppResource()` | Tool + `ui://` HTML resource | Returns HTML for capable clients |
+| `.AutomationHidden()` | Excluded | Human-only command |
+
+### Tool naming
+
+Default: `contact add` → `contact_add`. Customize the separator:
+
+```csharp
+app.UseMcpServer(o => o.ToolNamingSeparator = ToolNamingSeparator.Hyphen);
+// contact add → contact-add
+```
+
+---
+
+## Behavioral annotations
+
+Annotations tell the agent **how** to call your tool — whether it should ask for confirmation, whether it's safe to parallelize, whether it can be retried:
+
+```csharp
+app.Map("contacts delete {id:int}", (int id, IContactStore store) =>
+{
+    store.Delete(id);
+    return Results.Success();
+})
+.WithDescription("Permanently delete a contact.")
+.Destructive()           // warn before calling
+.RequiresConfirmation()  // ask user before calling
+.IdempotentOnRetry(false); // not safe to retry
+```
+
+| Annotation | Meaning for the agent |
+|---|---|
+| `.ReadOnly()` | No side effects — call freely, parallelize |
+| `.Destructive()` | Side effects — warn user, don't parallelize |
+| `.Idempotent()` | Safe to retry on transient failure |
+| `.OpenWorld()` | Reaches external systems (email, HTTP, etc.) |
+| `.LongRunning()` | Enable call-now/poll-later pattern |
+| `.RequiresConfirmation()` | Ask user before calling |
+
+---
+
+## Resources
+
+Expose read-only data as MCP resources — the agent can subscribe, list, and read without invoking a tool:
+
+```csharp
+app.Map("contacts export", (IContactStore store) => store.All())
+    .AsResource("contacts://all", "application/json")
+    .WithDescription("All contacts as a live JSON resource.");
+```
+
+Use `.ReadOnly()` for the common case of "tool that's also readable as a resource":
+
+```csharp
+app.Map("contacts {id:int} show", (int id, IContactStore store) => store.Get(id))
+    .ReadOnly()
+    .WithDescription("Get contact by ID.");
+// Registered as both: tool 'contacts_id_show' AND resource 'contacts://{id}/show'
+```
+
+---
+
+## Prompts
+
+Prompt templates let the agent inject pre-built context into an LLM conversation:
+
+```csharp
+app.Map("prompts summarize {id:int}", (int id, IContactStore store) =>
+{
+    var contact = store.Get(id);
+    return new McpPromptResult
+    {
+        Messages =
+        [
+            new McpMessage(McpRole.User,
+                $"Summarize the following contact and suggest follow-up actions:\n\n{contact}")
+        ]
+    };
+})
+.AsPrompt()
+.WithDescription("Generate a summary prompt for a contact.");
+```
+
+---
+
+## MCP Apps
+
+MCP Apps are HTML surfaces rendered inside capable clients (e.g., Claude). The same `Map(...)` call serves launcher text for tool invocation and HTML for `resources/read`:
+
+```csharp
+app.Map("contacts dashboard", (IContactStore store) =>
+{
+    var contacts = store.All().ToList();
+    return $$"""
+        <!DOCTYPE html>
+        <html>
+        <head><title>Contacts ({{contacts.Count}})</title></head>
+        <body>
+          <h1>Contacts</h1>
+          <ul>{{string.Join("", contacts.Select(c => $"<li><b>{c.Name}</b> — {c.Email}</li>"))}}</ul>
+        </body>
+        </html>
+        """;
+})
+.AsMcpAppResource()
+.WithDescription("Open the contacts dashboard.")
+.WithMcpAppDisplayMode(McpAppDisplayMode.Inline);
+```
+
+Configure Content Security Policy for apps that load external assets:
+
+```csharp
+.WithMcpAppCsp(csp => csp.AddScriptSrc("https://cdn.myapp.io"))
+```
+
+---
+
+## Interaction in MCP mode
+
+Repl routes `IInteraction` calls through MCP primitives when running as an MCP server. Configure how it falls back when the client doesn't support elicitation:
+
+```csharp
+app.UseMcpServer(o =>
+{
+    o.InteractivityMode = InteractivityMode.PrefillThenElicitation;
+    //  PrefillThenFail        — fail if no prefill provided
+    //  PrefillThenDefaults    — use C# parameter defaults
+    //  PrefillThenElicitation — structured form via agent
+    //  PrefillThenSampling    — LLM generates answer
+});
+```
+
+**Design for agents:** prefer accepting all required data as route parameters or named options. Reserve `IInteraction` prompts for the human-interactive experience — agents should pass everything upfront.
+
+---
+
+## Rich tool descriptions
+
+Tools can carry extended Markdown documentation for the agent, separate from the human-facing `--help` text:
+
+```csharp
+app.Map("contacts add {name} {email:email}", handler)
+    .WithDescription("Add a new contact.")
+    .WithDetails("""
+        Creates a new contact record with the given name and email.
+
+        **Rules:**
+        - Email must be unique across all contacts.
+        - Name cannot exceed 200 characters.
+        - Returns the new contact's ID on success.
+
+        **Example:**
+        `contacts_add` with `name="Alice Dupont"`, `email="alice@example.com"`
+        """);
+```
+
+`WithDetails(...)` content appears in the MCP tool schema but not in `--help` output.
+
+---
+
+## Client roots
+
+`IMcpClientRoots` exposes the workspace boundaries that the MCP client reports (opened folders, project roots):
+
+```csharp
+app.Map("analyze {path}", async (string path, IMcpClientRoots roots, CancellationToken ct) =>
+{
+    if (!roots.IsAllowed(path))
+        return Results.Error($"'{path}' is outside your workspace roots.");
+
+    return await AnalyzeFile(path, ct);
+});
+```
+
+For clients without native roots support, provide a setup command that stores a soft root in session state:
+
+```csharp
+app.Map("init {path}", (string path, IMcpClientRoots roots) =>
+{
+    roots.SetSoftRoots([new Uri($"file:///{path}")]);
+    roots.InvalidateRouting();  // rebuild tool graph with new context
+    return Results.Success($"Working directory set to {path}.");
+});
+```
+
+---
+
+## Controlling tool visibility
+
+Hide individual commands from MCP:
+
+```csharp
+app.Map("debug reset", handler)
+    .AutomationHidden();       // hidden from MCP, visible in interactive REPL
+```
+
+Filter at the server level:
+
+```csharp
+app.UseMcpServer(o =>
+{
+    o.CommandFilter = cmd => !cmd.Tags.Contains("internal");
+});
+```
+
+Use module presence predicates for context-sensitive visibility:
+
+```csharp
+app.MapModule(
+    new AdminModule(),
+    (IAuthService auth) => auth.IsAdmin());
+```
+
+---
+
+## Dynamic tool compatibility
+
+Some MCP clients have limited tool discovery. Enable shim mode for maximum compatibility:
+
+```csharp
+app.UseMcpServer(o =>
+{
+    o.DynamicToolCompatibility = DynamicToolCompatibilityMode.DiscoverAndCallShim;
+});
+```
+
+The agent first sees only `discover_tools` and `call_tool`. After calling `discover_tools`, it receives the full tool list via `notifications/tools/list_changed`.
+
+---
+
+## Full configuration reference
+
+```csharp
+app.UseMcpServer(o =>
+{
+    o.ServerName               = "MyApp";
+    o.ToolNamingSeparator      = ToolNamingSeparator.Underscore;
+    o.InteractivityMode        = InteractivityMode.PrefillThenElicitation;
+    o.ResourceFallbackToTools  = true;   // ReadOnly() tools also registered as resources
+    o.PromptFallbackToTools    = true;   // AsPrompt() tools also callable as tools
+    o.CommandFilter            = cmd => true;
+    o.DynamicToolCompatibility = DynamicToolCompatibilityMode.Default;
+});
+```
+
+---
+
+## Best practices
+
+**Design for agents first.** Commands that work well for agents work well for humans too. The reverse is not always true.
+
+**Use typed constraints.** Route constraints generate typed JSON Schema properties — `{id:int}` becomes `"type": "integer"` in the tool schema. An agent that knows the type can fill parameters correctly without guessing.
+
+**One concern per tool.** A command named `contacts_sync_import_and_notify` is hard for an agent to reason about. Prefer `contacts_import` and `contacts_notify` as separate tools.
+
+**Annotate everything destructive.** Missing `.Destructive()` on a delete command may cause an agent to call it without warning. When in doubt, annotate conservatively.
+
+**Keep tool names short.** Agents have context windows. `contacts_list` is better than `contact_management_list_all_records`. Prefer short, noun-verb names.
+
+**Test with MCP Inspector.** Run `myapp mcp serve` and point MCP Inspector at it to verify tool schemas, annotations, and resources before connecting a real agent.

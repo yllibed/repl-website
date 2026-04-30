@@ -1,0 +1,236 @@
+---
+title: Pipelines & Integration
+description: Middleware pipeline, command chaining, scripting, and integration with external systems.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+## The execution pipeline
+
+Every command invocation goes through a 12-stage pipeline. Understanding it lets you hook in at the right stage and reason about where errors come from.
+
+```
+ 1. Global Option Parsing       — --help, --output:format, --answer:*, custom globals
+ 2. Prefix Resolution           — abbreviated command names
+ 3. Pre-Execution Handling      — shell completion, help rendering, ambient commands
+ 4. Route Resolution            — matches tokens to registered routes
+ 5. Banner Rendering            — suppressed in CI/non-interactive
+ 6. Command Option Parsing      — --name value, @responsefile, --no-*
+ 7. Argument Binding            — CancellationToken → attributes → groups → route → DI → positional → defaults
+ 8. Context Validation          — optional validation delegates on contexts
+ 9. Middleware & Handler        — your Use() chain + handler invocation
+10. Result Processing           — unwrap IExitResult, EnterInteractiveResult
+11. Output Transformation       — format selection and rendering
+12. Exit Code                   — 0 success, 1 failure, 2 validation, 3 cancelled, 5 exception
+```
+
+---
+
+## Middleware
+
+Register middleware with `app.Use(...)`:
+
+```csharp
+app.Use(async (context, next) =>
+{
+    var sw = Stopwatch.StartNew();
+    await next();
+    context.Logger.LogInformation("Command {Route} completed in {Elapsed}ms",
+        context.Route, sw.ElapsedMilliseconds);
+});
+```
+
+Middleware runs between argument binding (step 7) and your handler (step 9). Chain multiple middleware calls — they execute in registration order.
+
+### Authentication middleware example
+
+```csharp
+app.Use(async (context, next) =>
+{
+    if (context.Route.StartsWith("admin") && !context.Session.IsAuthenticated)
+    {
+        context.SetResult(Results.Error("Not authenticated. Run 'auth login' first."));
+        return;
+    }
+    await next();
+});
+```
+
+### Logging middleware
+
+```csharp
+app.Use(async (context, next) =>
+{
+    using var scope = context.Logger.BeginScope(new { context.Route, context.SessionId });
+    context.Logger.LogDebug("Executing {Route}", context.Route);
+    try
+    {
+        await next();
+    }
+    catch (Exception ex)
+    {
+        context.Logger.LogError(ex, "Command {Route} threw", context.Route);
+        throw;
+    }
+});
+```
+
+---
+
+## Scripting and automation
+
+### One-shot CLI invocation
+
+Every command works as a one-liner. Combine with shell pipes for scripting:
+
+```bash
+# Export contacts and pipe to jq
+myapp contacts list --json | jq '.[] | select(.email | endswith("@example.com"))'
+
+# Import from a file
+myapp contacts import contacts.csv
+
+# Chain with standard Unix tools
+myapp orders list --json | jq '.[].id' | xargs -I{} myapp orders {} archive
+```
+
+### Response files
+
+Group complex invocations in a file:
+
+```bash
+myapp @deploy.rsp
+```
+
+`deploy.rsp`:
+```text
+deploy
+--environment
+production
+--region
+us-east-1
+--confirm
+```
+
+Response files are space-transparent (one token per line) and non-recursive.
+
+### Pre-filled prompts for CI
+
+Use `--answer:*` to supply interactive prompts from environment variables or scripts:
+
+```bash
+# In CI — no user present
+myapp release publish \
+  --answer:confirm=yes \
+  --answer:version=$VERSION
+```
+
+### Machine-readable help in scripts
+
+```bash
+# Discover available commands
+myapp --help --json | jq '.commands[].name'
+
+# Get parameter schema for a command
+myapp contacts add --help --json | jq '.parameters'
+```
+
+---
+
+## Integrating with ASP.NET Core
+
+Repl integrates natively with `WebApplicationBuilder`. The command graph and HTTP endpoints share the same DI container:
+
+```csharp
+var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddSingleton<IContactStore, ContactStore>();
+
+var webApp = builder.Build();
+webApp.UseWebSockets();
+webApp.MapReplWebSocket("/repl");   // REPL sessions
+webApp.MapGet("/api/contacts", (IContactStore store) => store.All());  // REST API
+
+// Repl command graph — same services
+var repl = webApp.Services.GetRequiredService<IReplApp>();
+repl.Map("contacts list", (IContactStore store) => store.All());
+
+await webApp.RunAsync();
+```
+
+The REPL command `contacts list` and the REST endpoint `/api/contacts` share the same `IContactStore` instance.
+
+---
+
+## Integrating with `IHostedService`
+
+Run Repl commands from background services or scheduled jobs:
+
+```csharp
+public class NightlyCleanup : BackgroundService
+{
+    private readonly IReplExecutor _executor;
+
+    public NightlyCleanup(IReplExecutor executor) => _executor = executor;
+
+    protected override async Task ExecuteAsync(CancellationToken ct)
+    {
+        while (!ct.IsCancellationRequested)
+        {
+            await Task.Delay(TimeSpan.FromHours(24), ct);
+            await _executor.ExecuteAsync("contacts purge-inactive --confirm", ct);
+        }
+    }
+}
+```
+
+---
+
+## Signal handling and graceful shutdown
+
+Repl handles `SIGINT` (`Ctrl+C`) and propagates a `CancellationToken` to all handlers. Long-running commands should honor it:
+
+```csharp
+app.Map("process {file}", async (string file, CancellationToken ct) =>
+{
+    await foreach (var record in ReadRecords(file, ct))
+    {
+        ct.ThrowIfCancellationRequested();
+        await ProcessRecord(record, ct);
+    }
+    return Results.Success("Done.");
+});
+```
+
+In hosted sessions, graceful shutdown sends a disconnect signal to all active sessions before the server exits.
+
+---
+
+## Error handling
+
+Errors flow through the pipeline as typed `Results`:
+
+```csharp
+app.Map("pay {amount:double}", async (double amount, IPaymentService payments) =>
+{
+    if (amount <= 0)
+        return Results.Error("Amount must be positive.", exitCode: 2);
+
+    var result = await payments.ChargeAsync(amount);
+
+    return result.IsSuccess
+        ? Results.Success($"Paid {amount:C}.")
+        : Results.Error($"Payment failed: {result.Message}");
+});
+```
+
+Unhandled exceptions are caught at stage 9, rendered to stderr with a stack trace in debug mode, and produce exit code `5`.
+
+### Custom exit codes
+
+```csharp
+return Results.Exit(42);   // explicit exit code
+```
+
+<Aside type="tip">
+Use `Results.Cancelled(...)` (exit code 3) when a user-initiated cancellation happens — it's distinct from `Results.Error(...)` (exit code 2), which indicates a program error.
+</Aside>

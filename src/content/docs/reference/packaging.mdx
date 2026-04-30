@@ -1,0 +1,201 @@
+---
+title: Packaging & Distribution
+description: How to package a Repl app as a .NET global tool, MCP server, or self-contained binary.
+---
+
+import { Steps, Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+
+A Repl app is a standard .NET console application — it packages like any other. The main distribution channels are global tools (NuGet), MCP server registry, and self-contained binaries.
+
+## .NET Global Tool
+
+The most common distribution model for developer-facing tools. Users install once with `dotnet tool install` and your app is available globally.
+
+<Steps>
+
+1. **Configure the project**
+
+   ```xml
+   <PropertyGroup>
+     <OutputType>Exe</OutputType>
+     <TargetFramework>net10.0</TargetFramework>
+     <PackAsTool>true</PackAsTool>
+     <ToolCommandName>myapp</ToolCommandName>
+     <PackageId>MyCompany.MyApp</PackageId>
+     <Version>1.0.0</Version>
+   </PropertyGroup>
+   ```
+
+2. **Pack**
+
+   ```bash
+   dotnet pack -c Release
+   ```
+
+3. **Install locally for testing**
+
+   ```bash
+   dotnet tool install --global --add-source ./nupkg MyCompany.MyApp
+   myapp --version
+   ```
+
+4. **Publish to NuGet.org**
+
+   ```bash
+   dotnet nuget push ./nupkg/MyCompany.MyApp.1.0.0.nupkg \
+     --api-key $NUGET_API_KEY \
+     --source https://api.nuget.org/v3/index.json
+   ```
+
+</Steps>
+
+**User install:**
+```bash
+dotnet tool install -g MyCompany.MyApp
+```
+
+---
+
+## MCP Server distribution
+
+If your app exposes MCP (`app.UseMcpServer()`), you can register it in the MCP server registry so agents can discover and install it automatically.
+
+### `PackageType` for MCP
+
+```xml
+<PropertyGroup>
+  <PackAsTool>true</PackAsTool>
+  <ToolCommandName>myapp</ToolCommandName>
+  <PackageType>McpServer</PackageType>
+</PropertyGroup>
+```
+
+### Server manifest
+
+Add `.mcp/server.json` to your project to declare capabilities for registry-based discovery:
+
+```json
+{
+  "name": "myapp",
+  "description": "Contacts management MCP server",
+  "command": "myapp",
+  "args": ["mcp", "serve"],
+  "capabilities": {
+    "tools": true,
+    "resources": true,
+    "prompts": true
+  }
+}
+```
+
+Include it in the package:
+
+```xml
+<ItemGroup>
+  <None Include=".mcp/server.json" Pack="true" PackagePath=".mcp/" />
+</ItemGroup>
+```
+
+---
+
+## Self-contained binary
+
+For shipping to machines without .NET installed:
+
+```bash
+dotnet publish -c Release \
+  -r win-x64 \
+  --self-contained \
+  -p:PublishSingleFile=true \
+  -p:PublishTrimmed=true
+```
+
+| Platform | Runtime ID |
+|---|---|
+| Windows x64 | `win-x64` |
+| macOS ARM | `osx-arm64` |
+| Linux x64 | `linux-x64` |
+
+<Aside type="caution">
+Trimming (`PublishTrimmed=true`) removes unused code but can break reflection-heavy libraries. Test thoroughly. `Repl.Core` and `Repl.Defaults` are trim-friendly; verify add-on packages separately.
+</Aside>
+
+---
+
+## Versioning
+
+Repl Toolkit itself uses [Nerdbank.GitVersioning](https://github.com/dotnet/Nerdbank.GitVersioning) — version numbers are derived from git history automatically. The same approach works well for your apps:
+
+```bash
+dotnet add package Nerdbank.GitVersioning
+```
+
+`version.json`:
+```json
+{
+  "version": "1.0",
+  "publicReleaseRefSpec": ["^refs/heads/main$", "^refs/heads/release/.*$"]
+}
+```
+
+Version is then `1.0.{commit-height}` on release branches, `1.0.0-dev.{height}` on other branches.
+
+---
+
+## CI/CD pipeline
+
+A minimal GitHub Actions release workflow:
+
+```yaml
+name: Release
+on:
+  push:
+    branches: [main, 'release/**']
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0     # needed for Nerdbank.GitVersioning
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.x'
+
+      - run: dotnet pack -c Release -o ./nupkg
+
+      - name: Publish to NuGet
+        if: startsWith(github.ref, 'refs/heads/release/')
+        run: |
+          dotnet nuget push ./nupkg/*.nupkg \
+            --api-key ${{ secrets.NUGET_API_KEY }} \
+            --source https://api.nuget.org/v3/index.json \
+            --skip-duplicate
+```
+
+---
+
+## What to include in the package
+
+| Asset | Purpose |
+|---|---|
+| `.mcp/server.json` | MCP registry discovery |
+| `README.md` | NuGet landing page |
+| Icon (`.png`) | NuGet gallery icon |
+| `CHANGELOG.md` | Release notes |
+| Shell completion note in README | Guide users to run `myapp completion install` |
+
+---
+
+## Distribution checklist
+
+- [ ] `PackAsTool = true` and `ToolCommandName` set
+- [ ] Version sourced from git (or explicit)
+- [ ] `README.md` has a quick-start snippet
+- [ ] `dotnet tool install -g <pkg>` tested clean on a fresh machine
+- [ ] `myapp --help` works after global install
+- [ ] `myapp completion install` works for your target shells
+- [ ] If MCP: `myapp mcp serve` starts without error, `.mcp/server.json` is present
+- [ ] NuGet API key stored in CI secrets, not in source

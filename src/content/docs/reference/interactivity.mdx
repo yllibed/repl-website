@@ -1,0 +1,216 @@
+---
+title: Interactivity
+description: How to ask users questions, report progress, and handle prompts — from simple text input to rich Spectre widgets.
+---
+
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+Repl provides a typed interaction channel (`IInteraction`) that works across all execution modes: interactive REPL, hosted sessions, MCP tools, and automated scripts. The same handler code asks questions in a terminal, receives answers from an MCP client, or reads pre-filled values from `--answer:*` flags.
+
+## The interaction channel
+
+Inject `IInteraction` into your handler to access prompts and progress:
+
+```csharp
+app.Map("add", async (IInteraction ui, IContactStore store, CancellationToken ct) =>
+{
+    var name  = await ui.AskTextAsync("Full name:", ct);
+    var email = await ui.AskTextAsync("Email address:", ct);
+
+    var contact = store.Add(name, email);
+    return Results.Success($"Added {contact.Name} (#{contact.Id}).");
+});
+```
+
+## Prompt types
+
+### Text input
+
+```csharp
+var name = await ui.AskTextAsync("Full name:", ct);
+```
+
+### Secret / password (masked)
+
+```csharp
+var password = await ui.AskSecretAsync("Password:", ct);
+```
+
+In MCP mode, `AskSecretAsync` is **prefill-only** — the agent must supply the value upfront; elicitation and sampling are never used for secrets.
+
+### Confirmation
+
+```csharp
+var confirmed = await ui.AskConfirmationAsync("Delete this record? This cannot be undone.", ct);
+if (!confirmed)
+    return Results.Cancelled("Deletion cancelled.");
+```
+
+### Single-choice selection
+
+```csharp
+var role = await ui.AskChoiceAsync(
+    "Assign role:",
+    new[] { "admin", "editor", "viewer" },
+    ct);
+```
+
+In a capable terminal, this renders as an arrow-key menu. In plain mode, it falls back to numbered choices.
+
+### Multi-choice selection
+
+```csharp
+var permissions = await ui.AskMultiChoiceAsync(
+    "Select permissions:",
+    new[] { "read", "write", "delete", "export" },
+    ct);
+```
+
+### Utility
+
+```csharp
+await ui.WriteWarningAsync("Rate limit approaching.", ct);
+await ui.WriteProblemAsync("Connection failed.", ct);
+await ui.WriteStatusAsync("Processing...", ct);
+await ui.PressAnyKeyAsync("Press any key to continue.", ct);
+await ui.ClearScreenAsync(ct);
+```
+
+---
+
+## Progress reporting
+
+### Determinate progress
+
+```csharp
+app.Map("import {file}", async (string file, IInteraction ui, CancellationToken ct) =>
+{
+    var lines = await File.ReadAllLinesAsync(file, ct);
+    await using var progress = await ui.WriteProgressAsync($"Importing {lines.Length} records...", ct);
+
+    for (int i = 0; i < lines.Length; i++)
+    {
+        ct.ThrowIfCancellationRequested();
+        await ImportLine(lines[i]);
+        progress.Report((double)(i + 1) / lines.Length);
+    }
+
+    return Results.Success($"Imported {lines.Length} records.");
+});
+```
+
+### Indeterminate progress (spinner)
+
+```csharp
+await using var progress = await ui.WriteIndeterminateProgressAsync("Connecting...", ct);
+// ... work
+```
+
+### Warning / error state on progress
+
+```csharp
+progress.Report(new ReplProgressEvent(0.75, ReplProgressState.Warning, "Slow connection detected."));
+```
+
+---
+
+## Automating prompts
+
+### `--answer:*` flags (CLI scripts)
+
+Pre-fill prompts positionally from the command line. Prompts are answered in the order they're asked:
+
+```bash
+# Answers "Full name:" with "Alice", "Email:" with "alice@example.com"
+myapp add --answer:1=Alice --answer:2=alice@example.com
+```
+
+Named answers target a specific prompt by label:
+
+```bash
+myapp add --answer:name=Alice --answer:email=alice@example.com
+```
+
+### `AnswerQueue` (tests)
+
+In `Repl.Testing`:
+
+```csharp
+session.AnswerQueue.Enqueue("Alice");
+session.AnswerQueue.Enqueue("alice@example.com");
+await session.ExecuteAsync("add");
+```
+
+---
+
+## MCP interaction tiers
+
+When a command is called via MCP, Repl tries to answer prompts in this order:
+
+| Tier | Mechanism | Notes |
+|---|---|---|
+| 1 | **Prefill** — from tool call arguments | Always tried first |
+| 2 | **Elicitation** — structured form through the agent | Requires `sampling`/`elicitation` capability |
+| 3 | **Sampling** — LLM generates an answer | Requires `sampling` capability |
+| 4 | **Default / Fail** | Depends on `InteractivityMode` |
+
+Configure the mode when enabling MCP:
+
+```csharp
+app.UseMcpServer(o =>
+{
+    o.InteractivityMode = InteractivityMode.PrefillThenElicitation;
+    // or: PrefillThenFail | PrefillThenDefaults | PrefillThenSampling
+});
+```
+
+<Aside type="tip">
+For agent-driven workflows, design your commands to accept all required values as route arguments or named options. Use prompts only for the interactive human experience — agents should supply everything upfront.
+</Aside>
+
+---
+
+## Upgrading with Spectre.Console
+
+Add `Repl.Spectre` and register:
+
+```csharp
+builder.Services.AddSpectreInteraction();
+```
+
+All `IInteraction` calls upgrade automatically to Spectre.Console widgets:
+
+| Call | Spectre widget |
+|---|---|
+| `AskTextAsync` | `TextPrompt<string>` |
+| `AskSecretAsync` | `TextPrompt<string>` (masked) |
+| `AskConfirmationAsync` | `ConfirmationPrompt` |
+| `AskChoiceAsync` | `SelectionPrompt` |
+| `AskMultiChoiceAsync` | `MultiSelectionPrompt` |
+| `WriteProgressAsync` | Live `Progress` display |
+| `WriteIndeterminateProgressAsync` | Live `Status` spinner |
+
+No handler changes required.
+
+---
+
+## Mnemonic shortcuts
+
+Prefix a choice item with `_` to designate it as the keyboard shortcut:
+
+```csharp
+var action = await ui.AskChoiceAsync(
+    "What next?",
+    new[] { "_Retry", "_Abort", "_Skip" },
+    ct);
+```
+
+The user can press `R`, `A`, or `S` without navigating the menu.
+
+---
+
+## Cancellation
+
+Every `IInteraction` method accepts a `CancellationToken`. When `Ctrl+C` is pressed or the session is terminated, the token is cancelled, and the prompt throws `OperationCanceledException` — which Repl catches and reports as `Results.Cancelled`.
+
+Press `Esc` to cancel a single prompt without cancelling the whole command (the method returns the prompt's default value instead of throwing).

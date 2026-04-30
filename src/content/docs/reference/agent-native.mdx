@@ -1,0 +1,180 @@
+---
+title: Agent-Native Development
+description: How Repl changes the way autonomous AI agents build full-stack applications — no screenshots, no DOM scraping, just pure logic.
+---
+
+import { Card, CardGrid, Aside } from '@astrojs/starlight/components';
+
+## A different way to build
+
+When an AI agent builds a full-stack application today, it typically has to:
+
+- Take screenshots to see the UI state
+- Parse HTML to find what changed
+- Spend tokens describing visual layouts
+- Stop every few steps to ask "did that work?"
+
+**A Repl command surface eliminates all of that.**
+
+The agent doesn't need to see the UI because the command surface *is* the application. It's entirely text-based, self-describing, and machine-readable by design. The agent can discover, invoke, test, and iterate on the entire functional layer of an application — autonomously, in a tight loop — without a single screenshot.
+
+---
+
+## How the agent discovers your app
+
+A Repl app is self-documenting at every level. The agent starts with nothing except the executable name:
+
+```bash
+$ myapp --help --json
+{
+  "name": "myapp",
+  "commands": [
+    { "route": "contacts", "description": "Manage contacts" },
+    { "route": "orders", "description": "Manage orders" },
+    { "route": "reports period", "description": "Generate a period report" }
+  ]
+}
+```
+
+It drills into each context:
+
+```bash
+$ myapp contacts --help --json
+{
+  "name": "contacts",
+  "commands": [
+    { "route": "list", "description": "List all contacts" },
+    { "route": "add {name} {email}", "description": "Add a contact" },
+    { "route": "{id:int} show", "description": "Show a contact" },
+    { "route": "{id:int} delete", "description": "Delete a contact" }
+  ]
+}
+```
+
+And for any command:
+
+```bash
+$ myapp contacts add --help --json
+{
+  "route": "contacts add {name} {email}",
+  "parameters": [
+    { "name": "name", "type": "string", "required": true },
+    { "name": "email", "type": "string", "constraint": "email", "required": true }
+  ]
+}
+```
+
+The agent now knows the full shape of the application — every command, every parameter, every constraint — from a few cheap text exchanges. **No screenshots. No HTML. No visual context.**
+
+---
+
+## How the agent calls your app
+
+Invocations are just structured text. Results are clean JSON:
+
+```bash
+$ myapp contacts add "Alice Dupont" alice@example.com --json
+{ "id": 1, "name": "Alice Dupont", "email": "alice@example.com" }
+
+$ myapp contacts list --json
+[
+  { "id": 1, "name": "Alice Dupont", "email": "alice@example.com" }
+]
+
+$ myapp contacts 1 delete --json
+{ "success": true, "message": "Deleted contact 1." }
+```
+
+The agent reads the results directly. No parsing. No XPath. No CSS selectors. Just data.
+
+---
+
+## Via MCP: zero integration cost
+
+With `Repl.Mcp`, the agent doesn't even need to run shell commands. Your commands become MCP tools — the agent calls them like functions:
+
+```csharp
+app.UseMcpServer();
+```
+
+Every `Map(...)` is now a typed MCP tool with:
+- A name derived from the route (`contacts_add`)
+- A JSON Schema derived from parameter types and constraints
+- A description from your `[Description]` attributes
+- Behavioral hints from annotations (`.ReadOnly()`, `.Destructive()`, etc.)
+
+The agent knows exactly what each tool does, what it expects, and how to handle the result — at zero documentation cost to you.
+
+---
+
+## The development loop
+
+Here's how an autonomous agent builds a full application with a Repl command surface:
+
+```
+1. Discover commands        →  --help --json
+2. Write a failing test     →  Repl.Testing session
+3. Implement the handler    →  just a C# lambda
+4. Run the test             →  Repl.Testing assertion
+5. Call the command         →  myapp <route> --json
+6. Verify the output        →  structured JSON comparison
+7. Repeat for next feature  →  goto 1
+```
+
+No browser. No screenshots. No "describe what you see." The agent stays in a tight text loop — cheap in tokens, fast to iterate, trivially verifiable.
+
+---
+
+## The command surface IS the application
+
+A Repl app isn't a CLI wrapper around your business logic — it *is* your business logic, exposed as a first-class command surface. When the agent is done implementing every command and every test passes, **the application is complete**.
+
+At that point, adding a web UI, a TUI, or a desktop interface is just decoration. The real work — the business rules, the data model, the workflows, the edge cases — is done, tested, and working.
+
+<CardGrid>
+  <Card title="Self-documenting" icon="information">
+    Every command carries its own schema. The agent never has to ask "what parameters does this take?" — the answer is always one `--help --json` away.
+  </Card>
+  <Card title="Token-efficient" icon="approve-check-circle">
+    Text in, text out. No base64-encoded screenshots, no large HTML payloads, no visual reasoning. The agent focuses exclusively on logic.
+  </Card>
+  <Card title="Fully testable" icon="approve-check">
+    `Repl.Testing` lets the agent write and run typed assertions against the full command surface in memory. Tests are cheap, fast, and cover real behavior.
+  </Card>
+  <Card title="Always consistent" icon="setting">
+    The same command surface that the agent built with runs as CLI, REPL, MCP tools, and hosted sessions. Nothing changes — the surface is the source of truth.
+  </Card>
+</CardGrid>
+
+---
+
+## The ultimate admin tool
+
+Once the agent has built the application, the command surface doesn't disappear — it becomes the **permanent operational interface**.
+
+- Ops team uses it as a CLI admin tool
+- Support team uses it as an interactive REPL
+- Monitoring systems drive it via scripted one-liners
+- Future agents call it as MCP tools to extend the application
+
+The command surface is the application. The UI layer — whether a web dashboard, a TUI, or a desktop app — is added on top when the time is right. But by then, the entire system is already built, tested, and running. The GUI is the frosting. The Repl surface is the cake.
+
+---
+
+## Practical guidance for agent use
+
+**Design commands at the right granularity.** Agents work best with commands that do one thing clearly. `contacts_add`, `contacts_delete`, `orders_fulfill` — not `contacts_add_and_notify_and_log`.
+
+**Use typed constraints everywhere.** `{id:int}`, `{email:email}`, `{date:date}` — the JSON Schema in the MCP tool schema reflects these, which helps the agent fill parameters correctly without asking.
+
+**Annotate intent, not just behavior.** `.ReadOnly()` and `.Destructive()` aren't just safety nets — they tell the agent whether it can call a command autonomously or needs to ask first.
+
+**Return structured data.** Return objects, not strings. Let Repl format them. The agent reads JSON — it doesn't parse sentences.
+
+**Write the `[Description]` as if explaining to a new colleague.** The agent reads it the same way. "List all contacts" is fine. "Returns all contacts in the system sorted by name, with optional filter by email domain" is better.
+
+**Use `Repl.Testing` as the spec.** Write tests that describe exactly what the agent should be able to do. If the test passes, the command works for the agent. If it doesn't, nothing else matters.
+
+<Aside type="tip">
+The best time to add `app.UseMcpServer()` is day one. It costs one line and zero handler changes — and it immediately makes your app available to any MCP-compatible agent as you develop it.
+</Aside>

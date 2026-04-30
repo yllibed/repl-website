@@ -125,6 +125,31 @@ Every command is now discoverable as an MCP tool — the AI agent calls `client 
 </TabItem>
 </Tabs>
 
+## Built for the age of AI agents
+
+The most expensive part of autonomous agent development isn't writing code — it's the feedback loop. Screenshots consume tokens. HTML parsing is fragile. Visual context is slow to reason about.
+
+A Repl command surface eliminates all of it.
+
+```bash
+# The agent discovers everything from one command
+$ myapp --help --json
+# → full command tree, parameter schemas, descriptions
+
+# The agent calls commands and reads structured results
+$ myapp contacts add "Alice Dupont" alice@example.com --json
+# → { "id": 1, "name": "Alice Dupont" }
+
+# The agent verifies behavior with Repl.Testing — in memory, no terminal needed
+# → full multi-step interaction sequences with typed assertions
+```
+
+**When the command surface is complete, the application is complete.** The business logic is implemented, tested, and working. Adding a web UI, a TUI, or a desktop front-end is the last step — decoration on top of a finished application. By then, the real work is done.
+
+[Read more about agent-native development →](/reference/agent-native/)
+
+---
+
 ## Where to go next
 
 <CardGrid>
@@ -139,9 +164,9 @@ Every command is now discoverable as an MCP tool — the AI agent calls `client 
 		[Browse recipes →](/cookbook/core-basics/)
 	</Card>
 	<Card title="Concepts" icon="information">
-		Routes and constraints, modules, DI, terminal integration, and best practices.
+		Routes, modules, DI, MCP, interactivity, output, pipelines, and terminal integration.
 
-		[Read the docs →](/reference/architecture/)
+		[Read the docs →](/reference/routes-and-parameters/)
 	</Card>
 	<Card title="API Reference" icon="list-format">
 		Complete generated API reference from the `Repl.*` assemblies.

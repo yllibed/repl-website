@@ -1,0 +1,240 @@
+---
+title: Customization & Output
+description: Output formats, ANSI levels, color palettes, Spectre.Console rendering, and custom formatters.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Repl's output pipeline is fully composable. The same command graph produces plain text for a CI log, syntax-highlighted JSON for a terminal, and Spectre.Console tables for a rich interactive session — all without touching handler code.
+
+## Output formats
+
+Every command supports output format flags out of the box:
+
+| Flag | Format |
+|---|---|
+| *(none)* | `human` — plain text / table |
+| `--output:format=json` (or `--json`) | JSON |
+| `--output:format=xml` | XML |
+| `--output:format=yaml` | YAML |
+| `--output:format=markdown` | Markdown table |
+| `--output:format=spectre` | Spectre.Console rendering |
+
+### Format selection order
+
+1. `--output:format` flag on the command line
+2. `ReplOptions.Output.DefaultFormat` (configured at startup)
+3. `human` (built-in default)
+
+### Set the default format
+
+```csharp
+app.Configure<OutputOptions>(o =>
+{
+    o.DefaultFormat = "json";  // all commands default to JSON
+});
+```
+
+---
+
+## ANSI capability levels
+
+Repl detects the terminal's color capability at startup and chooses rendering accordingly.
+
+| Level | Rendering |
+|---|---|
+| `None` | Plain text, no escape sequences |
+| `Basic` | 16 ANSI colors |
+| `Extended` | 256 colors |
+| `TrueColor` | 24-bit color |
+
+**Detection chain** (first match wins):
+
+1. `NO_COLOR` env var → force `None`
+2. `CLICOLOR_FORCE` env var → force ANSI
+3. `TERM` / `COLORTERM` heuristics
+4. Platform-specific checks (Windows Console, VS Code terminal, etc.)
+5. Redirection check (piped stdout → `None`)
+
+Override programmatically:
+
+```csharp
+app.Configure<OutputOptions>(o =>
+{
+    o.AnsiMode = AnsiMode.TrueColor;   // force 24-bit
+    // or: None, Basic, Extended, Auto (default)
+});
+```
+
+### JSON colorization
+
+In interactive mode with ANSI support, `--json` output is automatically syntax-highlighted (keys in one color, strings in another, numbers in a third). No configuration required.
+
+---
+
+## Render width
+
+Repl uses the terminal width for table column sizing, word wrap, and layout decisions.
+
+**Resolution order:**
+
+1. `OutputOptions.PreferredWidth` (explicit override)
+2. `COLUMNS` environment variable
+3. Detected console window width
+4. Telnet NAWS / DTTERM resize for hosted sessions
+5. `OutputOptions.FallbackWidth` (default: `120`)
+
+```csharp
+app.Configure<OutputOptions>(o =>
+{
+    o.PreferredWidth = 160;
+    o.FallbackWidth  = 80;
+});
+```
+
+---
+
+## Custom output transformers
+
+Register a transformer for a new format name:
+
+```csharp
+app.Configure<OutputOptions>(o =>
+{
+    o.AddTransformer("csv", new CsvOutputTransformer());
+    o.AddAlias("spreadsheet", "csv");  // both --output:format=csv and --output:format=spreadsheet work
+});
+```
+
+```csharp
+public class CsvOutputTransformer : IReplOutputTransformer
+{
+    public async Task TransformAsync(object? value, ReplOutputContext context, CancellationToken ct)
+    {
+        if (value is IEnumerable<object> rows)
+        {
+            await context.Writer.WriteLineAsync(ToCsv(rows));
+        }
+    }
+}
+```
+
+---
+
+## Suppressing the banner
+
+The startup banner (shown in interactive mode) can be suppressed:
+
+```bash
+myapp --no-logo
+```
+
+Or globally:
+
+```csharp
+app.Configure<OutputOptions>(o =>
+{
+    o.BannerEnabled = false;
+    // or: BannerFormats = ["human"]  — show only in human format (default)
+});
+```
+
+---
+
+## Spectre.Console integration
+
+Add `Repl.Spectre` and register the services:
+
+```csharp
+builder.Services.AddSpectreInteraction();  // rich prompts
+builder.Services.AddSpectreOutput();       // rich renderables
+```
+
+### Returning renderables
+
+Return any `IRenderable` from a handler — Spectre renders it automatically:
+
+```csharp
+app.Map("contacts table", (IContactStore store) =>
+{
+    var table = new Table()
+        .BorderStyle(Style.Parse("grey"))
+        .AddColumn("[bold]Id[/]")
+        .AddColumn("[bold]Name[/]")
+        .AddColumn("[bold]Email[/]");
+
+    foreach (var c in store.All())
+        table.AddRow(c.Id.ToString(), c.Name, c.Email);
+
+    return table;
+});
+```
+
+### Color palette and style
+
+Use Spectre.Console's full `Markup` and `Style` API anywhere an `IRenderable` is expected:
+
+```csharp
+return new Markup("[green bold]Success![/] Contact added.");
+```
+
+```csharp
+return new Panel(new Markup(content))
+    .BorderStyle(Style.Parse("blue"))
+    .Header("[bold]Summary[/]");
+```
+
+### Available renderables
+
+| Type | Description |
+|---|---|
+| `Table` | Grid with borders, alignment, and markup |
+| `Panel` | Box with optional header and border |
+| `Tree` | Hierarchical tree view |
+| `BarChart` | Horizontal bar chart |
+| `BreakdownChart` | Proportion chart |
+| `Calendar` | Monthly calendar with highlighted dates |
+| `JsonText` | Syntax-highlighted JSON |
+| `FigletText` | Large ASCII art text |
+| `TextPath` | Breadcrumb path rendering |
+| `Markup` | Inline styled text |
+| `Grid` / `Columns` | Free-form layout |
+| `Rule` | Horizontal divider |
+| `Progress` / `Status` | Live progress widgets |
+
+### Detecting Spectre capability
+
+Spectre.Console detects terminal capabilities automatically. On terminals without ANSI support, all output degrades gracefully to plain text — no code changes needed.
+
+---
+
+## Help output formatting
+
+Help can also be rendered in structured formats:
+
+```bash
+myapp contacts --help            # human-readable
+myapp contacts --help --json     # machine-readable JSON
+```
+
+The JSON format returns a structured `ReplDocumentationModel` — useful for tooling, documentation generators, and agents.
+
+<Aside type="tip">
+Machine-readable help is the foundation for agent discovery. See [Agent-Native Development](/reference/agent-native/) for how agents use this to explore your app autonomously.
+</Aside>
+
+---
+
+## `IAnsiConsole` injection
+
+`Repl.Spectre` registers Spectre's `IAnsiConsole` in DI, bound to the current session's output stream. Inject it directly when you need full Spectre control:
+
+```csharp
+app.Map("demo", (IAnsiConsole console) =>
+{
+    console.Write(new FigletText("Repl").Color(Color.Blue));
+    console.MarkupLine("[bold green]Ready.[/]");
+});
+```
+
+This is session-safe in hosted mode — each session gets its own `IAnsiConsole` bound to its output stream.
