@@ -68,6 +68,10 @@ jobs:
         env:
           GOOGLE_ANALYTICS_ID: ${{ secrets.GOOGLE_ANALYTICS_ID }}
 
+      - name: Annotate DocFX pages for Pagefind indexing
+        run: |
+          find dist/api -name "*.html" -exec sed -i 's|<main class="container-xxl">|<main class="container-xxl" data-pagefind-body>|g' {} \;
+
       - name: Merge DocFX sitemap into Astro sitemap index
         run: |
           sed -i 's|</sitemapindex>|  <sitemap>\n    <loc>https://repl.yllibed.org/api/sitemap.xml</loc>\n  </sitemap>\n</sitemapindex>|' dist/sitemap-index.xml
