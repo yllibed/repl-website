@@ -36,7 +36,7 @@
 ## Reference
 
 - [Agent-Native Development](https://repl.yllibed.org/reference/agent-native/): How Repl enables autonomous AI agents to build full-stack applications without screenshots — self-documenting via --help --json, token-efficient JSON output, tight development loop with Repl.Testing.
-- [Packaging & Distribution](https://repl.yllibed.org/reference/packaging/): Publish as a .NET global tool, MCP server registry entry, or self-contained binary. CI/CD with GitHub Actions and Nerdbank.GitVersioning.
+- [Packaging & Distribution](https://repl.yllibed.org/reference/packaging/): Publish as a .NET global tool (PackAsTool), MCP server registry entry (PackageType=McpServer, .mcp/server.json manifest with dnx runtimeHint and packageArguments), or self-contained binary. CI/CD with GitHub Actions and Nerdbank.GitVersioning.
 - [Best Practices & FAQ](https://repl.yllibed.org/reference/best-practices/): Design patterns, common mistakes, and answers to frequent questions.
 - [Configuration](https://repl.yllibed.org/reference/configuration/): All configuration options for ReplApp, execution modes, and add-on packages.
 - [Packages](https://repl.yllibed.org/reference/packages/): Overview of all Repl.* NuGet packages — Core, Defaults, Mcp, Spectre, Testing, Hosting.

@@ -58,9 +58,9 @@ dotnet tool install -g MyCompany.MyApp
 
 ## MCP Server distribution
 
-If your app exposes MCP (`app.UseMcpServer()`), you can register it in the MCP server registry so agents can discover and install it automatically.
+If your app exposes MCP (`app.UseMcpServer()`), set `PackageType=McpServer` so NuGet.org and MCP-aware clients like VS Code can discover and install it automatically.
 
-### `PackageType` for MCP
+### Project configuration
 
 ```xml
 <PropertyGroup>
@@ -70,31 +70,73 @@ If your app exposes MCP (`app.UseMcpServer()`), you can register it in the MCP s
 </PropertyGroup>
 ```
 
-### Server manifest
+### Server manifest — `.mcp/server.json`
 
-Add `.mcp/server.json` to your project to declare capabilities for registry-based discovery:
+This file lives at `.mcp/server.json` in your repository. It tells registries and clients how to discover and invoke the server. The schema has evolved significantly — use the current version:
 
 ```json
 {
-  "name": "myapp",
-  "description": "Contacts management MCP server",
-  "command": "myapp",
-  "args": ["mcp", "serve"],
-  "capabilities": {
-    "tools": true,
-    "resources": true,
-    "prompts": true
-  }
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.myorg/myapp",
+  "version": "1.0.0",
+  "description": "Contacts management MCP server.",
+  "title": "MyApp",
+  "websiteUrl": "https://myorg.github.io/myapp",
+  "repository": {
+    "url": "https://github.com/myorg/myapp",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "nuget",
+      "registryBaseUrl": "https://api.nuget.org",
+      "identifier": "MyOrg.MyApp",
+      "version": "1.0.0",
+      "runtimeHint": "dnx",
+      "transport": {
+        "type": "stdio"
+      },
+      "packageArguments": [
+        { "type": "positional", "value": "mcp" },
+        { "type": "positional", "value": "serve" }
+      ]
+    }
+  ]
 }
 ```
 
-Include it in the package:
+**Required:** `name` (reverse-DNS format `org/repo`), `description`, `version`; inside `packages[]`: `registryType`, `identifier`, `transport`.
+
+**`runtimeHint: "dnx"`** — clients invoke the tool via `dnx MyOrg.MyApp@1.0.0 --yes` rather than the installed global tool name. This works without a prior `dotnet tool install`.
+
+**`packageArguments`** — positional args appended to the invocation. Repl activates stdio MCP mode when it receives `mcp serve`.
+
+If your server requires secrets (API keys, connection strings), declare them so clients can prompt the user at install time:
+
+```json
+"environmentVariables": [
+  {
+    "name": "MYAPP_API_KEY",
+    "description": "API key for the backing service.",
+    "isRequired": true,
+    "isSecret": true
+  }
+]
+```
+
+### Include the manifest in the package
 
 ```xml
 <ItemGroup>
   <None Include=".mcp/server.json" Pack="true" PackagePath=".mcp/" />
 </ItemGroup>
 ```
+
+After publishing, NuGet.org generates a **Connect** snippet for VS Code under the **MCP** tab on your package page — clients can install the server in one click.
+
+<Aside type="note">
+The `.mcp/server.json` schema has had breaking changes (snake_case → camelCase in September 2025, field removals in October 2025). If you find examples online that use `package_arguments`, `registry_type`, or a `status` field, they are outdated. The current schema is at `https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json`.
+</Aside>
 
 ---
 
