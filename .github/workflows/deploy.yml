@@ -40,6 +40,7 @@ jobs:
           repository: yllibed/repl
           ref: ${{ steps.latest-tag.outputs.tag }}
           path: ./repl-source
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
