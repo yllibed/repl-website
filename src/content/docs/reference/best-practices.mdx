@@ -57,7 +57,7 @@ Full constraint table: [Routes & Parameters](/reference/routes-and-parameters/).
 
 ### Use static lambdas
 
-Static lambdas prevent accidental captures and make the framework's expression compilation more efficient:
+Static lambdas prevent accidental captures:
 
 ```csharp
 app.Map("list", static (IStore store) => store.All());   // good
@@ -70,8 +70,8 @@ Return objects and let Repl format them. Use `Results.*` for control flow:
 
 ```csharp
 // Good
-app.Map("show {id:int}", (int id, IStore store) => store.Get(id));       // renders as table or JSON
-app.Map("delete {id:int}", (int id, IStore store) =>
+app.Map("show {id:int}", static (int id, IStore store) => store.Get(id));       // renders as table or JSON
+app.Map("delete {id:int}", static (int id, IStore store) =>
 {
     store.Delete(id);
     return Results.Success($"Deleted {id}.");
@@ -113,7 +113,7 @@ public IEnumerable<Contact> List(
 ### Use `.WithDescription(...)` on lambda handlers
 
 ```csharp
-app.Map("list", (IStore store) => store.All())
+app.Map("list", static (IStore store) => store.All())
     .WithDescription("List all contacts");
 ```
 

@@ -16,14 +16,14 @@ Scoped contexts let users navigate into sub-trees of your command graph — like
 ```csharp
 app.Context("client", client =>
 {
-    client.Map("list", () => contactStore.All());
+    client.Map("list", static (IContactStore store) => store.All());
 
     client.Context("{id:int}", scoped =>
     {
-        scoped.Map("show", (int id) => contactStore.Get(id));
-        scoped.Map("remove", (int id) =>
+        scoped.Map("show", static (int id, IContactStore store) => store.Get(id));
+        scoped.Map("remove", static (int id, IContactStore store) =>
         {
-            contactStore.Remove(id);
+            store.Remove(id);
             return Results.Success("Removed.");
         });
     });
@@ -83,7 +83,7 @@ app.Context("client", client =>
 
     client.Context("{id:int}", scoped =>
     {
-        scoped.Map("show", (int id, IContactStore store) => store.Get(id));
+        scoped.Map("show", static (int id, IContactStore store) => store.Get(id));
     });
 });
 

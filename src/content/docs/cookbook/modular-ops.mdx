@@ -51,8 +51,8 @@ builder.Services.AddSingleton(typeof(IStore<>), typeof(InMemoryStore<>));
 ```csharp
 app.Context("contacts", contacts =>
 {
-    contacts.Map("list", (IStore<Contact> store) => store.All());
-    contacts.Map("show {id:int}", (int id, IStore<Contact> store) => store.Get(id));
+    contacts.Map("list", static (IStore<Contact> store) => store.All());
+    contacts.Map("show {id:int}", static (int id, IStore<Contact> store) => store.Get(id));
 });
 ```
 
@@ -63,7 +63,7 @@ Mount a module and hide it from automation surfaces:
 ```csharp
 app.Context("admin", admin =>
 {
-    admin.Map("purge-all", (IStore<Contact> store) => store.DeleteAll());
+    admin.Map("purge-all", static (IStore<Contact> store) => store.DeleteAll());
 })
 .AutomationHidden();
 ```

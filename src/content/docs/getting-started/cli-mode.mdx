@@ -61,14 +61,15 @@ Commands:
 Register Repl's completion scripts to get tab completion in your shell:
 
 ```bash
-# Bash
-myapp completion bash >> ~/.bashrc
+# Auto-detect current shell
+myapp completion install
 
-# PowerShell
-myapp completion powershell >> $PROFILE
-
-# Zsh, Fish, Nushell also supported
-myapp completion --help
+# Explicit shell
+myapp completion install --shell bash
+myapp completion install --shell powershell
+myapp completion install --shell zsh
+myapp completion install --shell fish
+myapp completion install --shell nu
 ```
 
 ## Machine-readable help

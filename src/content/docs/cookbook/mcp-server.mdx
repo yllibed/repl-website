@@ -43,10 +43,10 @@ Configure in your agent (Claude Desktop, Cursor, etc.):
 Every `Map(...)` becomes an MCP tool automatically. The tool name is the route, description comes from `[Description]` or `.WithDescription(...)`.
 
 ```csharp
-app.Map("contacts list", (IContactStore store) => store.All())
+app.Map("contacts list", static (IContactStore store) => store.All())
     .WithDescription("List all contacts");
 
-app.Map("contacts add {name} {email:email}", (string name, string email, IContactStore store) =>
+app.Map("contacts add {name} {email:email}", static (string name, string email, IContactStore store) =>
 {
     store.Add(name, email);
     return Results.Success($"Added {name}.");
@@ -59,7 +59,7 @@ app.Map("contacts add {name} {email:email}", (string name, string email, IContac
 Expose read-only data as MCP resources:
 
 ```csharp
-app.Map("contacts export", (IContactStore store) => store.All())
+app.Map("contacts export", static (IContactStore store) => store.All())
     .AsResource()
     .WithDescription("All contacts as a JSON resource");
 ```
@@ -69,7 +69,7 @@ app.Map("contacts export", (IContactStore store) => store.All())
 Register reusable prompt templates:
 
 ```csharp
-app.Map("prompts summarize {contact_id:int}", (int contactId, IContactStore store) =>
+app.Map("prompts summarize {contact_id:int}", static (int contactId, IContactStore store) =>
 {
     var contact = store.Get(contactId);
     return new McpPromptResult
@@ -88,7 +88,7 @@ Return HTML from a command and register it as an MCP App resource — the client
 ```csharp
 using System.Net;   // WebUtility.HtmlEncode
 
-app.Map("contacts dashboard", (IContactStore store) =>
+app.Map("contacts dashboard", static (IContactStore store) =>
 {
     var contacts = store.All().ToList();
     return $$"""
@@ -112,7 +112,7 @@ Always HTML-encode user-controlled values. Raw interpolation of contact data int
 Tell the agent how it should handle your tools:
 
 ```csharp
-app.Map("contacts delete {id:int}", (int id, IContactStore store) =>
+app.Map("contacts delete {id:int}", static (int id, IContactStore store) =>
 {
     store.Delete(id);
     return Results.Success("Contact deleted.");
@@ -134,7 +134,7 @@ app.Map("contacts delete {id:int}", (int id, IContactStore store) =>
 Some commands are useful for humans in REPL but should be hidden from agents:
 
 ```csharp
-app.Map("debug reset", () => store.Clear())
+app.Map("debug reset", static (IContactStore store) => store.Clear())
     .AutomationHidden();
 ```
 
@@ -145,7 +145,7 @@ app.Map("debug reset", () => store.Clear())
 Expose the client's file system roots to your tools:
 
 ```csharp
-app.Map("analyze {path}", async (string path, IMcpClientRoots roots) =>
+app.Map("analyze {path}", static async (string path, IMcpClientRoots roots) =>
 {
     if (!roots.IsAllowed(path))
         return Results.Error("outside_root", $"Path '{path}' is not within an allowed root.");

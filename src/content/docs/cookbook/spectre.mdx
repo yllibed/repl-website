@@ -27,7 +27,7 @@ app.UseSpectreConsole();   // rich prompts + renderables in one call
 Return a Spectre.Console `IRenderable` directly from your handler:
 
 ```csharp
-app.Map("contacts table", (IContactStore store) =>
+app.Map("contacts table", static (IContactStore store) =>
 {
     var table = new Table()
         .AddColumn("Id")
@@ -53,7 +53,7 @@ app.Map("contacts table", (IContactStore store) =>
 ## Charts
 
 ```csharp
-app.Map("stats chart", (IContactStore store) =>
+app.Map("stats chart", static (IContactStore store) =>
 {
     var chart = new BarChart()
         .Width(60)
@@ -71,7 +71,7 @@ app.Map("stats chart", (IContactStore store) =>
 ```csharp
 using Repl.Interaction;
 
-app.Map("import {file}", async (string file, IReplInteractionChannel ui, CancellationToken ct) =>
+app.Map("import {file}", static async (string file, IReplInteractionChannel ui, CancellationToken ct) =>
 {
     var lines = await File.ReadAllLinesAsync(file, ct);
 
@@ -94,7 +94,7 @@ With `UseSpectreConsole()`, progress renders as a live Spectre.Console `Progress
 ```csharp
 using Repl.Interaction;
 
-app.Map("add", async (IReplInteractionChannel ui, IContactStore store, CancellationToken ct) =>
+app.Map("add", static async (IReplInteractionChannel ui, IContactStore store, CancellationToken ct) =>
 {
     var name  = await ui.AskTextAsync("name",  "Full name:",     ct: ct);
     var email = await ui.AskTextAsync("email", "Email address:", ct: ct);

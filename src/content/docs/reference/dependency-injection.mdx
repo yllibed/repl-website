@@ -73,7 +73,7 @@ var store = new ContactStore();
 app.Map("list", () => store.All());
 ```
 
-Static lambdas enable expression tree compilation and make handlers independently testable.
+Static lambdas prevent accidental closures and make handlers independently testable.
 
 ## Service lifetimes in Repl
 
