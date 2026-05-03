@@ -4,6 +4,7 @@ description: Composable modules, generic CRUD, and reusing the same module under
 ---
 
 import { Aside } from '@astrojs/starlight/components';
+import ApiRef from '../../../components/ApiRef.astro';
 
 Modules let you define a command set once and mount it at multiple points in your command graph — DRY at the routing level.
 
@@ -13,7 +14,7 @@ Modules let you define a command set once and mount it at multiple points in you
 
 ## Defining a module
 
-A module is a method (or class) that registers commands onto an `IReplMap`:
+A module is a method (or class) that registers commands onto an <ApiRef uid="Repl.IReplMap" />:
 
 ```csharp
 void RegisterCrudCommands<T>(IReplMap map, IStore<T> store) where T : IEntity

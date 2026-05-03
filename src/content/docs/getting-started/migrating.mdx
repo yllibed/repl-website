@@ -4,6 +4,7 @@ description: Migrating from System.CommandLine or Spectre.Console.Cli — you're
 ---
 
 import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+import ApiRef from '../../../components/ApiRef.astro';
 
 If you've been using `System.CommandLine` or `Spectre.Console.Cli`, you already think in the right terms — commands, arguments, options, handlers. Repl is built on the same mental model and extends it to surfaces your current tool can't reach: an interactive REPL, MCP tools for AI agents, hosted sessions over WebSocket or Telnet, and an in-process test harness.
 
@@ -17,10 +18,10 @@ The migration is mostly a find-and-replace of wiring code. Your handler logic mo
 
 | System.CommandLine | Repl equivalent |
 |---|---|
-| `RootCommand` | `ReplApp` |
+| `RootCommand` | <ApiRef uid="Repl.ReplApp" /> |
 | `Command("name", ...)` | `app.Context("name", ...)` or `app.Map("name", ...)` |
 | `Argument<T>("name")` | Route segment `{name:type}` — e.g. `{id:int}` |
-| `Option<T>("--flag")` | Named option on the handler parameter, or `[ReplOptionsGroup]` |
+| `Option<T>("--flag")` | Named option on the handler parameter, or <ApiRef uid="Repl.Parameters.ReplOptionsGroupAttribute" label="[ReplOptionsGroup]" /> |
 | `cmd.SetAction(parseResult => ...)` | Lambda passed directly to `Map(...)` — parameters are injected |
 | `parseResult.GetValue(option)` | Handler parameter — binder resolves it automatically |
 | `root.InvokeAsync(args)` | `app.Run(args)` |
@@ -65,7 +66,7 @@ return app.Run(args);
 1. **Keep your handler logic as-is.** If you have a method that does the real work, it doesn't change — only the wiring does.
 2. **Replace `RootCommand` + `Command` trees with `app.Map(...)` and `app.Context(...)`.**  
    Flat commands become `Map("name route", handler)`. Nested subcommands become `Context("noun", sub => { sub.Map(...) })`.
-3. **Drop `Argument<T>` and `Option<T>` declarations.** Route segments (`{name:type}`) replace positional arguments. Named options are plain parameters on the handler (`string? filter = null`) or grouped into a `[ReplOptionsGroup]` class.
+3. **Drop `Argument<T>` and `Option<T>` declarations.** Route segments (`{name:type}`) replace positional arguments. Named options are plain parameters on the handler (`string? filter = null`) or grouped into a <ApiRef uid="Repl.Parameters.ReplOptionsGroupAttribute" label="[ReplOptionsGroup]" /> class.
 4. **Add `.UseDefaultInteractive()`** to get the REPL mode for free when `args` is empty.
 5. **Add `.UseMcpServer()`** when you're ready to expose commands to AI agents.
 
@@ -77,8 +78,8 @@ return app.Run(args);
 
 | Spectre.Console.Cli | Repl equivalent |
 |---|---|
-| `CommandApp` | `ReplApp` |
-| `CommandSettings` with `[CommandOption]` / `[CommandArgument]` | `[ReplOptionsGroup]` class with `[ReplOption]` |
+| `CommandApp` | <ApiRef uid="Repl.ReplApp" /> |
+| `CommandSettings` with `[CommandOption]` / `[CommandArgument]` | <ApiRef uid="Repl.Parameters.ReplOptionsGroupAttribute" label="[ReplOptionsGroup]" /> class with <ApiRef uid="Repl.Parameters.ReplOptionAttribute" label="[ReplOption]" /> |
 | `Command<TSettings>` class | Handler method or lambda passed to `Map(...)` |
 | `Execute(CommandContext, TSettings)` | Handler with injected services + options |
 | `config.AddCommand<TCmd>("name")` | `app.Map("name route", handler)` |
@@ -130,7 +131,7 @@ return app.Run(args);
 
 ### Migrating Settings classes
 
-`CommandSettings` classes become `[ReplOptionsGroup]` classes. Named options map one-to-one:
+`CommandSettings` classes become <ApiRef uid="Repl.Parameters.ReplOptionsGroupAttribute" label="[ReplOptionsGroup]" /> classes. Named options map one-to-one:
 
 <Tabs>
 <TabItem label="Spectre.Console.Cli">
@@ -162,7 +163,7 @@ public sealed class ListOptions
 ### Migration steps
 
 1. **Extract the body of `Execute(...)` into a plain method.** The handler no longer needs to be a class — it's a method or lambda that receives injected services and options.
-2. **Convert `CommandSettings` to `[ReplOptionsGroup]`.** Swap `[CommandOption]` for `[ReplOption(Aliases = ["--flag"])]` and `[CommandArgument]` for route segments.
+2. **Convert `CommandSettings` to <ApiRef uid="Repl.Parameters.ReplOptionsGroupAttribute" label="[ReplOptionsGroup]" />.** Swap `[CommandOption]` for <ApiRef uid="Repl.Parameters.ReplOptionAttribute" label="[ReplOption]" /> and `[CommandArgument]` for route segments.
 3. **Wire with `app.Map(...)`.** Replace `config.AddCommand<TCmd>("name")` with `app.Map("name route", handler)`.
 4. **Keep your Spectre renderables.** If your existing commands already use `IAnsiConsole`, add `Repl.Spectre` and call `app.UseSpectreConsole()`. Your widgets work unchanged — `IAnsiConsole` is injected and routes to the right client across concurrent sessions.
 

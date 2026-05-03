@@ -3,6 +3,8 @@ title: Configuration Reference
 description: All configuration options for Repl Toolkit.
 ---
 
+import ApiRef from '../../../components/ApiRef.astro';
+
 ## App creation
 
 ### `CoreReplApp.Create()`
@@ -121,9 +123,9 @@ Three range types, one per precision level:
 
 | Type | Precision | Duration constraint |
 |---|---|---|
-| `ReplDateRange` | `DateOnly` | Whole days only |
-| `ReplDateTimeRange` | `DateTime` | Any duration |
-| `ReplDateTimeOffsetRange` | `DateTimeOffset` | Any duration |
+| <ApiRef uid="Repl.ReplDateRange" /> | `DateOnly` | Whole days only |
+| <ApiRef uid="Repl.ReplDateTimeRange" /> | `DateTime` | Any duration |
+| <ApiRef uid="Repl.ReplDateTimeOffsetRange" /> | `DateTimeOffset` | Any duration |
 
 Both `start..end` and `start@duration` forms are accepted. See [Built-in Types & Formats](/reference/data-types/#temporal-range-types) for all format details.
 

@@ -4,6 +4,7 @@ description: Patterns, pitfalls, and answers to common questions when building w
 ---
 
 import { Aside } from '@astrojs/starlight/components';
+import ApiRef from '../../../components/ApiRef.astro';
 
 ## Command graph design
 
@@ -197,7 +198,7 @@ await session.RunCommandAsync(
 
 ### Inject `IReplIoContext` for raw text output
 
-`IReplIoContext` is injectable as a handler parameter. `io.Output` is always the correct writer for the active session, regardless of execution mode:
+<ApiRef uid="Repl.IReplIoContext" /> is injectable as a handler parameter. `io.Output` is always the correct writer for the active session, regardless of execution mode:
 
 ```csharp
 app.Map("dump {file}", async (string file, IReplIoContext io, CancellationToken ct) =>
@@ -302,7 +303,7 @@ No opt-in needed — the scope appears automatically in any structured provider 
 
 **Q: Should I use `ReplApp` or `CoreReplApp`?**
 
-Use `ReplApp` (from the `Repl` meta-package) unless you're in an environment where DI is unavailable or you want zero dependencies. `CoreReplApp` (from `Repl.Core`) is the dependency-free base — great for embedding in a larger host.
+Use <ApiRef uid="Repl.ReplApp" /> (from the `Repl` meta-package) unless you're in an environment where DI is unavailable or you want zero dependencies. <ApiRef uid="Repl.CoreReplApp" /> (from `Repl.Core`) is the dependency-free base — great for embedding in a larger host.
 
 **Q: Can I mix CLI and REPL mode in tests?**
 

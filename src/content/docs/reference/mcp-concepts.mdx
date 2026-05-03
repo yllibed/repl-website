@@ -4,6 +4,7 @@ description: Everything about exposing your Repl commands as MCP tools, resource
 ---
 
 import { Aside, Tabs, TabItem, Steps } from '@astrojs/starlight/components';
+import ApiRef from '../../../components/ApiRef.astro';
 
 The [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) is the open standard through which AI agents discover and call tools. `Repl.Mcp` makes your entire command surface MCP-native with one line of code — then lets you fine-tune every aspect of how it's exposed.
 
@@ -180,7 +181,7 @@ Configure Content Security Policy for apps that load external assets:
 
 ## Interaction in MCP mode
 
-Repl routes `IReplInteractionChannel` calls through MCP primitives when running as an MCP server. Configure the fallback when a client doesn't support elicitation:
+Repl routes <ApiRef uid="Repl.Interaction.IReplInteractionChannel" /> calls through MCP primitives when running as an MCP server. Configure the fallback when a client doesn't support elicitation:
 
 ```csharp
 app.UseMcpServer(o =>
@@ -193,7 +194,7 @@ app.UseMcpServer(o =>
 });
 ```
 
-**Design for agents:** prefer accepting all required data as route parameters or named options. Reserve `IReplInteractionChannel` prompts for the human-interactive experience — agents should pass everything upfront.
+**Design for agents:** prefer accepting all required data as route parameters or named options. Reserve <ApiRef uid="Repl.Interaction.IReplInteractionChannel" /> prompts for the human-interactive experience — agents should pass everything upfront.
 
 For direct programmatic access to sampling and elicitation (outside of the interactivity pipeline), see [MCP — Advanced](/reference/mcp-advanced/).
 

@@ -4,6 +4,7 @@ description: All built-in route constraint types, temporal range types, and thei
 ---
 
 import { Aside } from '@astrojs/starlight/components';
+import ApiRef from '../../../components/ApiRef.astro';
 
 This page is the definitive reference for every type Repl can bind from a route segment or command-line token, and every input format each type accepts.
 
@@ -125,14 +126,14 @@ Temporal ranges capture an interval — a start and an end — from a single tok
 
 | .NET type | Start/end type | Duration constraint |
 |---|---|---|
-| `ReplDateRange` | `DateOnly` | Duration must be whole days (`d` only, no sub-day units) |
-| `ReplDateTimeRange` | `DateTime` | Any `TimeSpan` format |
-| `ReplDateTimeOffsetRange` | `DateTimeOffset` | Any `TimeSpan` format |
+| <ApiRef uid="Repl.ReplDateRange" /> | `DateOnly` | Duration must be whole days (`d` only, no sub-day units) |
+| <ApiRef uid="Repl.ReplDateTimeRange" /> | `DateTime` | Any `TimeSpan` format |
+| <ApiRef uid="Repl.ReplDateTimeOffsetRange" /> | `DateTimeOffset` | Any `TimeSpan` format |
 
 All three types expose `.From` and `.To` properties of their respective type.
 
 <Aside type="note">
-  Temporal range types are used as handler parameter types, not as constraint names. Repl infers the binding automatically when the parameter type is `ReplDateRange`, `ReplDateTimeRange`, or `ReplDateTimeOffsetRange`.
+  Temporal range types are used as handler parameter types, not as constraint names. Repl infers the binding automatically when the parameter type is <ApiRef uid="Repl.ReplDateRange" />, <ApiRef uid="Repl.ReplDateTimeRange" />, or <ApiRef uid="Repl.ReplDateTimeOffsetRange" />.
 </Aside>
 
 ### Syntax

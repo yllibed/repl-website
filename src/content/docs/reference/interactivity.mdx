@@ -4,12 +4,13 @@ description: How to ask users questions, report progress, and handle prompts —
 ---
 
 import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+import ApiRef from '../../../components/ApiRef.astro';
 
-Repl provides a typed interaction channel (`IReplInteractionChannel`) that works across all execution modes: interactive REPL, hosted sessions, MCP tools, and automated scripts. The same handler code asks questions in a terminal, receives answers from an MCP client, or reads pre-filled values from `--answer:*` flags.
+Repl provides a typed interaction channel (<ApiRef uid="Repl.Interaction.IReplInteractionChannel" />) that works across all execution modes: interactive REPL, hosted sessions, MCP tools, and automated scripts. The same handler code asks questions in a terminal, receives answers from an MCP client, or reads pre-filled values from `--answer:*` flags.
 
 ## The interaction channel
 
-Inject `IReplInteractionChannel` (namespace `Repl.Interaction`) into your handler:
+Inject <ApiRef uid="Repl.Interaction.IReplInteractionChannel" /> (namespace `Repl.Interaction`) into your handler:
 
 ```csharp
 using Repl.Interaction;
@@ -166,7 +167,7 @@ When a command is called via MCP, Repl tries to answer prompts in this order:
 | 1 | **Prefill** — from tool call arguments | Always tried first |
 | 2 | **Elicitation** — structured form through the agent | Requires `elicitation` capability |
 | 3 | **Sampling** — LLM generates an answer | Requires `sampling` capability |
-| 4 | **Default / Fail** | Depends on `InteractivityMode` |
+| 4 | **Default / Fail** | Depends on <ApiRef uid="Repl.Mcp.InteractivityMode" /> |
 
 Configure the mode when enabling MCP:
 
@@ -192,7 +193,7 @@ Add `Repl.Spectre` and register:
 app.UseSpectreConsole();
 ```
 
-All `IReplInteractionChannel` calls upgrade automatically to Spectre.Console widgets:
+All <ApiRef uid="Repl.Interaction.IReplInteractionChannel" /> calls upgrade automatically to Spectre.Console widgets:
 
 | Call | Spectre widget |
 |---|---|
@@ -223,6 +224,6 @@ The user can press `R`, `A`, or `S` without navigating the menu.
 
 ## Cancellation
 
-Every `IReplInteractionChannel` method accepts a `CancellationToken`. When `Ctrl+C` is pressed or the session is terminated, the token is cancelled, and the prompt throws `OperationCanceledException` — which Repl catches and reports as `Results.Cancelled`.
+Every <ApiRef uid="Repl.Interaction.IReplInteractionChannel" /> method accepts a `CancellationToken`. When `Ctrl+C` is pressed or the session is terminated, the token is cancelled, and the prompt throws `OperationCanceledException` — which Repl catches and reports as <ApiRef uid="Repl.Results" label="Results.Cancelled" />.
 
 Press `Esc` to cancel a single prompt without cancelling the whole command (the method returns the prompt's default value instead of throwing).

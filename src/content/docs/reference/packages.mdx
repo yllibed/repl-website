@@ -4,6 +4,7 @@ description: All Repl Toolkit NuGet packages and what they provide.
 ---
 
 import { Badge } from '@astrojs/starlight/components';
+import ApiRef from '../../../components/ApiRef.astro';
 
 All packages target **.NET 10+** and are published to NuGet under the `Repl` family.
 
@@ -29,7 +30,7 @@ dotnet add package Repl.Core
 
 ## `Repl.Defaults`
 
-DI-enabled app facade (`ReplApp`), lifecycle orchestration, and default profiles:
+DI-enabled app facade (<ApiRef uid="Repl.ReplApp" />), lifecycle orchestration, and default profiles:
 
 - `UseDefaultInteractive()` — REPL when no args, CLI when args given
 - `UseCliProfile()` — CLI-only, no interactive loop
@@ -108,7 +109,7 @@ dotnet add package Repl.Telnet
 Session-aware logging context for Repl apps:
 
 - `AddReplLogging()` — registers the logging context services
-- Injects `ReplLoggingMiddleware` automatically via `ReplApp` for structured log scopes
+- Injects `ReplLoggingMiddleware` automatically via <ApiRef uid="Repl.ReplApp" /> for structured log scopes
 - Adds REPL session metadata (`ReplSessionId`, `ReplTransport`, etc.) to every log scope
 - No sink included — bring your own provider (`Serilog`, `OpenTelemetry`, etc.)
 
@@ -120,8 +121,8 @@ dotnet add package Repl.Logging
 
 In-memory multi-session test harness:
 
-- `ReplTestHost` — builds your command graph in memory
-- `ReplSessionHandle` — runs commands, inspects results
+- <ApiRef uid="Repl.Testing.ReplTestHost" /> — builds your command graph in memory
+- <ApiRef uid="Repl.Testing.ReplSessionHandle" /> — runs commands, inspects results
 - Typed result assertions
 - Interaction timeline (prompts, answers, output events)
 - Multi-session shared-state tests

@@ -4,6 +4,7 @@ description: Prompts, progress bars, timeouts, cancellation, and deterministic a
 ---
 
 import { Aside } from '@astrojs/starlight/components';
+import ApiRef from '../../../components/ApiRef.astro';
 
 Some commands need to ask the user questions, show progress, or handle long-running work gracefully. Repl provides a typed interaction channel for all of these.
 
@@ -13,7 +14,7 @@ Some commands need to ask the user questions, show progress, or handle long-runn
 
 ## Prompts
 
-Inject `IReplInteractionChannel` (namespace `Repl.Interaction`) to ask the user questions mid-command:
+Inject <ApiRef uid="Repl.Interaction.IReplInteractionChannel" /> (namespace `Repl.Interaction`) to ask the user questions mid-command:
 
 ```csharp
 using Repl.Interaction;

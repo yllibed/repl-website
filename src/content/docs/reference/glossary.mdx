@@ -3,6 +3,8 @@ title: Glossary
 description: Definitions for the acronyms and concepts that appear throughout the Repl Toolkit documentation.
 ---
 
+import ApiRef from '../../../components/ApiRef.astro';
+
 A quick reference for the terms used throughout this documentation.
 
 ---
@@ -129,7 +131,7 @@ An instance of the command graph served over a text-based transport (WebSocket, 
 
 ### Module
 
-A class that implements `IReplModule` and registers a group of related commands via its `Map(IReplMap map)` method. Modules are the composition unit for larger applications: register a module once and all its commands become part of the graph.
+A class that implements <ApiRef uid="Repl.IReplModule" /> and registers a group of related commands via its `Map(IReplMap map)` method. Modules are the composition unit for larger applications: register a module once and all its commands become part of the graph.
 
 → [Modules](/reference/modules/)
 

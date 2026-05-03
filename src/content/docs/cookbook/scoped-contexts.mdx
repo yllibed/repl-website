@@ -4,6 +4,7 @@ description: Dynamic scopes, REPL navigation, and DI-backed handlers.
 ---
 
 import { Aside } from '@astrojs/starlight/components';
+import ApiRef from '../../../components/ApiRef.astro';
 
 Scoped contexts let users navigate into sub-trees of your command graph — like `cd` for your app's data model.
 
@@ -69,7 +70,7 @@ myapp client 1 remove
 
 ## DI-backed handlers
 
-With `ReplApp` (vs. the lighter `CoreReplApp`), handlers can take DI-injected services:
+With <ApiRef uid="Repl.ReplApp" /> (vs. the lighter <ApiRef uid="Repl.CoreReplApp" />), handlers can take DI-injected services:
 
 ```csharp
 var app = ReplApp.Create(services =>
@@ -130,5 +131,5 @@ client.Context("{id:int}", scoped => { /* ... */ })
 ## Further reading
 
 - [Routes & Parameters](/reference/routes-and-parameters/) — route constraint syntax, completion providers, and parameter binding.
-- [Modules](/reference/modules/) — packaging reusable scope patterns into `IReplModule` classes.
+- [Modules](/reference/modules/) — packaging reusable scope patterns into <ApiRef uid="Repl.IReplModule" /> classes.
 - [Dependency Injection](/reference/dependency-injection/) — injecting services into scoped handlers.

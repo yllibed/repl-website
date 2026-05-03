@@ -4,6 +4,7 @@ description: Run the same command surface over any text-based session transport 
 ---
 
 import { Aside } from '@astrojs/starlight/components';
+import ApiRef from '../../../components/ApiRef.astro';
 
 Repl can host multiple concurrent sessions over any transport that delivers a stream pair — a reader and a writer. Each session gets its own scope, history, and context; shared state is opt-in via DI singletons.
 
@@ -12,7 +13,7 @@ The built-in packages cover the most common cases:
 - **`Repl.WebSocket`** — WebSocket transport, served from ASP.NET Core. Good for browser clients, reverse-proxy friendly.
 - **`Repl.Telnet`** — Telnet *session protocol* (framing + NAWS terminal-size negotiation) layered on top of a WebSocket transport. For terminal emulators and Telnet clients.
 
-Any other transport — SSH, named pipes, TCP sockets, gRPC streams — works by instantiating `StreamedReplHost` with a `TextWriter`, pushing received text via `EnqueueInput`, and calling `RunSessionAsync`.
+Any other transport — SSH, named pipes, TCP sockets, gRPC streams — works by instantiating <ApiRef uid="Repl.StreamedReplHost" /> with a `TextWriter`, pushing received text via `EnqueueInput`, and calling `RunSessionAsync`.
 
 <Aside type="tip">
   Full runnable code: [`samples/05-hosting-remote`](https://github.com/yllibed/repl/tree/main/samples/05-hosting-remote)
@@ -76,7 +77,7 @@ Terminal size and type are negotiated automatically via NAWS (RFC 1073) and TERM
 
 ## Terminal metadata
 
-Each session carries terminal metadata — capabilities and window size, injectable via `ITerminalInfo` (namespace `Repl.Interaction`):
+Each session carries terminal metadata — capabilities and window size, injectable via <ApiRef uid="Repl.Interaction.ITerminalInfo" /> (namespace `Repl.Interaction`):
 
 ```csharp
 using Repl.Interaction;
@@ -111,4 +112,4 @@ When the host process receives a shutdown signal, active sessions drain graceful
 
 - [Dependency Injection](/reference/dependency-injection/) — service lifetimes and how `AddScoped` maps to per-session state in hosted sessions.
 - [Terminal Integration](/reference/terminal-integration/) — terminal capability detection, ANSI support, and window-size negotiation.
-- [Pipelining & Lifecycle](/reference/pipelining/) — hosted service integration and `ReplRunOptions`.
+- [Pipelining & Lifecycle](/reference/pipelining/) — hosted service integration and <ApiRef uid="Repl.ReplRunOptions" />.

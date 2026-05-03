@@ -4,6 +4,7 @@ description: Terminal features used by Repl — size detection, keyboard input, 
 ---
 
 import { Aside } from '@astrojs/starlight/components';
+import ApiRef from '../../../components/ApiRef.astro';
 
 Repl integrates with the host terminal at several levels: it detects window size, decodes VT keyboard sequences, emits progress notifications to capable terminals, and classifies terminal identity to adapt rendering. This page documents those interactions.
 
@@ -68,7 +69,7 @@ Custom transport clients (WebSocket, SignalR) can push metadata by writing a `@@
 @@repl:{"verb":"resize","cols":160,"rows":40}
 ```
 
-This is Repl's own convention — not a terminal standard. Client libraries that wrap the `StreamedReplHost` can use it to pass terminal state.
+This is Repl's own convention — not a terminal standard. Client libraries that wrap the <ApiRef uid="Repl.StreamedReplHost" /> can use it to pass terminal state.
 
 <Aside type="caution">
 When implementing a custom client that emits `@@repl:` messages, validate `cols` and `rows` before sending — zero or negative values will produce layout artifacts. The framework applies its own fallback, but client-side validation prevents misleading resize events.
@@ -78,7 +79,7 @@ When implementing a custom client that emits `@@repl:` messages, validate `cols`
 
 ## Keyboard input
 
-For sessions over a stream pair (`StreamedReplHost`, Telnet, WebSocket), Repl decodes VT escape sequences from the input stream. The following key events are recognized:
+For sessions over a stream pair (<ApiRef uid="Repl.StreamedReplHost" />, Telnet, WebSocket), Repl decodes VT escape sequences from the input stream. The following key events are recognized:
 
 | Keys | VT sequence shape |
 |---|---|
@@ -163,7 +164,7 @@ The classifier maps substrings of the identity string to capability flags:
 
 Matching is case-insensitive and substring-based — `xterm-256color` matches `xterm`.
 
-`VtInput` enables VT keyboard sequence decoding. `ResizeReporting` enables live terminal resize events. Omitting either flag in a `TerminalSessionOverrides` override will silently suppress that behavior.
+`VtInput` enables VT keyboard sequence decoding. `ResizeReporting` enables live terminal resize events. Omitting either flag in a <ApiRef uid="Repl.TerminalSessionOverrides" /> override will silently suppress that behavior.
 
 For local sessions (no identity string), terminal detection falls back to environment variables: `WT_SESSION`, `ConEmuANSI` (any case — `on`, `On`, `ON` all match), and `TERM_PROGRAM` are checked for OSC 9;4 gating.
 

@@ -4,6 +4,7 @@ description: Output formats, ANSI levels, color palettes, Spectre.Console render
 ---
 
 import { Aside } from '@astrojs/starlight/components';
+import ApiRef from '../../../components/ApiRef.astro';
 
 Repl's output pipeline is fully composable. The same command graph produces plain text for a CI log, syntax-highlighted JSON for a terminal, and Spectre.Console tables for a rich interactive session — all without touching handler code.
 
@@ -58,7 +59,7 @@ Repl detects the terminal's color capability at startup and chooses rendering ac
 4. Platform-specific checks (Windows Console, VS Code terminal, etc.)
 5. Redirection check (piped stdout → no ANSI)
 
-Override programmatically using `AnsiMode`:
+Override programmatically using <ApiRef uid="Repl.Rendering.AnsiMode" />:
 
 ```csharp
 app.Options(o =>
@@ -108,7 +109,7 @@ app.Options(o =>
 });
 ```
 
-`IOutputTransformer` receives the handler's return value and returns a formatted string:
+<ApiRef uid="Repl.IOutputTransformer" /> receives the handler's return value and returns a formatted string:
 
 ```csharp
 public class CsvOutputTransformer : IOutputTransformer
@@ -220,7 +221,7 @@ myapp contacts --help            # human-readable
 myapp contacts --help --json     # machine-readable JSON
 ```
 
-The JSON format returns a structured `ReplDocumentationModel` — useful for tooling, documentation generators, and agents.
+The JSON format returns a structured <ApiRef uid="Repl.Documentation.ReplDocumentationModel" /> — useful for tooling, documentation generators, and agents.
 
 <Aside type="tip">
 Machine-readable help is the foundation for agent discovery. See [Agent-Native Development](/reference/agent-native/) for how agents use this to explore your app autonomously.

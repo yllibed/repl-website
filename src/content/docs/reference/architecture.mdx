@@ -3,19 +3,21 @@ title: Architecture
 description: How Repl Toolkit's packages and layers fit together.
 ---
 
+import ApiRef from '../../../components/ApiRef.astro';
+
 ## Package boundaries
 
 | Package | Purpose |
 |---------|---------|
-| `Repl.Core` | Dependency-free authoring/runtime core: routing, parsing, binding, output pipeline, `CoreReplApp`, `IReplMap`, `Results.*` |
-| `Repl.Defaults` | DI-enabled facade (`ReplApp`), lifecycle orchestration, default composition profiles (`UseDefaultInteractive`, `UseCliProfile`) |
+| `Repl.Core` | Dependency-free authoring/runtime core: routing, parsing, binding, output pipeline, <ApiRef uid="Repl.CoreReplApp" />, <ApiRef uid="Repl.IReplMap" />, <ApiRef uid="Repl.Results" label="Results.*" /> |
+| `Repl.Defaults` | DI-enabled facade (<ApiRef uid="Repl.ReplApp" />), lifecycle orchestration, default composition profiles (`UseDefaultInteractive`, `UseCliProfile`) |
 | `Repl` | Meta-package — bundles Core + Defaults + Protocol. Start here. |
 | `Repl.Protocol` | Machine-readable contracts: help schemas, error contracts, minimal MCP manifest types |
-| `Repl.WebSocket` | WebSocket transport for hosted sessions (`ReplWebSocketSession` over `StreamedReplHost`) |
+| `Repl.WebSocket` | WebSocket transport for hosted sessions (<ApiRef uid="Repl.WebSocket.ReplWebSocketSession" /> over <ApiRef uid="Repl.StreamedReplHost" />) |
 | `Repl.Telnet` | Telnet session protocol (framing + NAWS negotiation) layered over `Repl.WebSocket` |
 | `Repl.Spectre` | Spectre.Console integration: rich prompts, renderables, `IAnsiConsole` DI injection |
 | `Repl.Mcp` | MCP server: `UseMcpServer()`, tool/resource/prompt mapping, MCP Apps, transport factory |
-| `Repl.Testing` | In-memory multi-session test harness: `ReplTestHost`, `ReplSessionHandle`, typed results/events |
+| `Repl.Testing` | In-memory multi-session test harness: <ApiRef uid="Repl.Testing.ReplTestHost" />, <ApiRef uid="Repl.Testing.ReplSessionHandle" />, typed results/events |
 
 ## Layering
 
@@ -50,18 +52,18 @@ description: How Repl Toolkit's packages and layers fit together.
 
 A *channel* is the transport through which a session runs. The same command graph is executed on all channels. Each channel implementation adapts input/output to its transport protocol.
 
-Custom transports implement `StreamedReplHost`, which accepts any `(TextReader, TextWriter)` pair. The built-in `Repl.WebSocket` and `Repl.Telnet` packages are examples — SSH, named pipes, TCP sockets, or gRPC streams fit the same model.
+Custom transports implement <ApiRef uid="Repl.StreamedReplHost" />, which accepts any `(TextReader, TextWriter)` pair. The built-in `Repl.WebSocket` and `Repl.Telnet` packages are examples — SSH, named pipes, TCP sockets, or gRPC streams fit the same model.
 
 ## Key abstractions
 
 | Type | Role |
 |------|------|
-| `IReplMap` | Registration interface — `Map(...)`, `Context(...)`, `AutomationHidden()`, `AsResource()` |
-| `IReplApp` | Runtime interface — `Run(args)` |
-| `IReplInteractionChannel` | Prompt/progress channel injected into handlers — namespace `Repl.Interaction` |
-| `ITerminalInfo` | Session metadata (window size, ANSI capabilities) — namespace `Repl.Interaction` |
-| `IReplIoContext` | Active I/O context (`Output`, `Error`, `IsHostedSession`, ...) |
-| `Results` | Semantic return helpers — `Results.Success(msg)`, `Results.Error(code, msg)`, `Results.Cancelled(msg)` |
+| <ApiRef uid="Repl.IReplMap" /> | Registration interface — `Map(...)`, `Context(...)`, `AutomationHidden()`, `AsResource()` |
+| <ApiRef uid="Repl.IReplApp" /> | Runtime interface — `Run(args)` |
+| <ApiRef uid="Repl.Interaction.IReplInteractionChannel" /> | Prompt/progress channel injected into handlers — namespace `Repl.Interaction` |
+| <ApiRef uid="Repl.Interaction.ITerminalInfo" /> | Session metadata (window size, ANSI capabilities) — namespace `Repl.Interaction` |
+| <ApiRef uid="Repl.IReplIoContext" /> | Active I/O context (`Output`, `Error`, `IsHostedSession`, ...) |
+| <ApiRef uid="Repl.Results" /> | Semantic return helpers — `Results.Success(msg)`, `Results.Error(code, msg)`, `Results.Cancelled(msg)` |
 
 ## Source
 

@@ -3,6 +3,8 @@ title: REPL Mode
 description: Explore your command surface interactively.
 ---
 
+import ApiRef from '../../../components/ApiRef.astro';
+
 When you run your app with no arguments, Repl starts an interactive session. The same routes your CLI uses are available interactively — no separate implementation.
 
 ## Starting a session
@@ -64,7 +66,7 @@ These are always available in REPL mode regardless of your command graph:
 
 - **Up/Down arrows** navigate command history.
 - **Tab** triggers autocomplete for routes and parameters (requires `UseDefaultInteractive()`).
-- History is in-memory by default and does not persist across sessions. Inject a custom `IHistoryProvider` to add persistence (file, database, or any backing store).
+- History is in-memory by default and does not persist across sessions. Inject a custom <ApiRef uid="Repl.IHistoryProvider" /> to add persistence (file, database, or any backing store).
 
 ## Customizing the prompt
 

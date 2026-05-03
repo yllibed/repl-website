@@ -4,6 +4,7 @@ description: Middleware pipeline, command chaining, scripting, and integration w
 ---
 
 import { Aside } from '@astrojs/starlight/components';
+import ApiRef from '../../../components/ApiRef.astro';
 
 ## The execution pipeline
 
@@ -28,7 +29,7 @@ Every command invocation goes through a 12-stage pipeline. Understanding it lets
 
 ## Middleware
 
-Register middleware with `app.Use(...)`. The delegate receives a `ReplExecutionContext` (with `Services`, `Items`, and `CancellationToken`) and a `ReplNext` delegate to invoke the next stage:
+Register middleware with `app.Use(...)`. The delegate receives a <ApiRef uid="Repl.ReplExecutionContext" /> (with `Services`, `Items`, and `CancellationToken`) and a <ApiRef uid="Repl.ReplNext" /> delegate to invoke the next stage:
 
 ```csharp
 app.Use(async (context, next) =>
@@ -58,7 +59,7 @@ app.Use(async (context, next) =>
 ```
 
 <Aside type="caution">
-`ReplExecutionContext` exposes `Services`, `Items`, and `CancellationToken` — access any service via `context.Services.GetRequiredService<T>()`. To scope auth guards to specific contexts, use per-context validation delegates rather than inspecting route strings in middleware.
+<ApiRef uid="Repl.ReplExecutionContext" /> exposes `Services`, `Items`, and `CancellationToken` — access any service via `context.Services.GetRequiredService<T>()`. To scope auth guards to specific contexts, use per-context validation delegates rather than inspecting route strings in middleware.
 </Aside>
 
 ### Logging middleware
@@ -228,7 +229,7 @@ In hosted sessions, graceful shutdown sends a disconnect signal to all active se
 
 ## Error handling
 
-Errors flow through the pipeline as typed `Results`:
+Errors flow through the pipeline as typed <ApiRef uid="Repl.Results" />:
 
 ```csharp
 app.Map("pay {amount:double}", async (double amount, IPaymentService payments) =>

@@ -4,8 +4,9 @@ description: How DI works in Repl Toolkit — service registration, handler inje
 ---
 
 import { Aside } from '@astrojs/starlight/components';
+import ApiRef from '../../../components/ApiRef.astro';
 
-Repl Toolkit uses **Microsoft.Extensions.DependencyInjection** through `ReplApp` (the `Repl.Defaults` package). `Repl.Core` (`CoreReplApp`) has no DI container — services are passed explicitly.
+Repl Toolkit uses **Microsoft.Extensions.DependencyInjection** through <ApiRef uid="Repl.ReplApp" /> (the `Repl.Defaults` package). `Repl.Core` (<ApiRef uid="Repl.CoreReplApp" />) has no DI container — services are passed explicitly.
 
 ## Service registration
 
@@ -35,7 +36,7 @@ app.Map("add {name} {email:email}",
 
 Repl resolves parameters in a specific order — route values, then options, then DI. If a parameter name matches a route segment, it gets the route value. Otherwise Repl tries DI.
 
-Use `[FromServices]` to force DI resolution when disambiguation is needed:
+Use <ApiRef uid="Repl.FromServicesAttribute" label="[FromServices]" /> to force DI resolution when disambiguation is needed:
 
 ```csharp
 app.Map("show {id}", ([FromServices] IContactStore store, int id) => store.Get(id));
@@ -43,7 +44,7 @@ app.Map("show {id}", ([FromServices] IContactStore store, int id) => store.Get(i
 
 ## Context values and `[FromContext]`
 
-Route values from parent contexts are available in child scopes via `[FromContext]`:
+Route values from parent contexts are available in child scopes via <ApiRef uid="Repl.FromContextAttribute" label="[FromContext]" />:
 
 ```csharp
 app.Context("project {id:int}", project =>
@@ -60,7 +61,7 @@ app.Context("project {id:int}", project =>
 });
 ```
 
-`[FromContext]` binds by parameter name matching the route segment name.
+<ApiRef uid="Repl.FromContextAttribute" label="[FromContext]" /> binds by parameter name matching the route segment name.
 
 ## Prefer static lambdas
 
@@ -122,11 +123,11 @@ app.UseGlobalOptions<MyGlobalOptions>();
 app.Map("info", (MyGlobalOptions opts) => opts);
 ```
 
-**Note:** Singleton factories are resolved once. If a global option can change between REPL commands (e.g. `--tenant` can be toggled interactively), inject `IGlobalOptionsAccessor` directly and read at call time rather than in the factory.
+**Note:** Singleton factories are resolved once. If a global option can change between REPL commands (e.g. `--tenant` can be toggled interactively), inject <ApiRef uid="Repl.IGlobalOptionsAccessor" /> directly and read at call time rather than in the factory.
 
 ## Modules and DI
 
-`IReplModule` implementations are resolved from DI:
+<ApiRef uid="Repl.IReplModule" /> implementations are resolved from DI:
 
 ```csharp
 builder.Services.AddSingleton<AuditModule>();

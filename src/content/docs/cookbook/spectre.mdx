@@ -4,6 +4,7 @@ description: Rich terminal output — tables, charts, progress, prompts — with
 ---
 
 import { Aside } from '@astrojs/starlight/components';
+import ApiRef from '../../../components/ApiRef.astro';
 
 `Repl.Spectre` integrates [Spectre.Console](https://spectreconsole.net/) into Repl. Your handlers return plain .NET objects; Spectre.Console renders them as rich terminal output.
 
@@ -89,7 +90,7 @@ With `UseSpectreConsole()`, progress renders as a live Spectre.Console `Progress
 
 ## Rich prompts
 
-`UseSpectreConsole()` upgrades all `IReplInteractionChannel` prompts to Spectre.Console widgets automatically:
+`UseSpectreConsole()` upgrades all <ApiRef uid="Repl.Interaction.IReplInteractionChannel" /> prompts to Spectre.Console widgets automatically:
 
 ```csharp
 using Repl.Interaction;
@@ -117,5 +118,5 @@ Spectre.Console detects terminal capabilities automatically. On terminals withou
 
 ## Further reading
 
-- [Interactivity](/reference/interactivity/) — the `IReplInteractionChannel` API and how Spectre upgrades each prompt type.
+- [Interactivity](/reference/interactivity/) — the <ApiRef uid="Repl.Interaction.IReplInteractionChannel" /> API and how Spectre upgrades each prompt type.
 - [Best Practices](/reference/best-practices/) — output routing, why `AnsiConsole` static must be avoided, and `IAnsiConsole` injection.

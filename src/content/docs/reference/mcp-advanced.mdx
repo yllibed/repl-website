@@ -4,6 +4,7 @@ description: Programmatic sampling, elicitation, client roots, custom transports
 ---
 
 import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+import ApiRef from '../../../components/ApiRef.astro';
 
 `Repl.Mcp` is built on the official `ModelContextProtocol` C# SDK. The basics — tools, resources, prompts, MCP Apps, behavioral annotations — are covered in [MCP In Depth](/reference/mcp-concepts/). This page goes one level deeper: direct access to agent capabilities (sampling and elicitation) from handler code, client roots and soft roots, dynamic tool compatibility, custom transports, and HTTP hosting.
 
@@ -13,7 +14,7 @@ import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
 
 MCP sampling lets your server ask the connected AI client to produce an LLM completion. The client uses its own model and returns the generated text.
 
-Inject `IMcpSampling` into any command handler:
+Inject <ApiRef uid="Repl.Mcp.IMcpSampling" /> into any command handler:
 
 ```csharp
 using Repl.Mcp;
@@ -62,7 +63,7 @@ public interface IMcpSampling
 
 ## Programmatic elicitation
 
-MCP elicitation lets your server ask a structured question to the user through the connected client. Unlike `IReplInteractionChannel` prompts (which are automatically triggered by missing parameters), elicitation is explicit: you call it from handler code at the moment you need input.
+MCP elicitation lets your server ask a structured question to the user through the connected client. Unlike <ApiRef uid="Repl.Interaction.IReplInteractionChannel" /> prompts (which are automatically triggered by missing parameters), elicitation is explicit: you call it from handler code at the moment you need input.
 
 ```csharp
 using Repl.Mcp;
@@ -106,16 +107,16 @@ All methods return `null` when the client does not support elicitation or the us
 
 **Current limitation:** each call targets a single field. Multi-field forms (several questions in one request) are not yet supported. If you need them, use sequential calls or open a feature request.
 
-### Sampling vs. elicitation vs. `InteractivityMode`
+### Sampling vs. elicitation vs. InteractivityMode
 
 | Mechanism | Who provides the response | When to use |
 |---|---|---|
 | `IMcpSampling.SampleAsync` | LLM (the agent) | Need an AI judgment — classifying, mapping, summarizing |
-| `IMcpElicitation` | User (human) | Need explicit human confirmation or structured input |
-| `IReplInteractionChannel` | User — but automatically wired | Prompting for missing parameters in interactive or REPL mode |
+| <ApiRef uid="Repl.Mcp.IMcpElicitation" /> | User (human) | Need explicit human confirmation or structured input |
+| <ApiRef uid="Repl.Interaction.IReplInteractionChannel" /> | User — but automatically wired | Prompting for missing parameters in interactive or REPL mode |
 | `InteractivityMode.PrefillThenElicitation` | User — as fallback pipeline | Automatic elicitation when a parameter has no prefill value |
 
-Use `IMcpSampling` / `IMcpElicitation` directly when you need control over *when* and *how* the question is asked. Use `InteractivityMode` when you want the framework to handle missing parameters automatically.
+Use <ApiRef uid="Repl.Mcp.IMcpSampling" /> / <ApiRef uid="Repl.Mcp.IMcpElicitation" /> directly when you need control over *when* and *how* the question is asked. Use <ApiRef uid="Repl.Mcp.InteractivityMode" /> when you want the framework to handle missing parameters automatically.
 
 ---
 
@@ -123,7 +124,7 @@ Use `IMcpSampling` / `IMcpElicitation` directly when you need control over *when
 
 ### Native MCP roots
 
-The connected MCP client may advertise workspace roots — the directories or URIs it considers "in scope". Inject `IMcpClientRoots` to read them:
+The connected MCP client may advertise workspace roots — the directories or URIs it considers "in scope". Inject <ApiRef uid="Repl.Mcp.IMcpClientRoots" /> to read them:
 
 ```csharp
 using Repl.Mcp;
@@ -163,7 +164,7 @@ app.Map("read {path}",
 var latest = await roots.GetAsync(ct);
 ```
 
-**`IMcpClientRoots`:**
+**IMcpClientRoots:**
 
 ```csharp
 public interface IMcpClientRoots
@@ -245,7 +246,7 @@ app.UseMcpServer(o =>
 
 The factory receives:
 - `serverName` — the value of `ReplMcpServerOptions.ServerName`
-- `io` — `IReplIoContext` with access to standard input/output streams for the current invocation
+- `io` — <ApiRef uid="Repl.IReplIoContext" /> with access to standard input/output streams for the current invocation
 
 `ITransport` is the interface from the `ModelContextProtocol` SDK. Any compliant implementation works — named pipes, WebSocket adapters, in-memory pairs for tests, etc.
 
@@ -272,7 +273,7 @@ McpServerOptions mcpOptions = app.BuildMcpServerOptions(o =>
 // await using var server = McpServer.Create(transport, mcpOptions, serviceProvider: app.Services);
 ```
 
-The `ICoreReplApp` overload is available when you don't have a full `ReplApp` reference. Pass an explicit `serviceProvider` — without it, DI in handlers won't resolve:
+The <ApiRef uid="Repl.ICoreReplApp" /> overload is available when you don't have a full <ApiRef uid="Repl.ReplApp" /> reference. Pass an explicit `serviceProvider` — without it, DI in handlers won't resolve:
 
 ```csharp
 McpServerOptions mcpOptions = app.Core.BuildMcpServerOptions(configure, serviceProvider);

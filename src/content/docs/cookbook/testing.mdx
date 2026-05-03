@@ -4,6 +4,7 @@ description: In-memory multi-session testing with Repl.Testing.
 ---
 
 import { Aside } from '@astrojs/starlight/components';
+import ApiRef from '../../../components/ApiRef.astro';
 
 `Repl.Testing` provides an in-memory harness that runs your full command graph without a real terminal — typed assertions, multi-session, interaction recording.
 
@@ -37,7 +38,7 @@ var host = ReplTestHost.Create(app =>
 
 ## Single-command execution
 
-`RunCommandAsync` returns a `CommandExecution` with the output text, exit code, and the raw result object:
+`RunCommandAsync` returns a <ApiRef uid="Repl.Testing.CommandExecution" /> with the output text, exit code, and the raw result object:
 
 ```csharp
 [TestMethod]

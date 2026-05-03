@@ -4,12 +4,13 @@ description: Composable command sets, dynamic routes, and conditional presence.
 ---
 
 import { Aside } from '@astrojs/starlight/components';
+import ApiRef from '../../../components/ApiRef.astro';
 
 Modules are the primary composition unit in Repl Toolkit. A module is a self-contained set of commands that can be registered at any point in the command graph — once, or under multiple contexts.
 
 ## What is a module?
 
-Any method or class that calls `Map(...)` and `Context(...)` on an `IReplMap` is a module. There's no base class or interface to implement — it's a convention, not a framework type.
+Any method or class that calls `Map(...)` and `Context(...)` on an <ApiRef uid="Repl.IReplMap" /> is a module. There's no base class or interface to implement — it's a convention, not a framework type.
 
 ```csharp
 // A simple module as a static method
@@ -105,7 +106,7 @@ app.MapModule(
         channel == ReplRuntimeChannel.Interactive && auth.IsAdmin());
 ```
 
-`ModulePresenceContext` provides:
+<ApiRef uid="Repl.ModulePresenceContext" /> provides:
 - `Channel`: `Cli`, `Interactive`, or `Session`
 - `SessionState`: current mutable session state
 - `SessionInfo`: current read-only session metadata
