@@ -45,26 +45,5 @@
       "includePrivateMembers": false,
       "globalNamespaceId": "Global"
     }
-  ],
-  "build": {
-    "content": [
-      { "files": ["index.md", "toc.yml"] },
-      { "files": ["api/**.yml", "api/index.md", "api/toc.yml"] }
-    ],
-    "dest": "../public/api",
-    "globalMetadata": {
-      "_appTitle": "Repl Toolkit API Reference",
-      "_appFaviconPath": "favicon.ico",
-      "_enableSearch": false,
-      "_disableContribution": true,
-      "_gitContribute": null
-    },
-    "template": ["default", "modern"],
-    "postProcessors": [],
-    "sitemap": {
-      "baseUrl": "https://repl.yllibed.org/api/",
-      "priority": 0.3,
-      "changefreq": "weekly"
-    }
-  }
+  ]
 }

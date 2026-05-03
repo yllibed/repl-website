@@ -4,6 +4,7 @@ description: Routes, constraints, typed parameters, and dual CLI/REPL execution 
 ---
 
 import { Aside } from '@astrojs/starlight/components';
+import ApiRef from '../../../components/ApiRef.astro';
 
 This recipe covers the fundamentals using **`Repl.Core` only** — no DI, no hosting extras. It's the minimal building block everything else is composed from.
 
@@ -123,9 +124,9 @@ Three range types cover different precision needs:
 
 | Type | Start/end | Duration constraint |
 |---|---|---|
-| `ReplDateRange` | `DateOnly` | Whole days only |
-| `ReplDateTimeRange` | `DateTime` | Any duration |
-| `ReplDateTimeOffsetRange` | `DateTimeOffset` | Any duration |
+| <ApiRef uid="Repl.ReplDateRange" /> | `DateOnly` | Whole days only |
+| <ApiRef uid="Repl.ReplDateTimeRange" /> | `DateTime` | Any duration |
+| <ApiRef uid="Repl.ReplDateTimeOffsetRange" /> | `DateTimeOffset` | Any duration |
 
 ```csharp
 app.Map("report period", (ReplDateRange period) => commands.Report(period));

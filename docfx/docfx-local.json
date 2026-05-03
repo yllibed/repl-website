@@ -16,18 +16,5 @@
       "filter": "filterConfig.yml",
       "includePrivateMembers": false
     }
-  ],
-  "build": {
-    "content": [
-      { "files": ["index.md", "toc.yml"] },
-      { "files": ["api/**.yml", "api/index.md", "api/toc.yml"] }
-    ],
-    "dest": "../public/api",
-    "globalMetadata": {
-      "_appTitle": "Repl Toolkit API Reference",
-      "_enableSearch": false,
-      "_disableContribution": true
-    },
-    "template": ["default", "modern"]
-  }
+  ]
 }

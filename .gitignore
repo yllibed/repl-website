@@ -11,6 +11,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+.codex/
 
 
 # environment variables
@@ -24,6 +25,8 @@ pnpm-debug.log*
 repl-source/
 docfx/api/
 docfx/_site/
+src/content/docs/api/
+src/generated/api-reference.json
 
 # Playwright MCP output
 .playwright-mcp/

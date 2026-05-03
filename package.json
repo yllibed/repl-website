@@ -3,8 +3,13 @@
   "type": "module",
   "version": "0.0.1",
   "scripts": {
+    "predev": "npm run docs:api",
     "dev": "astro dev",
+    "prestart": "npm run docs:api",
     "start": "astro dev",
+    "docs:api": "node ./scripts/build-api-docs.mjs",
+    "docs:api:mdx": "node ./scripts/generate-api-mdx.mjs",
+    "prebuild": "npm run docs:api",
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro"
@@ -13,6 +18,7 @@
     "@astrojs/sitemap": "^3.7.2",
     "@astrojs/starlight": "^0.38.4",
     "astro": "^6.1.9",
+    "js-yaml": "^4.1.1",
     "sharp": "^0.34.5"
   }
 }

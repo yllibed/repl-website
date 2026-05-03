@@ -1,0 +1,30 @@
+---
+import apiReference from '../generated/api-reference.json';
+
+interface ApiReferenceEntry {
+	uid: string;
+	name: string;
+	fullName: string;
+	kind: string;
+	href: string;
+}
+
+interface Props {
+	uid: string;
+	label?: string;
+	code?: boolean;
+}
+
+const { uid, label, code = true } = Astro.props;
+const entries = apiReference as ApiReferenceEntry[];
+const entry = entries.find((item) => item.uid === uid);
+
+if (!entry) {
+	throw new Error(`ApiRef could not find API reference UID "${uid}". Regenerate API docs or check the UID.`);
+}
+
+const text = label ?? entry.name;
+const title = `${entry.kind}: ${entry.fullName}`;
+---
+
+<a href={entry.href} title={title}>{code ? <code>{text}</code> : text}</a>

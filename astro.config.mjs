@@ -66,7 +66,11 @@ export default defineConfig({
 						{ label: 'Best Practices & FAQ', slug: 'reference/best-practices' },
 						{ label: 'Configuration', slug: 'reference/configuration' },
 						{ label: 'Packages', slug: 'reference/packages' },
-						{ label: 'API Reference', link: '/api/index.html' },
+						{
+							label: 'API Reference',
+							collapsed: true,
+							autogenerate: { directory: 'api', collapsed: true },
+						},
 					],
 				},
 			],
