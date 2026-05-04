@@ -113,30 +113,31 @@ app.MapModule(
 
 ## Dynamic context routes
 
-A context factory receives the captured route values and can do work before returning the command registrar. This is the canonical pattern for "enter scope, validate, then expose commands":
+Dynamic context routes are still configured up front. Use the optional `validation` delegate to guard entering the scope, then bind the captured route value into each handler:
 
 ```csharp
-app.Context("project {id:int}", (int id, IProjectStore store) =>
-{
-    var project = store.Get(id)
-        ?? throw new KeyNotFoundException($"Project {id} not found.");
-
-    return (IReplMap scoped) =>
+app.Context(
+    "project {id:int}",
+    project =>
     {
-        scoped.Map("show", () => project);
-        scoped.Map("archive", () =>
+        project.Map("show", static ([FromContext] int id, IProjectStore store) =>
+            store.Get(id) ?? throw new KeyNotFoundException($"Project {id} not found."));
+
+        project.Map("archive", static ([FromContext] int id, IProjectStore store) =>
         {
+            var project = store.Get(id) ?? throw new KeyNotFoundException($"Project {id} not found.");
             project.Archive();
             store.Save(project);
             return Results.Success($"Archived '{project.Name}'.");
         });
-    };
-});
+    },
+    validation: static (int id, IProjectStore store) =>
+        store.Get(id) is null ? $"Project {id} not found." : string.Empty);
 ```
 
-The outer factory runs once when the scope is entered. All commands inside the returned lambda close over the resolved `project` — they don't re-fetch on every invocation.
+The validator runs when the context is matched. It can return `bool`, `string`, `IReplResult`, or `null`; a non-empty string is rendered as a validation failure. The command handlers remain regular mapped commands and can use <ApiRef uid="Repl.FromContextAttribute" label="[FromContext]" /> to make context binding explicit.
 
-This pattern is also where you enforce access control: throw or return `Results.Error(...)` from the factory to block entry.
+Use the same validation delegate for access control checks that should block an entire dynamic scope.
 
 ## Channel-specific commands
 

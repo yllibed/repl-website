@@ -46,7 +46,10 @@ Both `contacts` and `products` now expose the same `list`, `show`, and `delete` 
 Register a generic store and let the DI container resolve per-type:
 
 ```csharp
-builder.Services.AddSingleton(typeof(IStore<>), typeof(InMemoryStore<>));
+var app = ReplApp.Create(services =>
+{
+    services.AddSingleton(typeof(IStore<>), typeof(InMemoryStore<>));
+});
 ```
 
 ```csharp
@@ -59,15 +62,28 @@ app.Context("contacts", contacts =>
 
 ## Conditional modules
 
-Mount a module and hide it from automation surfaces:
+Use `MapModule(..., predicate)` when an entire module should be available only for selected runtime channels:
 
 ```csharp
-app.Context("admin", admin =>
+sealed class AdminModule : IReplModule
 {
-    admin.Map("purge-all", static (IStore<Contact> store) => store.DeleteAll());
-})
-.AutomationHidden();
+    public void Map(IReplMap map)
+    {
+        map.Context("admin", admin =>
+        {
+            admin.Map("purge-all", static (IStore<Contact> store) => store.DeleteAll());
+        });
+    }
+}
+
+app.MapModule(
+    new AdminModule(),
+    static context => context.Channel != ReplRuntimeChannel.Programmatic);
 ```
+
+The predicate receives a <ApiRef uid="Repl.ModulePresenceContext" />, so it can inspect the active <ApiRef uid="Repl.ReplRuntimeChannel" /> and session state before the module is included in the command graph.
+
+For a single human-only command, keep the module mounted and call <ApiRef uid="Repl.CommandBuilder.AutomationHidden(System.Boolean)" label=".AutomationHidden()" /> on the command builder returned by `Map(...)`.
 
 ## Reusing the same module under multiple contexts
 

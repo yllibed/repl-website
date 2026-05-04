@@ -95,26 +95,27 @@ Parameters that match registered services are injected automatically. Parameters
 
 ## Scoped state
 
-A context can carry state captured at navigation time:
+A context does not create a captured object scope by returning nested mappings. The nested routes are configured up front, and route values from parent contexts are bound into child handlers when commands run:
 
 ```csharp
-client.Context("{id:int}", (int id, IContactStore store) =>
+client.Context("{id:int}", scoped =>
 {
-    var contact = store.Get(id) ?? throw new KeyNotFoundException($"Contact {id} not found.");
+    scoped.Map("show", static ([FromContext] int id, IContactStore store) =>
+        store.Get(id) ?? throw new KeyNotFoundException($"Contact {id} not found."));
 
-    return scoped =>
+    scoped.Map("update {name}", static ([FromContext] int id, string name, IContactStore store) =>
     {
-        scoped.Map("show", () => contact);
-        scoped.Map("update {name}", (string name) =>
-        {
-            contact = contact with { Name = name };
-            store.Save(contact);
-        });
-    };
+        var contact = store.Get(id) ?? throw new KeyNotFoundException($"Contact {id} not found.");
+        var updated = contact with { Name = name };
+        store.Save(updated);
+        return updated;
+    });
 });
 ```
 
-The outer lambda resolves `contact` once when the scope is entered. All commands inside use that resolved value.
+The `id` value comes from the active `{id:int}` context. <ApiRef uid="Repl.FromContextAttribute" label="[FromContext]" /> makes that source explicit and avoids ambiguity if the same type is also available from DI.
+
+For session-level or user-level mutable state, prefer a service registered with `AddScoped<T>` in hosted sessions, or an explicit store service for CLI/REPL apps.
 
 ## Completion providers
 
