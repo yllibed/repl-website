@@ -1,0 +1,229 @@
+---
+title: Paged Results
+description: Recipes for adding result-flow paging to commands backed by in-memory lists, offset/limit stores, async streams, and cursor-native APIs.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import ApiRef from '../../../components/ApiRef.astro';
+
+Practical examples for the most common paging scenarios. For the conceptual background and the two-layer model (source paging vs output paging), see [Result-Flow Paging](/reference/result-flow-paging/).
+
+---
+
+## Page an in-memory list
+
+When you already have all items in memory, `FromItems` is the right tool. It is bounded, so it safely honors `--result:all`.
+
+```csharp
+internal sealed class ActivityFeed
+{
+    private readonly List<ActivityEvent> _items = LoadItems();
+
+    public IReplPageSource<ActivityEvent> Query(IReplPagingContext paging)
+    {
+        return ReplPageSource.FromItems(_items);
+    }
+}
+```
+
+Register with:
+
+```csharp
+var feed = new ActivityFeed();
+app.Map("activity", feed.Query);
+```
+
+---
+
+## Wrap a SQL Skip/Take repository
+
+Use `FromOffset` for any store that supports offset/limit semantics. Pass `totalCount` when it's cheap; omit it when a `COUNT(*)` would be expensive.
+
+```csharp
+app.Map("contacts", async (ContactStore store, CancellationToken ct) =>
+    ReplPageSource.FromOffset<Contact>(
+        (offset, take, ct2) => store.QueryAsync(offset, take, ct2),
+        totalCount: await store.CountAsync(ct)));
+```
+
+**State-based overload** — avoids closure allocation when `store` is large or captured frequently:
+
+```csharp
+app.Map("contacts", (ContactStore store) =>
+    ReplPageSource.FromOffset<Contact, ContactStore>(
+        store,
+        static (state, offset, take, ct) => state.QueryAsync(offset, take, ct)));
+```
+
+---
+
+## Wrap an async stream (file scan, SDK pager)
+
+`FromAsyncEnumerable` wraps a replayable `IAsyncEnumerable<T>` factory. The factory is called again for each continuation page.
+
+```csharp
+app.Map("logs", (LogStore store) =>
+    ReplPageSource.FromAsyncEnumerable<LogRow>(
+        ct => store.StreamAsync(ct)));
+```
+
+Your iterator must accept `[EnumeratorCancellation]`:
+
+```csharp
+public async IAsyncEnumerable<LogRow> StreamAsync(
+    [EnumeratorCancellation] CancellationToken ct = default)
+{
+    await foreach (var row in _source.ReadAsync(ct).WithCancellation(ct))
+        yield return row;
+}
+```
+
+<Aside type="caution">
+The factory is called once per page and must restart from the beginning each time. Never pass a channel, a database cursor, or any shared single-use enumerator. Those are single-use streams — use `ReplPageSource.Create(...)` instead.
+</Aside>
+
+---
+
+## Add server-side filtering
+
+Pass filter criteria into the query rather than filtering after fetch:
+
+```csharp
+app.Map("contacts", (ContactStore store, string? search) =>
+    ReplPageSource.FromOffset<Contact, (ContactStore store, string? search)>(
+        (store, search),
+        static (state, offset, take, ct) =>
+            state.store.QueryAsync(offset, take, state.search, ct)));
+```
+
+This is the preferred approach — the database discards non-matching rows before they reach the network.
+
+---
+
+## Add client-side filtering as a fallback
+
+When the backing store cannot filter, add a `filter` predicate to `FromOffset` or `FromAsyncEnumerable`. Repl fetches full pages and applies the predicate after receipt.
+
+```csharp
+app.Map("contacts", (ContactStore store, string search) =>
+    ReplPageSource.FromOffset<ContactRow, ContactStore>(
+        store,
+        static (state, offset, take, ct) => state.QueryAsync(offset, take, ct),
+        filter: (_, row) => row.Name.Contains(search, StringComparison.OrdinalIgnoreCase)));
+```
+
+<Aside type="caution">
+Client-side filtering fetches and discards rows that never reach the terminal. The `totalCount` reported in `pageInfo` reflects the unfiltered source — the number of items actually shown is lower. Prefer server-side filtering whenever the store supports it.
+</Aside>
+
+---
+
+## Return a single explicit page (cursor-based, MCP-friendly)
+
+Inject `IReplPagingContext` to own the cursor format. The caller passes `--result:cursor` to advance. This is the pattern used in the MCP server sample (`samples/08-mcp-server`).
+
+```csharp
+internal sealed class DirectoryContactFeed
+{
+    private readonly List<DirectoryContact> _items = LoadItems();
+
+    public ReplPage<DirectoryContact> Query(IReplPagingContext paging)
+    {
+        var offset = paging.AllRequested ? 0 : ParseOffset(paging.Cursor);
+        var items = paging.AllRequested
+            ? _items
+            : _items.Skip(offset).Take(paging.SuggestedPageSize).ToList();
+
+        var nextOffset = offset + items.Count;
+        var nextCursor = !paging.AllRequested && nextOffset < _items.Count
+            ? nextOffset.ToString(CultureInfo.InvariantCulture)
+            : null;
+
+        return paging.Page(items, nextCursor, _items.Count);
+    }
+
+    private static int ParseOffset(string? cursor) =>
+        int.TryParse(cursor, NumberStyles.None, CultureInfo.InvariantCulture, out var offset) && offset > 0
+            ? offset
+            : 0;
+}
+```
+
+---
+
+## MCP-friendly paging
+
+When exposing a paged command via MCP, the tool schema automatically includes `_replCursor` and `_replPageSize` inputs. No extra code is required — any handler that injects `IReplPagingContext` or returns `ReplPage<T>` / `IReplPageSource<T>` gets these for free.
+
+Test it with MCP Inspector:
+
+1. Start the server: `myapp mcp serve`
+2. Connect MCP Inspector to it
+3. Find the tool in the schema — confirm `_replCursor` and `_replPageSize` appear
+4. Call the tool — inspect the `pageInfo.nextCursor` in the structured content response
+5. Call again with `_replCursor` set to the previous `nextCursor`
+
+To tune the text fallback visible to agents that read only `Content[0].Text`:
+
+```csharp
+app.UseMcpServer(o =>
+{
+    o.PagedResultTextMode = McpPagedResultTextMode.SummaryOnly;
+    // SerializedJson (default) | SummaryOnly | SummaryAndSerializedJson
+});
+```
+
+---
+
+## Custom keyset cursor
+
+For large, mutable datasets, inject `IReplPagingContext` and encode a keyset cursor. This avoids the O(offset) cost of row skipping.
+
+```csharp
+app.Map("orders", async (IReplPagingContext paging, OrderStore store, CancellationToken ct) =>
+{
+    // Decode cursor: base64-JSON of { LastCreatedAt, LastId }
+    var (afterCreatedAt, afterId) = ParseKeysetCursor(paging.Cursor);
+
+    var items = await store.QueryAfterAsync(afterCreatedAt, afterId, paging.SuggestedPageSize, ct);
+
+    var nextCursor = items.Count == paging.SuggestedPageSize
+        ? EncodeKeysetCursor(items[^1].CreatedAt, items[^1].Id)
+        : null;
+
+    return paging.Page(items, nextCursor: nextCursor);
+});
+```
+
+Or return a source so the integrated pager continues in the same run:
+
+```csharp
+app.Map("orders", (IReplPagingContext paging, OrderStore store) =>
+    paging.CreateSource<Order>(async (req, ct) =>
+    {
+        var (afterCreatedAt, afterId) = ParseKeysetCursor(req.Cursor);
+        var items = await store.QueryAfterAsync(afterCreatedAt, afterId, req.PageSize, ct);
+
+        return new ReplPage<Order>(
+            items,
+            nextCursor: items.Count == req.PageSize
+                ? EncodeKeysetCursor(items[^1].CreatedAt, items[^1].Id)
+                : null);
+    }));
+```
+
+For more cursor strategies — external page tokens, nextLinks, snapshots — see [Cursor Patterns](/reference/cursor-patterns/).
+
+---
+
+## Configure paging defaults
+
+```csharp
+app.Options(o =>
+{
+    o.Output.ResultFlow.DefaultPageSize  = 42;
+    o.Output.ResultFlow.MaxPageSize      = 500;
+    o.Output.ResultFlow.MaxBufferedLines = 5_000;
+    o.Output.ResultFlow.DefaultPagerMode = ReplPagerMode.Auto;
+});
+```

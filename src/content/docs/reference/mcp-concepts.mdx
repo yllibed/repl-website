@@ -179,6 +179,55 @@ Configure Content Security Policy for apps that load external assets:
 
 ---
 
+## Paged tools
+
+Any handler that injects <ApiRef uid="Repl.IReplPagingContext" /> or returns <ApiRef uid="Repl.ReplPage`1" label="ReplPage&lt;T&gt;" /> / <ApiRef uid="Repl.IReplPageSource`1" label="IReplPageSource&lt;T&gt;" /> is automatically a paged tool. Repl adds two reserved inputs to its MCP tool schema:
+
+```json
+"_replCursor":   { "type": "string",  "description": "Continuation cursor from a previous call" }
+"_replPageSize": { "type": "integer", "description": "Number of items to return per page" }
+```
+
+Paged results are returned as structured content with an explicit page envelope:
+
+```json
+{
+  "$type": "page",
+  "items": [ { "id": 1, "name": "Alice" } ],
+  "pageInfo": {
+    "cursor": null,
+    "nextCursor": "25",
+    "totalCount": 500,
+    "pageSize": 25,
+    "hasMore": true
+  }
+}
+```
+
+To continue, the agent calls the tool again with `_replCursor` set to the previous `pageInfo.nextCursor`.
+
+### Text fallback
+
+Agents that read only `Content[0].Text` instead of `StructuredContent` need a text representation. Configure it via `ReplMcpServerOptions.PagedResultTextMode`:
+
+```csharp
+app.UseMcpServer(o =>
+{
+    o.PagedResultTextMode = McpPagedResultTextMode.SummaryOnly;
+    // SerializedJson (default) | SummaryOnly | SummaryAndSerializedJson
+});
+```
+
+`SerializedJson` maximizes compatibility. `SummaryOnly` ("42 items, page 1 of 20") saves tokens for structured-content-aware agents.
+
+### Cursor validation
+
+Repl validates `_replCursor` before use: empty strings, whitespace, control characters, values starting with `-`, and values longer than 512 characters are all rejected. Build cursor values that satisfy these constraints (base64 works well for structured data).
+
+See [Result-Flow Paging](/reference/result-flow-paging/) for the full paging model and [Cursor Patterns](/reference/cursor-patterns/) for encoding strategies.
+
+---
+
 ## Interaction in MCP mode
 
 Repl routes <ApiRef uid="Repl.Interaction.IReplInteractionChannel" /> calls through MCP primitives when running as an MCP server. Configure the fallback when a client doesn't support elicitation:

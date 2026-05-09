@@ -150,6 +150,40 @@ In CLI mode, "scoped" means per invocation — it's still correct, just not sign
 
 ---
 
+## Paging and large result sets
+
+### Push filtering and sorting to the data source
+
+Return only the rows the user asked for. The `filter:` predicate on `FromOffset` and `FromAsyncEnumerable` is a fallback for stores that cannot filter server-side — it fetches and discards rows that never reach the terminal.
+
+```csharp
+// Preferred — filter at the source
+ReplPageSource.FromOffset<Contact, (ContactStore store, string? search)>(
+    (store, search),
+    static (state, offset, take, ct) =>
+        state.store.QueryAsync(offset, take, filter: state.search, ct))
+
+// Fallback — client-side, acceptable when the store cannot filter
+ReplPageSource.FromOffset<Contact, ContactStore>(
+    store,
+    static (state, offset, take, ct) => state.QueryAsync(offset, take, ct),
+    filter: (_, row) => row.Name.Contains(search, StringComparison.OrdinalIgnoreCase))
+```
+
+The same principle applies to sorting — pass `ORDER BY` into your query rather than sorting in-memory after retrieval.
+
+### Prefer page sources over single pages for interactive use
+
+`IReplPageSource<T>` lets the integrated terminal pager continue fetching pages in the same command run. With `ReplPage<T>`, the user must rerun the command with `--result:cursor`. Use `ReplPage<T>` only when the caller explicitly drives pagination (e.g., MCP agents, scripts).
+
+### Do not confuse source paging with output paging
+
+Source paging controls how many rows are fetched from the backing store. Output paging controls how many lines the terminal displays at once. Returning a 10,000-row list and relying on the pager still allocates and formats all 10,000 rows before the first screen appears.
+
+→ [Result-Flow Paging](/reference/result-flow-paging/) · [Cursor Patterns](/reference/cursor-patterns/)
+
+---
+
 ## Testing
 
 ### Write tests first

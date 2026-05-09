@@ -65,6 +65,12 @@ Custom transports implement <ApiRef uid="Repl.StreamedReplHost" />, which accept
 | <ApiRef uid="Repl.IReplIoContext" /> | Active I/O context (`Output`, `Error`, `IsHostedSession`, ...) |
 | <ApiRef uid="Repl.Results" /> | Semantic return helpers — `Results.Success(msg)`, `Results.Error(code, msg)`, `Results.Cancelled(msg)` |
 
+## Result-flow paging
+
+First-class paging contracts (<ApiRef uid="Repl.IReplPageSource`1" label="IReplPageSource&lt;T&gt;" />, <ApiRef uid="Repl.ReplPage`1" label="ReplPage&lt;T&gt;" />) sit at stage 10 of the execution pipeline (Result Processing). The integrated terminal pager, the JSON page envelope (`$type: "page"`), and the MCP `_replCursor`/`_replPageSize` inputs are all driven from this layer — the same handler code works across all output formats.
+
+→ [Result-Flow Paging](/reference/result-flow-paging/) · [Cursor Patterns](/reference/cursor-patterns/)
+
 ## Source
 
 Full architecture documentation (with diagrams): [`docs/architecture.md`](https://github.com/yllibed/repl/blob/main/docs/architecture.md) in the source repository.

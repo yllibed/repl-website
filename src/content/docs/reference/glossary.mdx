@@ -105,6 +105,42 @@ Repl decodes VT keyboard sequences (arrow keys, Home/End, F1–F4, etc.) for ses
 
 ## Repl concepts
 
+### Cursor (data paging)
+
+An opaque continuation token returned in `pageInfo.nextCursor`. The handler encodes it (offset number, keyset, external page token, snapshot ID, etc.); Repl passes it back unchanged on the next call. The client passes it via `--result:cursor` (CLI) or `_replCursor` (MCP).
+
+Cursors are treated as untrusted input. Repl rejects values that are empty, contain whitespace or control characters, start with `-`, or exceed 512 characters.
+
+→ [Result-Flow Paging](/reference/result-flow-paging/) · [Cursor Patterns](/reference/cursor-patterns/)
+
+---
+
+### Cursor (terminal)
+
+A VT/ANSI escape sequence that controls the position of the text insertion point in the terminal. Distinct from a data-paging cursor — the two concepts share a name but are unrelated.
+
+→ [Terminal Integration](/reference/terminal-integration/)
+
+---
+
+### Page source
+
+An <ApiRef uid="Repl.IReplPageSource`1" label="IReplPageSource&lt;T&gt;" /> returned by a handler. Repl calls `FetchAsync(request)` once per page — automatically in the interactive terminal pager, or on demand when the caller passes `--result:cursor`. The handler does not need to manage state between calls; the cursor encodes where to resume.
+
+→ [Result-Flow Paging](/reference/result-flow-paging/)
+
+---
+
+### Pager mode
+
+Controls how the terminal displays a paged result. Modes: `auto` (choose `full` or `more` based on terminal capabilities), `more` (pause at page boundaries), `inline` (scroll in-place, ANSI required), `full` (alternate-screen viewport, ANSI required), `off` (no pager — stream everything to stdout).
+
+Set globally via `ResultFlowOptions.DefaultPagerMode` or per-invocation via `--result:pager`.
+
+→ [Result-Flow Paging — Output behavior](/reference/result-flow-paging/#output-behavior-by-format)
+
+---
+
 ### Command graph
 
 The full tree of commands registered via `app.Map(...)` and `app.Context(...)`. It is the single source of truth for everything the application can do — projected unchanged onto CLI, REPL, hosted sessions, and MCP tools.

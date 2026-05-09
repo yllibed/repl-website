@@ -175,6 +175,20 @@ The command surface is the application. The UI layer — whether a web dashboard
 
 **Use `Repl.Testing` as the spec.** Write tests that describe exactly what the agent should be able to do. If the test passes, the command works for the agent. If it doesn't, nothing else matters.
 
+**Tell the agent about paging in the tool description.** When a command is paged, its description should mention it — and tell the agent how to continue. Agents do not read `--help`; they read the `description` and `details` fields in the MCP tool schema.
+
+```csharp
+app.Map("contacts list", handler)
+    .WithDescription("List all contacts, paginated.")
+    .WithDetails("""
+        Returns up to `_replPageSize` contacts per page (default: 25).
+        To continue, call this tool again with `_replCursor` set to `pageInfo.nextCursor`
+        from the previous response. When `pageInfo.hasMore` is false, all results have been returned.
+        """);
+```
+
+Without this guidance, some agents page once and stop, assuming the first page is the complete result.
+
 <Aside type="tip">
 The best time to add `app.UseMcpServer()` is day one. It costs one line and zero handler changes — and it immediately makes your app available to any MCP-compatible agent as you develop it.
 </Aside>

@@ -235,19 +235,21 @@ When multiple commands share the same options, extract them into a class:
 
 ```csharp
 [ReplOptionsGroup]
-public class PagingOptions
+public class SortOptions
 {
-    [ReplOption(Aliases = ["-n"])]
-    public int Limit { get; init; } = 20;
-
-    public int Page { get; init; } = 1;
+    public string SortBy { get; init; } = "name";
+    public bool Descending { get; init; }
 }
 
-app.Map("list", (PagingOptions paging, IStore store) => store.Page(paging.Page, paging.Limit));
-app.Map("search {q}", (string q, PagingOptions paging, IStore store) => store.Search(q, paging));
+app.Map("list", (SortOptions sort, IStore store) => store.List(sort.SortBy, sort.Descending));
+app.Map("search {q}", (string q, SortOptions sort, IStore store) => store.Search(q, sort.SortBy));
 ```
 
-Both commands now share `--limit`, `-n`, and `--page` without duplicating them.
+Both commands now share `--sort-by` and `--descending` without duplicating them.
+
+<Aside type="note">
+For paging large result sets, Repl has a first-class mechanism that handles cursors, terminal UX, and MCP automatically. See [Result-Flow Paging](/reference/result-flow-paging/).
+</Aside>
 
 ### Response files
 

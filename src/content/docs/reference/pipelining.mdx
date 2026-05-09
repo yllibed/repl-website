@@ -20,7 +20,7 @@ Every command invocation goes through a 12-stage pipeline. Understanding it lets
  7. Argument Binding            — CancellationToken → attributes → groups → route → DI → positional → defaults
  8. Context Validation          — optional validation delegates on contexts
  9. Middleware & Handler        — your Use() chain + handler invocation
-10. Result Processing           — unwrap IExitResult, EnterInteractiveResult
+10. Result Processing           — unwrap IExitResult, EnterInteractiveResult; page sources materialized here (see [Result-Flow Paging](/reference/result-flow-paging/))
 11. Output Transformation       — format selection and rendering
 12. Exit Code                   — 0 success, 1 all other results, n via Results.Exit(n)
 ```

@@ -39,6 +39,7 @@ export default defineConfig({
 						{ label: 'Testing', slug: 'cookbook/testing' },
 						{ label: 'Spectre.Console', slug: 'cookbook/spectre' },
 						{ label: 'MCP Server', slug: 'cookbook/mcp-server' },
+						{ label: 'Paged Results', slug: 'cookbook/paged-results' },
 					],
 				},
 				{
@@ -51,6 +52,7 @@ export default defineConfig({
 						{ label: 'MCP Server', slug: 'reference/mcp-concepts' },
 						{ label: 'MCP — Advanced', slug: 'reference/mcp-advanced' },
 						{ label: 'Customization & Output', slug: 'reference/customization' },
+						{ label: 'Result-Flow Paging', slug: 'reference/result-flow-paging' },
 						{ label: 'Pipelines & Integration', slug: 'reference/pipelining' },
 						{ label: 'Terminal Integration', slug: 'reference/terminal-integration' },
 						{ label: 'Architecture', slug: 'reference/architecture' },
@@ -63,6 +65,7 @@ export default defineConfig({
 						{ label: 'Agent-Native Development', slug: 'reference/agent-native' },
 						{ label: 'Packaging & Distribution', slug: 'reference/packaging' },
 						{ label: 'Built-in Types & Formats', slug: 'reference/data-types' },
+						{ label: 'Cursor Patterns', slug: 'reference/cursor-patterns' },
 						{ label: 'Best Practices & FAQ', slug: 'reference/best-practices' },
 						{ label: 'Configuration', slug: 'reference/configuration' },
 						{ label: 'Packages', slug: 'reference/packages' },

@@ -38,6 +38,23 @@ app.Options(o =>
 
 ---
 
+## Paged result rendering
+
+When a command returns a <ApiRef uid="Repl.ReplPage`1" label="ReplPage&lt;T&gt;" /> or an <ApiRef uid="Repl.IReplPageSource`1" label="IReplPageSource&lt;T&gt;" />, the output format determines how the page is rendered:
+
+| Format | Rendering |
+|---|---|
+| `human` / `spectre` (interactive TTY) | Table + integrated pager; continues fetching source pages as the user scrolls |
+| `human` / `spectre` (redirected stdout) | Table for the first source page; pager suppressed; `nextCursor` hint printed |
+| `json` / `xml` / `yaml` / `markdown` | Explicit page envelope: `{ "$type": "page", "items": [...], "pageInfo": { ... } }` |
+| MCP structured content | `{ "$type": "page", ... }` in `StructuredContent`; text fallback via `PagedResultTextMode` |
+
+The pager activates only for `human` and `spectre` on an interactive TTY. Redirected output and machine formats always receive the raw first page — use `--result:cursor` to advance.
+
+See [Result-Flow Paging](/reference/result-flow-paging/) for the full source paging model, CLI options, and MCP surface.
+
+---
+
 ## ANSI capability levels
 
 Repl detects the terminal's color capability at startup and chooses rendering accordingly.

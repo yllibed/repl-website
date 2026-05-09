@@ -1,0 +1,203 @@
+---
+title: Cursor Patterns
+description: Quick-reference table of cursor encoding strategies for result-flow paging — offset, keyset, page token, nextLink, and snapshot.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import ApiRef from '../../../components/ApiRef.astro';
+
+A cursor is an opaque continuation token. The handler encodes it; Repl passes it back on the next call. This page is a dense reference — for the conceptual background, see [Result-Flow Paging](/reference/result-flow-paging/).
+
+<Aside type="caution">
+Treat incoming cursors as untrusted input. Validate length (Repl enforces ≤ 512 chars), encoding, and ownership. Sign or encrypt cursors that carry tenant IDs, filter state, or internal database identifiers.
+</Aside>
+
+---
+
+## Pattern table
+
+| Pattern | When to use | Cursor encoding | Repl helper |
+|---|---|---|---|
+| **Offset / index** | Small or static datasets, admin tables, bounded lists | `"42"` — decimal row offset | <ApiRef uid="Repl.ReplPageSource" label="FromOffset" /> |
+| **Keyset / seek** | Large, mutable databases with a stable sort column | base64 of `(lastSortKey, tieBreakerId)` | `paging.CreateSource(...)` |
+| **External page token** | Wrapping a paginated API (Azure SDK, etc.) | Opaque token from the API response | `paging.CreateSource(...)` |
+| **nextLink / URL** | OData, Microsoft Graph, REST APIs with `@nextLink` | Full URL string — **validate origin** | `paging.CreateSource(...)` |
+| **Snapshot** | Consistent views over changing data | `(snapshotId, offset)` as base64-JSON | `paging.CreateSource(...)` |
+| **Range / window** | Time-series, log scans, fixed-time windows | `(startTimestamp, endTimestamp)` ISO 8601 | `paging.CreateSource(...)` |
+
+---
+
+## Offset cursor
+
+Simplest pattern. Reliable on static or append-only data. Degrades on mutable rows (inserts shift subsequent pages).
+
+```csharp
+public ReplPage<Row> Query(IReplPagingContext paging)
+{
+    var offset = paging.AllRequested ? 0 : ParseOffset(paging.Cursor);
+    var items = _store.Skip(offset).Take(paging.SuggestedPageSize).ToList();
+    var next = offset + items.Count < _store.Count
+        ? (offset + items.Count).ToString(CultureInfo.InvariantCulture)
+        : null;
+    return paging.Page(items, nextCursor: next, totalCount: _store.Count);
+}
+
+private static int ParseOffset(string? cursor) =>
+    int.TryParse(cursor, NumberStyles.None, CultureInfo.InvariantCulture, out var v) && v > 0 ? v : 0;
+```
+
+Or use the built-in helper:
+
+```csharp
+ReplPageSource.FromOffset<Row>(
+    (offset, take, ct) => store.QueryAsync(offset, take, ct),
+    totalCount: store.Count)
+```
+
+---
+
+## Keyset / seek cursor
+
+Best for large tables with frequent inserts or deletes. Encodes the sort key + tie-breaker of the last row seen. Pages are stable even as the underlying data changes.
+
+```csharp
+app.Map("orders", async (IReplPagingContext paging, OrderStore store, CancellationToken ct) =>
+    paging.CreateSource<Order>(async (req, innerCt) =>
+    {
+        var (afterDate, afterId) = ParseKeysetCursor(req.Cursor);
+        var items = await store.SeekAsync(afterDate, afterId, req.PageSize, innerCt);
+
+        return new ReplPage<Order>(
+            items,
+            nextCursor: items.Count == req.PageSize
+                ? EncodeKeysetCursor(items[^1].CreatedAt, items[^1].Id)
+                : null);
+    }));
+
+private static (DateTimeOffset? after, int? id) ParseKeysetCursor(string? cursor)
+{
+    if (cursor is null) return (null, null);
+    try
+    {
+        var json = JsonSerializer.Deserialize<KeysetCursor>(Convert.FromBase64String(cursor));
+        return (json?.After, json?.Id);
+    }
+    catch { return (null, null); }
+}
+
+private static string EncodeKeysetCursor(DateTimeOffset at, int id) =>
+    Convert.ToBase64String(JsonSerializer.SerializeToUtf8Bytes(new KeysetCursor(at, id)));
+
+private sealed record KeysetCursor(DateTimeOffset After, int Id);
+```
+
+---
+
+## External page token
+
+Forward the API's opaque token as-is. Validate that the token came from your source before sending it to the API.
+
+```csharp
+app.Map("messages", async (IReplPagingContext paging, MessageApiClient client, CancellationToken ct) =>
+    paging.CreateSource<Message>(async (req, innerCt) =>
+    {
+        var response = await client.GetMessagesAsync(req.Cursor, req.PageSize, innerCt);
+        return new ReplPage<Message>(
+            response.Messages,
+            nextCursor: response.NextPageToken);
+    }));
+```
+
+---
+
+## nextLink / URL cursor
+
+Used by OData and Microsoft Graph. The next-page URL is the cursor. Validate that it belongs to your API before sending it as a request.
+
+```csharp
+app.Map("items", async (IReplPagingContext paging, GraphClient client, CancellationToken ct) =>
+    paging.CreateSource<Item>(async (req, innerCt) =>
+    {
+        // Validate: cursor must be null or start with the expected base URL.
+        if (req.Cursor is not null && !req.Cursor.StartsWith("https://graph.example.com/", StringComparison.Ordinal))
+            throw new ArgumentException("Invalid continuation cursor.");
+
+        var response = req.Cursor is null
+            ? await client.GetItemsAsync(req.PageSize, innerCt)
+            : await client.GetItemsFromUrlAsync(req.Cursor, innerCt);
+
+        return new ReplPage<Item>(
+            response.Value,
+            nextCursor: response.OdataNextLink);
+    }));
+```
+
+---
+
+## Snapshot cursor
+
+Creates an immutable snapshot on the first page request and pages through it. The view is consistent even if the underlying table changes between pages.
+
+```csharp
+app.Map("audit", async (IReplPagingContext paging, AuditStore store, CancellationToken ct) =>
+    paging.CreateSource<AuditRow>(async (req, innerCt) =>
+    {
+        var (snapshotId, offset) = ParseSnapshotCursor(req.Cursor);
+
+        // First page: create snapshot; subsequent pages: reuse it.
+        if (snapshotId is null)
+            snapshotId = await store.CreateSnapshotAsync(innerCt);
+
+        var items = await store.ReadSnapshotAsync(snapshotId, offset, req.PageSize, innerCt);
+        var nextOffset = offset + items.Count;
+        var hasMore = items.Count == req.PageSize;
+
+        return new ReplPage<AuditRow>(
+            items,
+            nextCursor: hasMore ? EncodeSnapshotCursor(snapshotId, nextOffset) : null);
+    }));
+
+private static (string? id, int offset) ParseSnapshotCursor(string? cursor)
+{
+    if (cursor is null) return (null, 0);
+    var snap = JsonSerializer.Deserialize<SnapshotCursor>(Convert.FromBase64String(cursor));
+    return (snap?.Id, snap?.Offset ?? 0);
+}
+
+private static string EncodeSnapshotCursor(string id, int offset) =>
+    Convert.ToBase64String(JsonSerializer.SerializeToUtf8Bytes(new SnapshotCursor(id, offset)));
+
+private sealed record SnapshotCursor(string Id, int Offset);
+```
+
+---
+
+## Range / window cursor
+
+For time-series or log data where the user wants a fixed window per page.
+
+```csharp
+app.Map("metrics", async (IReplPagingContext paging, MetricStore store, string? from, string? to, CancellationToken ct) =>
+    paging.CreateSource<MetricRow>(async (req, innerCt) =>
+    {
+        var (windowStart, windowEnd) = ParseWindowCursor(req.Cursor, from, to);
+        var items = await store.QueryWindowAsync(windowStart, windowEnd, req.PageSize, innerCt);
+
+        // Advance to next window starting from the last timestamp seen.
+        var next = items.Count == req.PageSize
+            ? EncodeWindowCursor(items[^1].Timestamp, windowEnd)
+            : null;
+
+        return new ReplPage<MetricRow>(items, nextCursor: next);
+    }));
+```
+
+---
+
+## Cursor security checklist
+
+- **Length** — Repl enforces ≤ 512 characters. Keep your encoded cursors well under this.
+- **Encoding** — Prefer base64 for structured data. Avoid raw JSON or strings with spaces (Repl rejects whitespace in cursors).
+- **Ownership** — Cursors that encode tenant IDs or database references should be signed (HMAC) or encrypted so a user cannot tamper with another tenant's continuation.
+- **Expiry** — Consider adding a timestamp to snapshot or session-bound cursors and rejecting expired ones.
+- **Leakage** — Cursors that contain database internals (table names, raw SQL fragments, internal IDs) expose schema. Use opaque tokens or encrypt the payload.

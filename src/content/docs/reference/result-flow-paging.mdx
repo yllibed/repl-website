@@ -1,0 +1,296 @@
+---
+title: Result-Flow Paging
+description: First-class paging for commands that return large datasets — from simple in-memory lists to cursor-driven backing stores.
+---
+
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+import ApiRef from '../../../components/ApiRef.astro';
+
+When a command can return more rows than fit on a screen, Repl handles paging for you. The handler chooses how data flows; Repl handles the terminal UX, the JSON envelope, and the MCP surface.
+
+## At a glance
+
+| I have… | Return | Interactive experience |
+|---|---|---|
+| A small bounded list | `ReplPageSource.FromItems(items)` | Pager scrolls in-place; `--result:all` honored |
+| An offset/limit backing store | `ReplPageSource.FromOffset(...)` | Pager fetches more pages on demand |
+| A replayable async stream | `ReplPageSource.FromAsyncEnumerable(...)` | Pager fetches more pages on demand |
+| A custom cursor I own | Inject `IReplPagingContext`, return `paging.Page(...)` or `paging.CreateSource(...)` | Caller passes `--result:cursor` to continue |
+
+---
+
+## Two layers: source paging vs output paging
+
+<Aside type="caution">
+These two layers are independent. Do not substitute one for the other.
+</Aside>
+
+**Source paging** controls how many data rows the handler fetches from the backing store. **Output paging** controls how many rendered lines the terminal displays at once.
+
+One data row can produce many output lines (long strings, nested collections, narrow-column wrapping). Returning a 100,000-row list and relying on the terminal pager still allocates and formats the entire list before the first screen appears. Keep source pages small. The pager handles the rest.
+
+The inverse is also true: a source page of 20 compact objects may fit on one screen with room to spare. The output pager is just a view on whatever the source provided.
+
+---
+
+## Tier 1 — Just paginate a list
+
+The simplest form: you already have all the data, and you want Repl to page through it.
+
+```csharp
+app.Map("events", (EventStore store) =>
+    ReplPageSource.FromItems(store.GetAll()));
+```
+
+`FromItems` is bounded — it knows the exact count up front. It honors `--result:all` safely. The integrated pager fetches slices on demand as the user scrolls.
+
+---
+
+## Tier 2 — A real backing store
+
+### Offset / limit
+
+Use `FromOffset` when your store supports `Skip/Take`, SQL `OFFSET/LIMIT`, or any similar contract:
+
+```csharp
+app.Map("contacts", (ContactStore store) =>
+    ReplPageSource.FromOffset<Contact>(
+        (offset, take, ct) => store.QueryAsync(offset, take, ct),
+        totalCount: store.CountAsync()));
+```
+
+Pass `totalCount` when it's cheap — Repl uses it to show "showing x of y". Omit it if the count is expensive; `FromOffset` detects `HasMore` by fetching `pageSize + 1` rows instead.
+
+`FromOffset` rejects `--result:all` by default because the source may be unbounded.
+
+**Static lambda with state** (avoids closure allocation):
+
+```csharp
+app.Map("contacts", (ContactStore store, string? search) =>
+    ReplPageSource.FromOffset<Contact, ContactStore>(
+        store,
+        static (state, offset, take, ct) => state.QueryAsync(offset, take, ct)));
+```
+
+### Client-side filter as fallback
+
+When the backing store cannot filter server-side, add a `filter` predicate:
+
+```csharp
+ReplPageSource.FromOffset<ContactRow, ContactStore>(
+    store,
+    static (state, offset, take, ct) => state.QueryAsync(offset, take, ct),
+    filter: (_, row) => row.Name.Contains(search, StringComparison.OrdinalIgnoreCase))
+```
+
+<Aside type="caution">
+Client-side filtering is a fallback, not the preferred path. Repl may fetch and discard rows while filling one visible page, and the true filtered total is usually unknown. Push filters, search terms, tenant constraints, and sorting into the data source whenever possible.
+</Aside>
+
+### Replayable async stream
+
+Use `FromAsyncEnumerable` when your source is naturally an async iterator (file scans, SDK pagers exposed as `IAsyncEnumerable<T>`):
+
+```csharp
+app.Map("logs", (LogStore store) =>
+    ReplPageSource.FromAsyncEnumerable<LogRow>(
+        ct => store.StreamAsync(ct)));
+```
+
+<Aside type="caution">
+The factory **must** be replayable, idempotent, and deterministic — it is called again for every continuation page. Never pass a channel, a database cursor, or any single-use enumerator. If your stream is single-use, use `ReplPageSource.Create(...)` and manage the cursor yourself.
+</Aside>
+
+`FromAsyncEnumerable` also rejects `--result:all` by default.
+
+---
+
+## Tier 3 — Custom cursor patterns
+
+When you need keyset, page-token, nextLink, or snapshot cursors, inject `IReplPagingContext` and own the cursor format:
+
+```csharp
+app.Map("contacts", async (IReplPagingContext paging, ContactStore store, CancellationToken ct) =>
+{
+    var result = await store.SearchAsync(paging.Cursor, paging.SuggestedPageSize, ct);
+
+    return paging.Page(
+        result.Items,
+        nextCursor: result.NextCursor,
+        totalCount: result.TotalCount);
+});
+```
+
+`paging.Cursor` is `null` on the first call and carries the opaque continuation value on subsequent calls. The caller passes it back via `--result:cursor`.
+
+For sources where Repl should drive continuation in the same command run, return a source instead:
+
+```csharp
+return paging.CreateSource<Contact>(
+    async (req, ct) =>
+    {
+        var (items, next) = await store.FetchPageAsync(req.Cursor, req.PageSize, ct);
+        return new ReplPage<Contact>(items, nextCursor: next);
+    });
+```
+
+See [Cursor Patterns](/reference/cursor-patterns/) for a table of keyset, external token, nextLink, and snapshot strategies with code examples.
+
+---
+
+## Tier 4 — Production tuning
+
+### ResultFlowOptions
+
+```csharp
+app.Options(o =>
+{
+    o.Output.ResultFlow.DefaultPageSize  = 50;     // default: 100
+    o.Output.ResultFlow.MaxPageSize      = 500;    // clamps --result:page-size
+    o.Output.ResultFlow.MaxBufferedLines = 5_000;  // default: 10_000 — line buffer cap for interactive pager
+    o.Output.ResultFlow.DefaultPagerMode = ReplPagerMode.Auto;
+});
+```
+
+`MaxBufferedLines` bounds the in-memory line buffer of the interactive pager. When the cap is reached, the pager stops fetching and reports a diagnostic instead of growing memory without bound.
+
+### `--result:all` is advisory
+
+Handlers should honor it only when the source is bounded. Built-in helpers:
+
+| Helper | Honors `--result:all` |
+|---|---|
+| `FromItems` | ✅ Yes — source is bounded |
+| `FromOffset` | ❌ No — may be unbounded |
+| `FromAsyncEnumerable` | ❌ No — may be unbounded |
+| `Create` / `paging.CreateSource` | Your choice — implement the check in your fetcher |
+
+### Cursor validation
+
+Repl validates incoming cursors before use. A cursor is rejected if it is empty, contains whitespace or control characters, starts with `-`, or exceeds 512 characters. Build cursor values that satisfy these constraints — prefer base64 encoding for structured data.
+
+### Diagnostics
+
+<ApiRef uid="Repl.IReplResultFlowDiagnostics" /> is a dependency-free interface for fetch events (start, success, failure). When `AddReplLogging()` is present, diagnostics are bridged automatically: Debug on start/success, Error on failure.
+
+---
+
+## Output behavior by format
+
+<Tabs>
+<TabItem label="human / spectre (interactive)">
+
+The integrated pager activates automatically on a TTY. The user scrolls with arrow keys, Page Up/Down, Space, or Home/End. Repl fetches the next source page transparently as the user reaches the buffered end.
+
+Control the pager mode with `--result:pager`:
+
+| Mode | Behavior |
+|---|---|
+| `auto` (default) | `full` on ANSI terminals, `more` as fallback |
+| `more` | Pauses at page boundaries; no cursor movement |
+| `inline` | Scrolls in-place within the terminal viewport (ANSI required) |
+| `full` | Full alternate-screen viewport, `less`-style navigation (ANSI required) |
+| `off` | No pager; all output scrolls to stdout |
+
+</TabItem>
+<TabItem label="human / spectre (redirected)">
+
+When stdout is redirected (`| less`, `| jq`, `> file.txt`), the pager is suppressed automatically and normal stdout is preserved. Unix pipeline tools see a clean stream.
+
+Only the first source page is emitted. Pass `--result:all` to override (if the source honors it).
+
+</TabItem>
+<TabItem label="json / xml / yaml / markdown">
+
+The first source page is emitted with an explicit page envelope. No interactive pager.
+
+```json
+{
+  "$type": "page",
+  "items": [
+    { "id": 1, "name": "Alice Martin 001" }
+  ],
+  "pageInfo": {
+    "cursor": null,
+    "nextCursor": "25",
+    "totalCount": 500,
+    "pageSize": 25,
+    "hasMore": true
+  }
+}
+```
+
+Pass `--result:cursor <value>` with the previous `nextCursor` to fetch subsequent pages.
+
+</TabItem>
+<TabItem label="MCP">
+
+Paged results are returned as structured content with `$type: "page"`. The agent passes `_replCursor` and `_replPageSize` to continue.
+
+```json
+{
+  "$type": "page",
+  "items": [...],
+  "pageInfo": { "nextCursor": "25", "hasMore": true, ... }
+}
+```
+
+Text fallback is configurable via `ReplMcpServerOptions.PagedResultTextMode`:
+
+| Mode | `Content[0].Text` | Use when |
+|---|---|---|
+| `SerializedJson` (default) | Full JSON page | Client reads only `Content[0].Text` |
+| `SummaryOnly` | Compact "N items, page X of Y" | Save tokens on structured-content-aware agents |
+| `SummaryAndSerializedJson` | Both | Compatibility + structured access |
+
+</TabItem>
+</Tabs>
+
+---
+
+## CLI surface
+
+These options are reserved by the result-flow system and appear in `--help` only for commands that support paging:
+
+```text
+--result:page-size <n>          Override the page size (clamped to MaxPageSize)
+--result:cursor <value>         Resume from an opaque continuation cursor
+--result:all                    Request all pages (advisory — honored only by bounded sources)
+--result:pager=auto|off|more|inline|full
+                                Control the interactive pager mode
+```
+
+---
+
+## MCP surface
+
+For any handler that injects `IReplPagingContext` or returns `ReplPage<T>` / `IReplPageSource<T>`, Repl automatically adds these reserved inputs to the MCP tool schema:
+
+```json
+"_replCursor":   { "type": "string",  "description": "Continuation cursor from a previous call" }
+"_replPageSize": { "type": "integer", "description": "Number of items to return per page" }
+```
+
+These inputs are validated before use. `_replPageSize` must be numeric and compact. `_replCursor` must not contain whitespace, control characters, or a leading dash.
+
+---
+
+## Best practices
+
+<Aside type="tip">
+**Push filtering and sorting to the source.** The `filter:` predicate in `FromOffset` and `FromAsyncEnumerable` is a fallback for when server-side filtering is not possible. Prefer pushing `WHERE` clauses, search terms, tenant constraints, and sort keys into your data source. Client-side filters fetch and discard rows that never reach the terminal.
+</Aside>
+
+- **Treat incoming cursors as untrusted input.** Validate length, encoding, and ownership. Sign or encrypt cursors that carry tenant IDs or filter state.
+- **Live / infinite feeds are out of scope.** Streams that never finish (message queues, live logs, real-time events) belong to a future API. Do not expose them through `--result:all` or `FromAsyncEnumerable`.
+- **`VisibleRowCapacityHint` is a hint, not a contract.** Use it to tune `take`, but enforce your own data-source size limits on top.
+- **For interactive human output, prefer a page source over a single page.** `IReplPageSource<T>` lets the integrated pager continue in the same command run without asking the user to rerun with `--result:cursor`.
+
+---
+
+## See also
+
+- [Cookbook: Paged Results](/cookbook/paged-results/) — practical recipes by data source type
+- [Reference: Cursor Patterns](/reference/cursor-patterns/) — keyset, page-token, nextLink, snapshot patterns
+- [Customization & Output](/reference/customization/) — how paged results are rendered per format
+- [MCP Server](/reference/mcp-concepts/) — `_replCursor` / `_replPageSize` in the MCP tool schema
