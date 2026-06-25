@@ -26,6 +26,7 @@ export default defineConfig({
 						{ label: 'CLI Mode', slug: 'getting-started/cli-mode' },
 						{ label: 'REPL Mode', slug: 'getting-started/repl-mode' },
 						{ label: 'MCP Mode', slug: 'getting-started/mcp-mode' },
+						{ label: 'For Coding Agents', slug: 'getting-started/for-coding-agents' },
 					],
 				},
 				{
