@@ -165,7 +165,8 @@ sample once before launching it from an MCP host:
 dotnet build samples/08-mcp-server/McpServerSample.csproj
 ```
 
-Then configure the host to run without rebuilding:
+Then configure the host to run without rebuilding. Cursor, Cline, Claude-style
+clients, and many generic MCP clients use the `mcpServers` shape:
 
 ```json
 {
@@ -186,12 +187,34 @@ Then configure the host to run without rebuilding:
 }
 ```
 
+VS Code/Copilot uses top-level `servers` in `.vscode/mcp.json`:
+
+```json
+{
+  "servers": {
+    "repl-contacts-sample": {
+      "type": "stdio",
+      "command": "dotnet",
+      "args": [
+        "run",
+        "--no-build",
+        "--project",
+        "/absolute/path/to/repl/samples/08-mcp-server/McpServerSample.csproj",
+        "--",
+        "mcp",
+        "serve"
+      ]
+    }
+  }
+}
+```
+
 Rebuild-on-launch `dotnet run` host configs are fragile because cold builds can
 exceed startup timeouts or emit build output before the MCP JSON-RPC stream
-starts. Use `.cursor/mcp.json` for Cursor, `.vscode/mcp.json` for VS
-Code/Copilot, Claude Code's MCP registration/settings flow, or Cline's MCP
-settings. Review commands before enabling them: local MCP servers run code on
-the user's machine.
+starts. Use `.cursor/mcp.json` for Cursor, Claude Code's MCP
+registration/settings flow, Cline's MCP settings, or the VS Code-specific shape
+above. Review commands before enabling them: local MCP servers run code on the
+user's machine.
 
 ## Further reading
 
