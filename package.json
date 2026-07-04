@@ -9,6 +9,7 @@
     "start": "astro dev",
     "docs:api": "node ./scripts/build-api-docs.mjs",
     "docs:api:mdx": "node ./scripts/generate-api-mdx.mjs",
+    "docs:validate": "node ./scripts/validate-docs.mjs",
     "prebuild": "npm run docs:api",
     "build": "astro build",
     "preview": "astro preview",
