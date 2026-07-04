@@ -5,7 +5,7 @@ description: Expose your command surface to AI agents via the Model Context Prot
 
 import { Steps } from '@astrojs/starlight/components';
 
-Repl can expose your entire command graph as an [MCP server](https://modelcontextprotocol.io/), making every command available as an MCP tool to any compatible AI agent — Claude, Cursor, Copilot, and others.
+Repl can expose your app's command graph as an [MCP server](https://modelcontextprotocol.io/), making every command available as an MCP tool to any compatible AI agent — Claude, Cursor, Copilot, and others. `Repl.Mcp` is the component that lets your app become the MCP server; it is not itself the server users configure in an agent host.
 
 ## Enable MCP
 
@@ -32,7 +32,7 @@ Repl can expose your entire command graph as an [MCP server](https://modelcontex
    return app.Run(args);
    ```
 
-3. **Configure your agent**
+3. **Configure your agent to launch your app**
 
    ```json
    {
@@ -47,7 +47,7 @@ Repl can expose your entire command graph as an [MCP server](https://modelcontex
 
 </Steps>
 
-That's it — every `Map(...)` call is now an MCP tool.
+That's it — every `Map(...)` call in your app is now an MCP tool. In production, prefer configuring a stable executable or `dotnet tool`; for local samples, use an absolute project path because hosts do not always launch from your repository root.
 
 ## How mapping works
 
@@ -95,5 +95,6 @@ app.Map("debug reset", Reset)
 
 ## Next steps
 
+- [For Coding Agents](/getting-started/for-coding-agents/) — decision rules and copy/paste project instructions
 - [MCP Server cookbook](/cookbook/mcp-server/) — tools, resources, prompts, MCP Apps in depth
 - [Testing](/cookbook/testing/) — test your MCP surface with `Repl.Testing`
