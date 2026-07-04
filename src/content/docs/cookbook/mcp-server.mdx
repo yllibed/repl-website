@@ -158,15 +158,23 @@ app.Map("analyze {path}", static async (string path, IMcpClientRoots roots) =>
 
 ## Agent-host setup
 
-For local samples, prefer absolute project paths in host configs:
+For local samples, prefer absolute project paths in host configs. Build the
+sample once before launching it from an MCP host:
+
+```bash
+dotnet build samples/08-mcp-server/McpServerSample.csproj
+```
+
+Then configure the host to run without rebuilding:
 
 ```json
 {
   "mcpServers": {
-    "contacts-sample": {
+    "repl-contacts-sample": {
       "command": "dotnet",
       "args": [
         "run",
+        "--no-build",
         "--project",
         "/absolute/path/to/repl/samples/08-mcp-server/McpServerSample.csproj",
         "--",
@@ -178,7 +186,12 @@ For local samples, prefer absolute project paths in host configs:
 }
 ```
 
-Use `.cursor/mcp.json` for Cursor, `.vscode/mcp.json` for VS Code/Copilot, Claude Code's MCP registration/settings flow, or Cline's MCP settings. Review commands before enabling them: local MCP servers run code on the user's machine.
+Rebuild-on-launch `dotnet run` host configs are fragile because cold builds can
+exceed startup timeouts or emit build output before the MCP JSON-RPC stream
+starts. Use `.cursor/mcp.json` for Cursor, `.vscode/mcp.json` for VS
+Code/Copilot, Claude Code's MCP registration/settings flow, or Cline's MCP
+settings. Review commands before enabling them: local MCP servers run code on
+the user's machine.
 
 ## Further reading
 
