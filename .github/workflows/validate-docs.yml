@@ -1,31 +1,37 @@
-name: Deploy to GitHub Pages
+name: Validate docs
 
 on:
+  pull_request:
   push:
     branches: [main]
   workflow_dispatch:
-  repository_dispatch:
-    types: [repl-released]
-#  schedule:
-#    - cron: '0 6 * * *'
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: pages
-  cancel-in-progress: false
 
 jobs:
-  build:
+  docs:
     runs-on: ubuntu-latest
-    environment: github-pages
+
     steps:
       - name: Checkout website
         uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Validate documentation invariants
+        run: npm run docs:validate
+
+      # The Astro build needs generated API-reference content (src/generated/api-reference.json),
+      # produced by `docs:api` from DocFX metadata over the Repl source — mirrors the Repl source
+      # checkout and DocFX setup already proven in .github/workflows/deploy.yml.
       - name: Resolve latest Repl release tag
         id: latest-tag
         run: |
@@ -43,15 +49,6 @@ jobs:
           path: ./repl-source
           fetch-depth: 0
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: npm
-
-      - name: Install npm dependencies
-        run: npm ci
-
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
@@ -63,20 +60,4 @@ jobs:
       - name: Build API reference and Astro site
         run: npm run build
         env:
-          GOOGLE_ANALYTICS_ID: ${{ vars.GOOGLE_ANALYTICS_ID }}
-
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: ./dist
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          ASTRO_TELEMETRY_DISABLED: '1'
