@@ -59,6 +59,10 @@ function extractJsonBlocks(file, text) {
     if (inJson) buffer.push(line);
   }
 
+  if (inJson) {
+    fail(file, startLine - 1, 'JSON code fence must be closed with ``` before end of file.');
+  }
+
   return blocks;
 }
 
@@ -100,13 +104,14 @@ function validateServerMap(block, serverMap, key) {
       && args.some((arg) => typeof arg === 'string' && arg.endsWith('.csproj'));
 
     if (launchesDotnetProject) {
-      const projectIndex = args.indexOf('--project');
       const noBuildIndex = args.indexOf('--no-build');
-      if (noBuildIndex === -1 || noBuildIndex > projectIndex) {
+      const dashDashIndex = args.indexOf('--');
+      const hasNoBuildOption = noBuildIndex !== -1 && (dashDashIndex === -1 || noBuildIndex < dashDashIndex);
+      if (!hasNoBuildOption) {
         fail(
           block.file,
           block.startLine,
-          `MCP host server "${name}" runs a .csproj with dotnet run but does not place "--no-build" before "--project".`
+          `MCP host server "${name}" runs a .csproj with dotnet run but does not include "--no-build" before the "--" application-argument separator.`
         );
       }
     }
@@ -115,7 +120,7 @@ function validateServerMap(block, serverMap, key) {
 
 function validateMcpHostDocs(file, text) {
   if (/Repl\.Mcp\s+is\s+(?:an?|the)\s+MCP server/i.test(text)) {
-    fail(file, 1, 'Describe Repl.Mcp as the component used to build MCP servers, not as the MCP server itself.');
+    fail(file, findLine(text, 'Repl.Mcp'), 'Describe Repl.Mcp as the component used to build MCP servers, not as the MCP server itself.');
   }
 
   if (file.endsWith('cookbook/mcp-server.mdx') && text.includes('## Agent-host setup')) {
