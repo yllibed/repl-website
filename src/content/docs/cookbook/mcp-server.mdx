@@ -5,7 +5,7 @@ description: Tools, resources, prompts, MCP Apps, and behavioral annotations wit
 
 import { Aside } from '@astrojs/starlight/components';
 
-`Repl.Mcp` turns your entire command graph into an MCP server. Every `Map(...)` becomes a tool; return values, resources, and prompts are all first-class.
+`Repl.Mcp` lets your app expose its command graph as an MCP server. It is not a standalone MCP server by itself: the app you build with Repl is the server that agent hosts launch. Every `Map(...)` becomes a tool; return values, resources, and prompts are all first-class.
 
 <Aside type="tip">
   Full runnable code: [`samples/08-mcp-server`](https://github.com/yllibed/repl/tree/main/samples/08-mcp-server)
@@ -25,7 +25,7 @@ Start with:
 myapp mcp serve
 ```
 
-Configure in your agent (Claude Desktop, Cursor, etc.):
+Configure your agent host to launch your app:
 
 ```json
 {
@@ -156,8 +156,69 @@ app.Map("analyze {path}", static async (string path, IMcpClientRoots roots) =>
 
 ---
 
+## Agent-host setup
+
+For local samples, prefer absolute project paths in host configs. Build the
+sample once before launching it from an MCP host:
+
+```bash
+dotnet build samples/08-mcp-server/McpServerSample.csproj
+```
+
+Then configure the host to run without rebuilding. Cursor, Cline, Claude-style
+clients, and many generic MCP clients use the `mcpServers` shape:
+
+```json
+{
+  "mcpServers": {
+    "repl-contacts-sample": {
+      "command": "dotnet",
+      "args": [
+        "run",
+        "--no-build",
+        "--project",
+        "/absolute/path/to/repl/samples/08-mcp-server/McpServerSample.csproj",
+        "--",
+        "mcp",
+        "serve"
+      ]
+    }
+  }
+}
+```
+
+VS Code/Copilot uses top-level `servers` in `.vscode/mcp.json`:
+
+```json
+{
+  "servers": {
+    "repl-contacts-sample": {
+      "type": "stdio",
+      "command": "dotnet",
+      "args": [
+        "run",
+        "--no-build",
+        "--project",
+        "/absolute/path/to/repl/samples/08-mcp-server/McpServerSample.csproj",
+        "--",
+        "mcp",
+        "serve"
+      ]
+    }
+  }
+}
+```
+
+Rebuild-on-launch `dotnet run` host configs are fragile because cold builds can
+exceed startup timeouts or emit build output before the MCP JSON-RPC stream
+starts. Use `.cursor/mcp.json` for Cursor, Claude Code's MCP
+registration/settings flow, Cline's MCP settings, or the VS Code-specific shape
+above. Review commands before enabling them: local MCP servers run code on the
+user's machine.
+
 ## Further reading
 
 - [MCP Concepts](/reference/mcp-concepts/) — tool annotations, resources, prompt templates, client roots, and the full MCP protocol integration model.
+- [For Coding Agents](/getting-started/for-coding-agents/) — decision rules, implementation guidance, and copy/paste agent instructions.
 - [Agent-Native Design](/reference/agent-native/) — designing commands for AI agents: naming, descriptions, idempotency, and output contracts.
 - [Best Practices](/reference/best-practices/) — output correctness, logging vs output separation, and security considerations for exposed commands.

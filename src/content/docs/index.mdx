@@ -32,8 +32,8 @@ import { Card, CardGrid, Tabs, TabItem, Badge, LinkButton } from '@astrojs/starl
 	<Card title="Hosted sessions" icon="laptop">
 		The same command surface runs over any text-based session transport. Multiple concurrent sessions, each with its own scope. `Repl.WebSocket` and `Repl.Telnet` are built-in implementations; any transport that delivers a stream pair works.
 	</Card>
-	<Card title="Full-fledged MCP server in one line" icon="puzzle">
-		`app.UseMcpServer()` exposes every command over the Model Context Protocol — the open standard AI assistants like Claude use to discover and call tools. State-of-the-art coverage: tools, resources, prompts, and MCP Apps (`ui://`) — all generated from the same command graph, with behavioral hints derived from your route annotations.
+	<Card title="Build an MCP server in one line" icon="puzzle">
+		`app.UseMcpServer()` lets your app expose every command over the Model Context Protocol — the open standard AI assistants use to discover and call tools. Repl.Mcp is the component; your app is the MCP server. Tools, resources, prompts, and MCP Apps (`ui://`) are generated from the same command graph, with behavioral hints derived from your route annotations.
 	</Card>
 	<Card title="Zero-dependency core" icon="approve-check-circle">
 		`Repl.Core` has zero NuGet dependencies. Build embedded command surfaces in strict environments. Compose only what you need.
@@ -194,6 +194,11 @@ $ myapp contacts add "Alice Dupont" alice@example.com --json
 
 		[Read the docs →](/reference/routes-and-parameters/)
 	</Card>
+	<Card title="For Coding Agents" icon="puzzle">
+		Decision rules, implementation guidance, and copy/paste instructions for agents adding Repl Toolkit to .NET projects.
+
+		[Guide agents →](/getting-started/for-coding-agents/)
+	</Card>
 	<Card title="API Reference" icon="list-format">
 		Complete generated API reference from the `Repl.*` assemblies.
 
@@ -205,7 +210,7 @@ $ myapp contacts add "Alice Dupont" alice@example.com --json
 
 Start with `dotnet add package Repl`. That single package gives you routing, typed parameter binding, an interactive REPL, CLI dispatch, and JSON/XML/YAML/Markdown output — no other dependencies required.
 
-When your users need AI-agent access, add `Repl.Mcp` and call `app.UseMcpServer()`. Every command becomes an MCP tool with no handler changes. Add `Repl.Spectre` to upgrade all output and prompts to Spectre.Console richness — again, zero handler changes. The whole stack honors standard guidelines by default, so your CLI behaves the way operators, scripts, and CI pipelines expect.
+When your users need AI-agent access, add `Repl.Mcp` and call `app.UseMcpServer()`. Your app becomes the MCP server, and every command becomes an MCP tool with no handler changes. Add `Repl.Spectre` to upgrade all output and prompts to Spectre.Console richness — again, zero handler changes. The whole stack honors standard guidelines by default, so your CLI behaves the way operators, scripts, and CI pipelines expect.
 
 Test the whole thing with `Repl.Testing`: an in-memory harness that runs full multi-step interaction sequences, including prompts and scoped navigation, with typed assertions.
 

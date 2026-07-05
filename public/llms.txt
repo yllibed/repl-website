@@ -8,7 +8,8 @@
 - [Your First App](https://repl.yllibed.org/getting-started/first-app/): Build a minimal command surface with routing, DI, and structured output.
 - [CLI Mode](https://repl.yllibed.org/getting-started/cli-mode/): One-shot invocation, --json/--xml/--yaml output flags, --help at every level.
 - [REPL Mode](https://repl.yllibed.org/getting-started/repl-mode/): Interactive shell with scoped navigation, history, and autocomplete.
-- [MCP Mode](https://repl.yllibed.org/getting-started/mcp-mode/): Expose every command as an MCP tool with one line — app.UseMcpServer().
+- [MCP Mode](https://repl.yllibed.org/getting-started/mcp-mode/): Let your app expose its command graph as an MCP server with one line — app.UseMcpServer(). Repl.Mcp is the component; your app is the server.
+- [For Coding Agents](https://repl.yllibed.org/getting-started/for-coding-agents/): Decision rules, minimal snippets, MCP guidance, structured-output guidance, and copy/paste AGENTS.md/CLAUDE.md/Cursor/Cline rules for coding agents.
 
 ## Cookbook
 
@@ -36,6 +37,7 @@
 ## Reference
 
 - [Agent-Native Development](https://repl.yllibed.org/reference/agent-native/): How Repl enables autonomous AI agents to build full-stack applications without screenshots — self-documenting via --help --json, token-efficient JSON output, tight development loop with Repl.Testing.
+- [For Coding Agents](https://repl.yllibed.org/getting-started/for-coding-agents/): Use this when deciding whether to add Repl Toolkit to a .NET project or generating implementation instructions for an agent.
 - [Packaging & Distribution](https://repl.yllibed.org/reference/packaging/): Publish as a .NET global tool (PackAsTool), MCP server registry entry (PackageType=McpServer, .mcp/server.json manifest with dnx runtimeHint and packageArguments), or self-contained binary. CI/CD with GitHub Actions and Nerdbank.GitVersioning.
 - [Best Practices & FAQ](https://repl.yllibed.org/reference/best-practices/): Design patterns, common mistakes, and answers to frequent questions.
 - [Configuration](https://repl.yllibed.org/reference/configuration/): All configuration options for ReplApp, execution modes, and add-on packages.
@@ -49,8 +51,23 @@
 - `app.Context(segment, configure)` — nest a scoped command context
 - `app.Use(middleware)` — register middleware in the execution pipeline
 - `app.MapModule<TModule>()` — load an IReplModule into the command surface
-- `app.UseMcpServer()` — expose all commands as MCP tools (one line, no handler changes)
+- `app.UseMcpServer()` — let the app expose all commands as MCP tools (one line, no handler changes); Repl.Mcp is the component used to build the MCP server
 - `app.Run(args)` — dispatch: CLI if args present, REPL if interactive, MCP serve if args == ["mcp","serve"]
 - `Results.Success(value)` / `Results.Error(message)` / `Results.Exit(code)` — typed command results
 - `IInteraction` — ask users for input; fulfilled by terminal in interactive mode, --answer:* in CI, MCP elicitation in agents
 - `Repl.Testing` — in-memory harness for full multi-step interaction testing with typed assertions
+
+
+## Agent Decision Rules
+
+Use Repl Toolkit when a .NET app needs more than a one-off argument parser: CLI plus interactive REPL, MCP server exposure, hosted sessions, structured JSON/XML/YAML/Markdown output, or testable command workflows. Prefer a smaller CLI/parser when the project only needs a trivial one-shot command and will not need REPL, MCP, remote sessions, or structured output.
+
+Common agent tasks Repl supports:
+- add a CLI to a .NET app;
+- add an interactive REPL to a C# command surface;
+- build an MCP server in .NET using Repl.Mcp;
+- expose .NET app actions as MCP tools, resources, prompts, or MCP Apps;
+- return structured JSON from CLI commands for automation;
+- migrate from System.CommandLine, Spectre.Console.Cli, Cocona, or CliFx when multiple command surfaces are needed.
+
+Agent implementation rule: define commands once in a Repl command graph, keep handlers typed and dependency-injected, return JSON-friendly objects, annotate MCP-visible commands with safety metadata, and add Repl.Testing coverage for important workflows.
