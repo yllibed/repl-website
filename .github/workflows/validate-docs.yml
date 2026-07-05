@@ -29,7 +29,35 @@ jobs:
       - name: Validate documentation invariants
         run: npm run docs:validate
 
-      - name: Build Astro content
-        run: npm run astro -- build
+      # The Astro build needs generated API-reference content (src/generated/api-reference.json),
+      # produced by `docs:api` from DocFX metadata over the Repl source — mirrors the Repl source
+      # checkout and DocFX setup already proven in .github/workflows/deploy.yml.
+      - name: Resolve latest Repl release tag
+        id: latest-tag
+        run: |
+          tag=$(gh release list --repo yllibed/repl --limit 1 --json tagName -q '.[0].tagName')
+          echo "Resolved tag: $tag"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout Repl source at release tag
+        uses: actions/checkout@v4
+        with:
+          repository: yllibed/repl
+          ref: ${{ steps.latest-tag.outputs.tag }}
+          path: ./repl-source
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.x'
+
+      - name: Install DocFX
+        run: dotnet tool install -g docfx
+
+      - name: Build API reference and Astro site
+        run: npm run build
         env:
           ASTRO_TELEMETRY_DISABLED: '1'
