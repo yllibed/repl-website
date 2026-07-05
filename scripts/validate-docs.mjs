@@ -4,6 +4,7 @@ import path from 'node:path';
 
 const repoRoot = process.cwd();
 const errors = [];
+const replMcpAsServerPattern = /`?Repl\.Mcp`?[\s`'".,;:)\]]+\bis\s+(?:an?|the)\s+MCP server/i;
 
 function fail(file, line, message) {
   const location = line ? `${file}:${line}` : file;
@@ -119,7 +120,7 @@ function validateServerMap(block, serverMap, key) {
 }
 
 function validateMcpHostDocs(file, text) {
-  if (/Repl\.Mcp\s+is\s+(?:an?|the)\s+MCP server/i.test(text)) {
+  if (replMcpAsServerPattern.test(text)) {
     fail(file, findLine(text, 'Repl.Mcp'), 'Describe Repl.Mcp as the component used to build MCP servers, not as the MCP server itself.');
   }
 
@@ -151,7 +152,7 @@ function validateLlmsTxt(file, text) {
     fail(file, findLine(text, 'For Coding Agents'), 'llms.txt mentions For Coding Agents but does not link the canonical page.');
   }
 
-  if (text.includes('Repl.Mcp') && /Repl\.Mcp\s+is\s+(?:an?|the)\s+MCP server/i.test(text)) {
+  if (replMcpAsServerPattern.test(text)) {
     fail(file, findLine(text, 'Repl.Mcp'), 'llms.txt should say Repl.Mcp is the component; the app is the MCP server.');
   }
 }
