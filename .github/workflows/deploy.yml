@@ -6,8 +6,8 @@ on:
   workflow_dispatch:
   repository_dispatch:
     types: [repl-released]
-  schedule:
-    - cron: '0 6 * * *'
+#  schedule:
+#    - cron: '0 6 * * *'
 
 permissions:
   contents: read
