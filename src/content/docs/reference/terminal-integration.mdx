@@ -1,12 +1,12 @@
 ---
 title: Terminal Integration
-description: Terminal features used by Repl — size detection, keyboard input, progress reporting, terminal capabilities, and the path toward a future TUI mode.
+description: Terminal features used by Repl — size detection, keyboard input, progress reporting, shell-integration marks, terminal capabilities, and the path toward a future TUI mode.
 ---
 
 import { Aside } from '@astrojs/starlight/components';
 import ApiRef from '../../../components/ApiRef.astro';
 
-Repl integrates with the host terminal at several levels: it detects window size, decodes VT keyboard sequences, emits progress notifications to capable terminals, and classifies terminal identity to adapt rendering. This page documents those interactions.
+Repl integrates with the host terminal at several levels: it detects window size, decodes VT keyboard sequences, emits progress notifications and shell-integration marks to capable terminals, and classifies terminal identity to adapt rendering. This page documents those interactions.
 
 **VT sequence notation used throughout this page:**
 
@@ -140,6 +140,68 @@ OSC 9;4 is never emitted when ANSI output is disabled or when the session is in 
 
 ---
 
+## Shell integration marks (OSC 133 / OSC 633)
+
+Modern terminals understand semantic marks that delimit the prompt, the user input, and the command output. When the marks are present, the terminal can offer command navigation (jump between commands), command-aware selection and copy, success/failure decorations in the gutter, and sticky command headers. Repl owns the prompt and the command lifecycle in interactive mode, so it emits those marks itself — no shell script hooks required.
+
+The feature is opt-in:
+
+```csharp
+var app = ReplApp.Create()
+    .UseTerminalIntegration();          // ShellIntegration = Auto by default
+
+// or explicitly:
+app.UseTerminalIntegration(options =>
+{
+    options.ShellIntegration = ShellIntegrationMode.Always;
+});
+```
+
+Each interactive prompt cycle is delimited with the FinalTerm semantic sequence (OSC 133), or the VS Code shell-integration dialect (OSC 633) when the VS Code integrated terminal is detected:
+
+| Moment | Mark |
+|---|---|
+| Before the prompt text | `A` (prompt start) |
+| After the prompt text, before input | `B` (input start) |
+| After a committed line (VS Code only) | `E;<command line>` (command-line report) |
+| Right before command execution | `C` (output start) |
+| After the command completes | `D;<exit code>` (command end) |
+
+Exit codes follow shell conventions: `0` for success, `1` for errors (failed results, unknown commands, validation failures), and `130` (128+SIGINT) when a command is cancelled with Ctrl+C. An abandoned cycle — Escape at the prompt, an empty line, or end of input — reports `D` without an exit code, the FinalTerm "command aborted" form.
+
+### Modes
+
+`ShellIntegrationMode` mirrors the `AdvancedProgressMode` semantics:
+
+- **`Auto`** (default) — emit when the terminal is known to render marks. For a hosted session, only what the remote client advertised counts: `TerminalCapabilities.ShellIntegrationMarks`, usually inferred from its reported terminal identity. For the local console, the environment identifies Windows Terminal (`WT_SESSION`), VS Code (`TERM_PROGRAM=vscode`), or WezTerm (`TERM_PROGRAM=WezTerm`); multiplexers (tmux, GNU screen) stay off because mark positioning is unreliable through panes.
+- **`Always`** — emit whenever the structural gates allow it. Useful for terminals that render marks but are not auto-detected, such as iTerm2 reached over SSH.
+- **`Never`** — never emit.
+
+Regardless of mode, marks are never written when output is redirected (and no hosted session is active), when ANSI output is disabled (`NO_COLOR`, `TERM=dumb`, `AnsiMode.Never`), or around a protocol-passthrough command (MCP stdio, completion payloads) — no mark may sit inside a raw protocol stream.
+
+CLI one-shot mode emits no marks: Repl does not own the surrounding shell prompt there, and fake prompt markers would corrupt the host shell's own command navigation.
+
+<Aside type="caution">
+The VS Code `E` mark reports the committed command line verbatim to the terminal, which may persist it for command detection and history — including secrets passed as command arguments. This mirrors what VS Code's own shell integration does for regular shells; if commands take secrets, prefer prompting for them interactively instead of passing them as arguments.
+</Aside>
+
+<Aside type="note">
+Unlike VS Code, Windows Terminal (≥ 1.21) surfaces mark features only through explicit settings: `"showMarksOnScrollbar": true` on the profile for scrollbar pips, and `scrollToMark` actions bound to keys (e.g. Ctrl+Up/Down) for command navigation. Neither is on by default.
+</Aside>
+
+### Troubleshooting
+
+Ask the running app first: <ApiRef uid="Repl.IReplSessionInfo" /> exposes `ShellIntegrationStatus`, which reports the detection outcome for the current prompt cycle — the active dialect (`"OSC 133"`, `"OSC 633 (VS Code)"`) or `"off (<gate>)"` naming the gate that disabled emission:
+
+```csharp
+app.Map("terminal", (IReplSessionInfo session) =>
+    session.ShellIntegrationStatus ?? "no prompt cycle yet");
+```
+
+If a terminal is misdetected and shows raw `]133;…` text, set `ShellIntegrationMode.Never` app-side, or use `NO_COLOR=1` as a local end-user escape hatch (it disables all ANSI styling, marks included). For hosted sessions, fix the identity or capabilities the client advertises — environment variables on the server affect every connected session.
+
+---
+
 ## Terminal capabilities
 
 When a session connects, Repl classifies its terminal identity to determine which capabilities to enable. The identity string comes from:
@@ -214,6 +276,7 @@ In CLI mode, Repl suppresses banners and interactive prompts automatically. For 
 **Currently in place:**
 
 - OSC 9;4 progress in supported terminals
+- Shell-integration marks (OSC 133 / OSC 633) for command navigation and gutter decorations
 - ANSI 256-color rendering (default) and 24-bit color via `Repl.Spectre`
 - Screen clear and cursor positioning for interactive menus
 - VT key decoding (arrows, Home/End, PgUp/PgDn, F1–F4)
@@ -227,7 +290,7 @@ In CLI mode, Repl suppresses banners and interactive prompts automatically. For 
 - Alternate screen buffer (`?1049`)
 - Bracketed paste mode (`?2004`)
 - Sixel and Kitty graphics
-- OSC 7 (working directory), OSC 8 (hyperlinks), OSC 52 (clipboard), OSC 133 (shell integration marks)
+- OSC 7 (working directory), OSC 8 (hyperlinks), OSC 52 (clipboard)
 - True-color palette in the default renderer (256-color only; 24-bit available via `Repl.Spectre`)
 
 These primitives form the foundation for a future TUI mode — full-screen, keystroke-driven surfaces (panels, menus, live updates) that will compose with the same command graph. The current `Repl.Spectre` integration covers static rich rendering; a dedicated `Repl.Tui` package is on the roadmap.

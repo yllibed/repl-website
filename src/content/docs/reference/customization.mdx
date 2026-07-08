@@ -70,11 +70,12 @@ Repl detects the terminal's color capability at startup and chooses rendering ac
 
 **Detection chain** (first match wins):
 
-1. `NO_COLOR` env var → disable ANSI
-2. `CLICOLOR_FORCE` env var → force ANSI
-3. `TERM` / `COLORTERM` heuristics
-4. Platform-specific checks (Windows Console, VS Code terminal, etc.)
-5. Redirection check (piped stdout → no ANSI)
+1. Session override — a hosted session can force ANSI on or off (`TerminalSessionOverrides.AnsiSupported`)
+2. Explicit `OutputOptions.AnsiMode` (`Always` / `Never`)
+3. `NO_COLOR` env var → disable ANSI
+4. `CLICOLOR_FORCE=1` env var → force ANSI (even when stdout is redirected)
+5. `TERM=dumb` → disable ANSI
+6. Redirection check (piped stdout → no ANSI)
 
 Override programmatically using <ApiRef uid="Repl.Rendering.AnsiMode" />:
 
