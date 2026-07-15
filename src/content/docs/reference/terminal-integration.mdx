@@ -212,19 +212,22 @@ When a session connects, Repl classifies its terminal identity to determine whic
 
 The classifier maps substrings of the identity string to capability flags:
 
-| Terminal identity contains | `Ansi` | `ProgressReporting` | `VtInput` | `ResizeReporting` |
-|---|---|---|---|---|
-| `windows terminal` | ✓ | ✓ | ✓ | ✓ |
-| `wezterm` | ✓ | ✓ | ✓ | ✓ |
-| `iterm` | ✓ | ✓ | ✓ | ✓ |
-| `ghostty` | ✓ | ✓ | ✓ | ✓ |
-| `conemu` | ✓ | ✓ | ✓ | ✓ |
-| `xterm`, `vt`, `ansi` | ✓ | | ✓ | ✓ |
-| `alacritty`, `rxvt`, `konsole`, `gnome`, `linux` | ✓ | | ✓ | ✓ |
-| `screen`, `tmux` | ✓ | | ✓ | ✓ |
-| `dumb` | | | | |
+| Terminal identity contains | `Ansi` | `ProgressReporting` | `ShellIntegrationMarks` | `VtInput` | `ResizeReporting` |
+|---|---|---|---|---|---|
+| `windows terminal` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `wezterm` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `iterm` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `ghostty` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `conemu` | ✓ | ✓ | | ✓ | ✓ |
+| `vscode` | ✓ | | ✓ | ✓ | ✓ |
+| `xterm`, `vt`, `ansi` | ✓ | | | ✓ | ✓ |
+| `alacritty`, `rxvt`, `konsole`, `gnome`, `linux` | ✓ | | | ✓ | ✓ |
+| `screen`, `tmux` | ✓ | | | ✓ | ✓ |
+| `dumb` | | | | | |
 
 Matching is case-insensitive and substring-based — `xterm-256color` matches `xterm`.
+
+`ShellIntegrationMarks` is what [Auto mode](#modes) checks for hosted sessions. A `vscode` identity additionally selects the OSC 633 dialect. ConEmu deliberately lacks the flag: it renders OSC 9;4 progress but not FinalTerm/VS Code prompt marks.
 
 `VtInput` enables VT keyboard sequence decoding. `ResizeReporting` enables live terminal resize events. Omitting either flag in a <ApiRef uid="Repl.TerminalSessionOverrides" /> override will silently suppress that behavior.
 

@@ -79,7 +79,7 @@ app.Context("admin", admin =>
 | `.AsResource()` | Registers as an MCP resource (URI derived from route) |
 | `.AsPrompt()` | Registers as an MCP prompt template |
 | `.AsMcpAppResource()` | Registers as an MCP Apps UI resource |
-| `.WithCompletion(provider)` | Registers Tab completion for this route. An optional `CompletionProviderScope` argument (default `Interactive`) opts the provider into shell completion (`InteractiveAndShell`) |
+| `.WithCompletion(targetName, provider[, scope])` | Registers Tab completion for the named parameter or option. The optional `CompletionProviderScope` (default `Interactive`) opts the provider into shell completion (`InteractiveAndShell`) |
 
 ## Parameters
 
