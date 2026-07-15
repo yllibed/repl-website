@@ -138,6 +138,8 @@ app.Map("prompts summarize {id:int}", (int id, IContactStore store) =>
 .WithDescription("Generate a summary prompt for a contact.");
 ```
 
+Non-optional route arguments are advertised as `required` in `prompts/list`, matching the validation `prompts/get` applies. Handlers that return a plain `string` surface it as the prompt's text — not as a quoted JSON string literal.
+
 ---
 
 ## MCP Apps

@@ -65,8 +65,16 @@ These are always available in REPL mode regardless of your command graph:
 ## History and completion
 
 - **Up/Down arrows** navigate command history.
-- **Tab** triggers autocomplete for routes and parameters (requires `UseDefaultInteractive()`).
+- **Tab** triggers autocomplete (requires `UseDefaultInteractive()`).
 - History is in-memory by default and does not persist across sessions. Inject a custom <ApiRef uid="Repl.IHistoryProvider" /> to add persistence (file, database, or any backing store).
+
+The Tab menu completes:
+
+- **Routes and context segments** from your command graph, with parameter placeholders shown for the positions a command still expects.
+- **Option names**, from the first typed `-`: the route's own options, global options (`--help`, `--output:<format>`, `--answer:<name>`, …), and the result-flow flags (`--result:page-size`, `--result:cursor`, `--result:pager`, `--result:all`).
+- **Option and parameter values**: a `.WithCompletion(...)` provider runs first, and enum-typed parameters fall back to their member names (respecting the parameter's effective case sensitivity).
+
+Unlike [shell completion](/getting-started/cli-mode/#shell-completion), which is opt-in per provider, the interactive menu runs every registered completion provider — it executes in-process, so there is no shell to block.
 
 ## Customizing the prompt
 

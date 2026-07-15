@@ -99,10 +99,16 @@ Global options are flags available on every command invocation, parsed before th
 ```csharp
 app.Options(o =>
 {
-    o.Parsing.AddGlobalOption<string>("tenant");
     o.Parsing.AddGlobalOption<bool>("verbose");
+
+    // With aliases, default value, and a help description
+    o.Parsing.AddGlobalOption<string>(
+        "tenant", aliases: ["t"], defaultValue: null,
+        description: "Tenant to operate on.");
 });
 ```
+
+Custom global options appear in `--help` under the `Global Options:` section, with their description (or `Custom global option.` when none was given). Default values are intentionally not displayed in help.
 
 Access them in DI factory registrations:
 
