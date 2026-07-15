@@ -57,8 +57,6 @@ See [Result-Flow Paging](/reference/result-flow-paging/) for the full source pag
 
 ## ANSI capability levels
 
-Repl detects the terminal's color capability at startup and chooses rendering accordingly.
-
 Repl detects the terminal's color capability at startup and chooses rendering accordingly. Detected capability tiers (informational):
 
 | Detected tier | Rendering |
@@ -226,7 +224,13 @@ return new Panel(new Markup(content))
 
 ### Detecting Spectre capability
 
-Spectre.Console detects terminal capabilities automatically. On terminals without ANSI support, all output degrades gracefully to plain text — no code changes needed.
+Spectre rendering follows the same [ANSI detection chain](#ansi-capability-levels) as the rest of the framework — no configuration required:
+
+- **Colors** are emitted only when the host detection allows ANSI; otherwise the color system degrades to `NoColors` and output stays plain text.
+- **Unicode box-drawing** degrades per output sink: full Unicode borders when the sink's encoding carries them, Spectre's square ASCII-safe fallback on a legacy OEM codepage, and ASCII transliteration (`+`, `-`, `|`) when no box glyph survives (redirected consoles, CI logs, pipes). The active verdict is exposed as `SpectreTerminalDetection.CurrentBoxDrawingSupport` for diagnostics.
+- **CI logs are plain by default** — Spectre's built-in CI enrichers are disabled so they cannot override the host detection. Set `CLICOLOR_FORCE=1` in the workflow to restore colored logs.
+
+Outside a Repl container (bare `AddSpectreConsole()` without `UseSpectreConsole()`), the profile falls back to Spectre's own detection.
 
 ---
 

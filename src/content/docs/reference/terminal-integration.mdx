@@ -33,7 +33,7 @@ ANSI escape sequences are enabled or disabled based on a precedence chain:
 | Redirected output | `Console.IsOutputRedirected` disables ANSI |
 | `TERM=dumb` | Disables ANSI |
 
-When ANSI is enabled, the default renderer uses **256-color** SGR styling (`38;5;N`). Add `Repl.Spectre` for 24-bit color (`38;2;r;g;b`) and richer rendering — Spectre.Console always requests true-color when ANSI is on.
+When ANSI is enabled, the default renderer uses **256-color** SGR styling (`38;5;N`). Add `Repl.Spectre` for 24-bit color (`38;2;r;g;b`) and richer rendering — Spectre honors the same detection chain, requesting true-color when the host allows ANSI and degrading to plain text when it doesn't.
 
 ---
 
