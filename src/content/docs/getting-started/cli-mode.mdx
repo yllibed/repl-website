@@ -74,6 +74,27 @@ myapp completion install --shell nu   # Nushell
 
 This writes a managed block to the shell's profile file. Tab completion then works for all routes, context segments, and option names.
 
+**What completion returns:**
+
+- Command literals and context segments from your graph.
+- The route's own options, plus static global options (`--help`, `--interactive`, `--no-interactive`, `--no-logo`, output aliases, `--output:<format>`, `--answer:<name>`, and the result-flow flags `--result:page-size`, `--result:cursor`, `--result:pager`, `--result:all`).
+- Enum member names for a pending enum-typed option.
+- `.WithCompletion(...)` provider values — **opt-in per provider**.
+
+Every shell Tab spawns a new process and blocks the shell until the app answers, so a slow completion provider (network, database) must never run there implicitly. A provider only serves shell completion when its registration opts in:
+
+```csharp
+app.Map("contact inspect {clientId}", (string clientId) => Inspect(clientId))
+   .WithCompletion(
+       "clientId",
+       (ctx, input, ct) => LookupClientIdsAsync(input, ct),
+       CompletionProviderScope.InteractiveAndShell);
+```
+
+The default scope (`CompletionProviderScope.Interactive`) keeps the provider on in-process surfaces only: the interactive Tab menu and the `complete` ambient command. Each provider invocation is also bounded by `ShellCompletionOptions.ProviderTimeout` (default: 1 second) — a stalled provider degrades completion to the static candidates instead of blocking the shell.
+
+Shell completion and the [interactive REPL autocomplete](/getting-started/repl-mode/#history-and-completion) draw candidates from the same source and parse prior tokens the same way. Two deliberate differences remain: on an empty token after a complete command, shell completion lists option names while the interactive menu shows parameter placeholders (options appear from the first typed `-`); and the interactive menu runs every registered provider while the shell bridge only runs opted-in ones.
+
 **Other commands:**
 
 ```bash
