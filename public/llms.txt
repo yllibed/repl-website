@@ -1,6 +1,6 @@
 # Repl Toolkit
 
-> A .NET framework for building composable command surfaces — CLI, REPL, remote sessions, and MCP tools from one command graph. Write your commands like ASP.NET Core minimal-API routes and run them as a one-shot CLI, an interactive REPL, hosted WebSocket/Telnet sessions, or MCP tools for AI agents — all from the same handler code.
+> A .NET framework for building composable command surfaces — CLI, interactive REPL, remote interactive REPL sessions, and MCP tools from one command graph. Write your commands like ASP.NET Core minimal-API routes and run them as a one-shot CLI, an interactive REPL, remote interactive REPL sessions hosted by your app over connections such as Telnet, WebSocket, or custom stream integrations, or MCP tools for AI agents — all from the same handler code.
 
 ## Getting Started
 
@@ -17,7 +17,7 @@
 - [Scoped Contexts](https://repl.yllibed.org/cookbook/scoped-contexts/): Hierarchical command trees with context.Map() and Context() nesting.
 - [Modular Ops](https://repl.yllibed.org/cookbook/modular-ops/): Compose large command surfaces from reusable IReplModule implementations.
 - [Interactive Prompts](https://repl.yllibed.org/cookbook/interactive-prompts/): Ask users for text, secrets, confirmations, and choices via IInteraction.
-- [Hosting Remote Sessions](https://repl.yllibed.org/cookbook/hosting-remote/): Run the same command surface over WebSocket or Telnet with concurrent sessions.
+- [Hosting Remote Sessions](https://repl.yllibed.org/cookbook/hosting-remote/): Host concurrent remote interactive REPL sessions from your app over connections such as Telnet, WebSocket, or custom stream integrations.
 - [Testing](https://repl.yllibed.org/cookbook/testing/): Use Repl.Testing to run full multi-step interaction sequences in memory with typed assertions.
 - [Spectre.Console](https://repl.yllibed.org/cookbook/spectre/): Upgrade all output and prompts to Spectre.Console richness with zero handler changes.
 - [MCP Server](https://repl.yllibed.org/cookbook/mcp-server/): Full MCP server setup with tools, resources, prompts, and MCP Apps UI surfaces.
@@ -36,7 +36,7 @@
 
 ## Reference
 
-- [Agent-Native Development](https://repl.yllibed.org/reference/agent-native/): How Repl enables autonomous AI agents to build full-stack applications without screenshots — self-documenting via --help --json, token-efficient JSON output, tight development loop with Repl.Testing.
+- [Agent-Native Development](https://repl.yllibed.org/reference/agent-native/): How Repl gives AI agents a discoverable action-to-text loop through --help, machine-friendly output including JSON, and a tight development loop with Repl.Testing.
 - [For Coding Agents](https://repl.yllibed.org/getting-started/for-coding-agents/): Use this when deciding whether to add Repl Toolkit to a .NET project or generating implementation instructions for an agent.
 - [Packaging & Distribution](https://repl.yllibed.org/reference/packaging/): Publish as a .NET global tool (PackAsTool), MCP server registry entry (PackageType=McpServer, .mcp/server.json manifest with dnx runtimeHint and packageArguments), or self-contained binary. CI/CD with GitHub Actions and Nerdbank.GitVersioning.
 - [Best Practices & FAQ](https://repl.yllibed.org/reference/best-practices/): Design patterns, common mistakes, and answers to frequent questions.
