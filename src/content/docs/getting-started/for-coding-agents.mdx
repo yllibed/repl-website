@@ -165,6 +165,9 @@ When generating Repl code:
 7. Hide interactive-only or credential-sensitive commands from automation.
 8. Add tests for important command flows with `Repl.Testing`.
 9. Document the exact command/args needed to run the app as an MCP server.
+10. Never return an `int` to set the exit code: it renders as data. Return `Results.Exit(n)`, or `Results.CompletedWithFailures(report)` for a run that finished with failures; see [Exit Codes & Signals](/reference/exit-codes/).
+11. Write progress and status through `IReplInteractionChannel`, not `Console`: with `--json` or redirected stdout, Repl sends that feedback to stderr so stdout stays parsable.
+12. Retire an old option spelling with a hidden alias instead of a second option; hidden options are not authorization.
 
 ## MCP safety annotations
 
@@ -174,7 +177,7 @@ When generating Repl code:
 | `.Destructive()` | May delete or mutate important state; ask for confirmation. |
 | `.Idempotent()` | Safe to retry. |
 | `.OpenWorld()` | Talks to external systems; expect latency and failures. |
-| `.LongRunning()` | May take time; use call-now / poll-later patterns. |
+| `.LongRunning()` | May take time. A hint in help and docs only: MCP clients see no task support. |
 | `.AutomationHidden()` | Do not expose this command to MCP automation. |
 
 Unannotated tools force agents to guess. Annotate every command that will be visible through MCP.
@@ -197,7 +200,8 @@ Rules:
 - Add `UseMcpServer()` only when this app should expose its command graph as an MCP server.
 - Treat `Repl.Mcp` as the component for building MCP servers; do not describe Repl.Mcp itself as the server users install.
 - Annotate MCP-visible commands with `.ReadOnly()`, `.Destructive()`, `.Idempotent()`, `.OpenWorld()`, `.LongRunning()`, or `.AutomationHidden()`.
-- Add `Repl.Testing` coverage for important workflows.
+- Add `Repl.Testing` coverage for important workflows; assert `ExitCode` and `OutcomeKind`.
+- Return `Results.Exit(n)` or `Results.CompletedWithFailures(report)` to control the exit code; a returned `int` is data.
 - Do not expose destructive or credential-sensitive commands to MCP without an explicit safety policy.
 ```
 
@@ -229,7 +233,7 @@ Agents should prefer these entry points:
 - [Agent-Native Development](/reference/agent-native/) — design philosophy and workflow guidance.
 - [Customization & Output](/reference/customization/) — structured output for scripts and agents.
 - [Testing](/cookbook/testing/) — test command surfaces with `Repl.Testing`.
-- [Coming from CLI Frameworks](/getting-started/migrating/) — migration guidance from existing CLI frameworks.
+- [Migrating & Upgrading](/getting-started/migrating/) — migration guidance from existing CLI frameworks, and the breaking changes between Repl releases.
 
 External agent indexes:
 
