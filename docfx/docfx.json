@@ -38,6 +38,18 @@
         {
           "files": ["*.csproj"],
           "src": "../repl-source/src/Repl.Telnet"
+        },
+        {
+          "files": ["*.csproj"],
+          "src": "../repl-source/src/Repl.Logging"
+        },
+        {
+          "files": ["*.csproj"],
+          "src": "../repl-source/src/Repl.Remote"
+        },
+        {
+          "files": ["*.csproj"],
+          "src": "../repl-source/src/Repl.Remote.Defaults"
         }
       ],
       "dest": "api",
