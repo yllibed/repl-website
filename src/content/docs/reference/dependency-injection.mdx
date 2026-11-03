@@ -83,10 +83,21 @@ Static lambdas prevent accidental closures and make handlers independently testa
 | Lifetime | Scope in Repl |
 |---|---|
 | `Singleton` | Shared across all sessions and all commands |
-| `Scoped` | One instance per session in hosted sessions; in CLI mode there is no scope boundary between invocations — `Scoped` behaves like `Transient` |
-| `Transient` | New instance per command handler invocation |
+| `Scoped` | One instance per session: one `Run*` call (a CLI invocation, an interactive run, a Telnet or WebSocket connection), or one client connection under MCP |
+| `Transient` | New instance per resolution |
 
-Use `Scoped` for per-user state in hosted sessions (shopping cart, authentication context, cursor position). Use `Singleton` for shared data stores.
+Use `Scoped` for per-user state (shopping cart, authentication context, cursor position). Use `Singleton` for shared data stores. A `Scoped` disposable is disposed when its session ends, so do not keep a reference to it beyond the session.
+
+Two traps follow from that boundary:
+
+- A `Singleton`, or a module's constructor, that injects a `Scoped` service captures the first session's instance for the life of the app. Inject the scoped service into the handler instead.
+- Under MCP, one connection can run several tool calls at once, so a `Scoped` instance can be entered concurrently. Make it thread-safe.
+
+When the caller's provider already is the session, such as a Blazor circuit or an ASP.NET Core request scope, set `ReplRunOptions.SessionScope` to <ApiRef uid="Repl.SessionScopeBehavior" label="SessionScopeBehavior.CallerOwned" /> so the run resolves from it instead of opening a second scope beside it. The repository's [best practices](https://github.com/yllibed/repl/blob/v0.12.0/docs/best-practices.md#pick-the-lifetime-that-matches-the-boundary) cover the details, including the one MCP hosting shape that has no per-connection scope.
+
+<Aside type="note">
+**Changed in 0.12.** Before 0.12, Repl opened no scope at all: one `Scoped` instance served every command and every hosted session until the process ended.
+</Aside>
 
 <Aside type="caution">
   **Singleton stores must be thread-safe.** In hosted sessions (WebSocket, MCP server), multiple sessions run concurrently and call into the same Singleton instance simultaneously. A store backed by `List<T>` or `Dictionary<K,V>` will race and corrupt. Use `ConcurrentDictionary<K,V>`, an `ImmutableList<T>` with replacement, or a `lock`-guarded wrapper. If the store is per-user, register it as `Scoped` instead.

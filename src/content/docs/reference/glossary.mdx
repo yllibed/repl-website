@@ -157,6 +157,14 @@ One projection of the command graph onto a specific transport (shell arguments, 
 
 ---
 
+### Execution outcome
+
+The single result every run ends in, such as `Success`, `UsageError`, `HandlerError` or `Interrupted`, described by <ApiRef uid="Repl.ReplExecutionOutcomeKind" />. `ReplOptions.ExitCodes` maps the outcome to the process exit code; the handler's return value never sets it directly, except through `Results.Exit(n)`.
+
+→ [Exit Codes & Signals](/reference/exit-codes/)
+
+---
+
 ### Hosted session
 
 An instance of the command graph served over a text-based transport (WebSocket, Telnet, or any custom stream pair), each with its own scope and DI lifetime. Multiple sessions can run concurrently against the same application.
@@ -170,6 +178,14 @@ An instance of the command graph served over a text-based transport (WebSocket, 
 A class that implements <ApiRef uid="Repl.IReplModule" /> and registers a group of related commands via its `Map(IReplMap map)` method. Modules are the composition unit for larger applications: register a module once and all its commands become part of the graph.
 
 → [Modules](/reference/modules/)
+
+---
+
+### Remote administration
+
+Attaching an operator console to an application that is already running, or running one command inside it, over a same-user named pipe. Provided by the opt-in `Repl.Remote` and `Repl.Remote.Defaults` packages; unlike a hosted session, it targets operators of the process rather than its users.
+
+→ [Remote Administration](/cookbook/remote-administration/)
 
 ---
 
@@ -220,3 +236,11 @@ A command marked `.AsResource()`. It is exposed under a `repl://` URI that agent
 A command exposed to an AI agent as a callable function. Repl generates the tool name, description, and input schema from the route and its annotations. The agent calls the tool with typed arguments; Repl routes the call through the normal handler pipeline.
 
 → [MCP In Depth](/reference/mcp-concepts/)
+
+---
+
+### Operator event
+
+A log entry, written under the `Repl.Mcp` category with an event id from 2001 to 2009, that records a failure the MCP client is deliberately not told about, such as an exception message that could leak a path or a connection string.
+
+→ [MCP — Advanced](/reference/mcp-advanced/#operator-diagnostics)

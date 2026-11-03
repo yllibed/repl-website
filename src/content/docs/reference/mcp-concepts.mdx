@@ -89,7 +89,7 @@ app.Map("contacts delete {id:int}", (int id, IContactStore store) =>
 | `.Destructive()` | Side effects — warn user, don't parallelize |
 | `.Idempotent()` | Safe to retry on transient failure |
 | `.OpenWorld()` | Reaches external systems (email, HTTP, etc.) |
-| `.LongRunning()` | Enable call-now/poll-later pattern |
+| `.LongRunning()` | Slow-operation hint in help and docs; not advertised to MCP clients as task support |
 | `.AutomationHidden()` | Exclude from MCP; visible in interactive REPL only |
 
 ---
@@ -303,6 +303,10 @@ app.MapModule(
 
 To scope visibility to workspace roots (native MCP roots or soft-root fallbacks), see [Client roots and soft roots](/reference/mcp-advanced/#client-roots-and-soft-roots).
 
+A single option can be hidden too. A [hidden option](/reference/routes-and-parameters/#hidden-options) is left out of the tool schema, and a call that supplies it is rejected. `.WithOption(name, o => o.AutomationHidden())` hides an option from agents only.
+
+On protocol revision `2026-07-28`, every client must see the same tool set, so a presence predicate that depends on the client's capabilities is evaluated against fixed answers. See [Protocol revisions](/reference/mcp-advanced/#protocol-revisions).
+
 ---
 
 ## Full configuration reference
@@ -340,4 +344,4 @@ app.UseMcpServer(o =>
 
 ## Going further
 
-For advanced topics — programmatic sampling and elicitation from handler code, client roots and soft roots, custom transports, and HTTP hosting — see [MCP — Advanced](/reference/mcp-advanced/).
+For advanced topics — programmatic sampling and elicitation from handler code, client roots and soft roots, custom transports, stateless HTTP hosting, protocol revisions and operator diagnostics — see [MCP — Advanced](/reference/mcp-advanced/).

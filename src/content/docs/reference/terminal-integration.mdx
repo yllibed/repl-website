@@ -167,7 +167,7 @@ Each interactive prompt cycle is delimited with the FinalTerm semantic sequence 
 | Right before command execution | `C` (output start) |
 | After the command completes | `D;<exit code>` (command end) |
 
-Exit codes follow shell conventions: `0` for success, `1` for errors (failed results, unknown commands, validation failures), and `130` (128+SIGINT) when a command is cancelled with Ctrl+C. An abandoned cycle — Escape at the prompt, an empty line, or end of input — reports `D` without an exit code, the FinalTerm "command aborted" form.
+Exit codes follow the same [`ReplOptions.ExitCodes` policy](/reference/exit-codes/) as a one-shot run, and a command cancelled with Ctrl+C reports `130` (128+SIGINT). A resolver sees these mark codes with `Scope` set to `ReplExitCodeScope.ShellIntegrationMark`. An abandoned cycle — Escape at the prompt, an empty line, or end of input — reports `D` without an exit code, the FinalTerm "command aborted" form.
 
 ### Modes
 

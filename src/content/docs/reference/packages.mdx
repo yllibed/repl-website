@@ -54,14 +54,15 @@ dotnet add package Repl.Protocol
 
 ## `Repl.Mcp`
 
-Expose your entire command graph as an MCP server:
+Expose your entire command graph as an MCP server. Requires the `ModelContextProtocol` SDK 2.x:
 
 - `app.UseMcpServer()` — one line to activate
 - Tools, resources, prompts
 - MCP Apps UI resources
 - Behavioral annotations (`.Destructive()`, `.ReadOnly()`, `.Idempotent()`, `.OpenWorld()`, `.LongRunning()`)
 - Client roots support
-- Transport factory
+- Serves MCP revisions `2025-11-25` and `2026-07-28`
+- Transport factory, and stateless HTTP hosting through `ConfigureMcpServerOptions`
 
 ```bash
 dotnet add package Repl.Mcp
@@ -84,7 +85,8 @@ dotnet add package Repl.Spectre
 
 WebSocket transport for hosted sessions — serves REPL sessions over WebSocket connections from an ASP.NET Core app:
 
-- `app.MapReplWebSocket("/repl")` — registers the WebSocket endpoint
+- `ReplWebSocketSession.RunAsync(app, socket, ct)` — runs one session over an accepted WebSocket
+- 64 KiB limit per incoming message; normal close handshake when the session ends
 - Per-session scope, shared singletons, terminal metadata, session registry
 - Network-transport layer only; combine with `Repl.Telnet` to add session-protocol framing
 
@@ -94,14 +96,34 @@ dotnet add package Repl.WebSocket
 
 ## `Repl.Telnet`
 
-Telnet session protocol layered over a WebSocket transport — adds Telnet framing and terminal negotiation for clients that speak Telnet:
+Telnet session protocol — adds Telnet framing and terminal negotiation for clients that speak Telnet, over a WebSocket, a `Stream` or an `IDuplexPipe`:
 
-- `app.MapReplTelnet("/telnet")`
+- `ReplTelnetSession.RunAsync(app, socket, options, ct)` — also over a `Stream` or an `IDuplexPipe`
 - NAWS (RFC 1073) window-size negotiation and TERMINAL-TYPE (RFC 1091) detection
-- WebSocket is the network transport; Telnet is the session protocol above it
 
 ```bash
 dotnet add package Repl.Telnet
+```
+
+## `Repl.Remote`
+
+Remote administration of a running process: wire contracts, a stream server and client, a same-user named-pipe listener, and a native console client.
+
+- <ApiRef uid="Repl.Remote.NamedPipeReplServer" /> — listens on a pipe only the same OS account can open
+- <ApiRef uid="Repl.Remote.RemoteConsole" /> — attaches a terminal; Ctrl+C interrupts, Ctrl+D detaches
+- One-shot execution that returns the outcome, the exit code, the JSON result, stdout and stderr
+- Nothing listens until the application starts an endpoint
+
+```bash
+dotnet add package Repl.Remote
+```
+
+## `Repl.Remote.Defaults`
+
+Connects `Repl.Remote` to a <ApiRef uid="Repl.ReplApp" /> through <ApiRef uid="Repl.Remote.ReplAppRemoteBackend" />, with a DI scope per invocation and interactive terminals hosted by `StreamedReplHost`. Brings in `Repl.Remote`. See [Remote Administration](/cookbook/remote-administration/).
+
+```bash
+dotnet add package Repl.Remote.Defaults
 ```
 
 ## `Repl.Logging`
@@ -126,6 +148,7 @@ In-memory multi-session test harness:
 - Typed result assertions
 - Interaction timeline (prompts, answers, output events)
 - Multi-session shared-state tests
+- <ApiRef uid="Repl.Testing.ReplProcessSignalHarness" /> and <ApiRef uid="Repl.Testing.ReplProcessProbe" /> — process-signal tests, in memory or against the real executable
 
 ```bash
 dotnet add package Repl.Testing

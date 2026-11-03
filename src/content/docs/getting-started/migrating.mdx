@@ -1,6 +1,6 @@
 ---
-title: Coming from CLI Frameworks
-description: Migrating from System.CommandLine or Spectre.Console.Cli — you're already most of the way there.
+title: Migrating & Upgrading
+description: Migrating from System.CommandLine or Spectre.Console.Cli, and upgrading between Repl releases.
 ---
 
 import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
@@ -9,6 +9,8 @@ import ApiRef from '../../../components/ApiRef.astro';
 If you've been using `System.CommandLine` or `Spectre.Console.Cli`, you already think in the right terms — commands, arguments, options, handlers. Repl is built on the same mental model and extends it to surfaces your current tool can't reach: an interactive REPL, MCP tools for AI agents, hosted sessions over WebSocket or Telnet, and an in-process test harness.
 
 The migration is mostly a find-and-replace of wiring code. Your handler logic moves over untouched.
+
+Already on Repl? [Upgrading from 0.11 to 0.12](#upgrading-from-011-to-012) lists the breaking changes of the latest release.
 
 ---
 
@@ -68,6 +70,7 @@ return app.Run(args);
    Flat commands become `Map("name route", handler)`. Nested subcommands become `Context("noun", sub => { sub.Map(...) })`.
 3. **Drop `Argument<T>` and `Option<T>` declarations.** Route segments (`{name:type}`) replace positional arguments. Named options are plain parameters on the handler (`string? filter = null`) or grouped into a <ApiRef uid="Repl.Parameters.ReplOptionsGroupAttribute" label="[ReplOptionsGroup]" /> class.
 4. **Add `.UseDefaultInteractive()`** to get the REPL mode for free when `args` is empty.
+   If scripts depend on a syntax that routes cannot express, keep it with an [argument preprocessor](/reference/advanced-input-startup/#translate-an-existing-command-line).
 5. **Add `.UseMcpServer()`** when you're ready to expose commands to AI agents.
 
 ---
@@ -164,7 +167,7 @@ public sealed class ListOptions
 
 1. **Extract the body of `Execute(...)` into a plain method.** The handler no longer needs to be a class — it's a method or lambda that receives injected services and options.
 2. **Convert `CommandSettings` to <ApiRef uid="Repl.Parameters.ReplOptionsGroupAttribute" label="[ReplOptionsGroup]" />.** Swap `[CommandOption]` for <ApiRef uid="Repl.Parameters.ReplOptionAttribute" label="[ReplOption]" /> and `[CommandArgument]` for route segments.
-3. **Wire with `app.Map(...)`.** Replace `config.AddCommand<TCmd>("name")` with `app.Map("name route", handler)`.
+3. **Wire with `app.Map(...)`.** Replace `config.AddCommand<TCmd>("name")` with `app.Map("name route", handler)`. A legacy syntax that routes cannot express can be kept with an [argument preprocessor](/reference/advanced-input-startup/#translate-an-existing-command-line).
 4. **Keep your Spectre renderables.** If your existing commands already use `IAnsiConsole`, add `Repl.Spectre` and call `app.UseSpectreConsole()`. Your widgets work unchanged — `IAnsiConsole` is injected and routes to the right client across concurrent sessions.
 
 <Aside type="tip">
@@ -182,6 +185,52 @@ Once your commands are wired into Repl, you get the following without extra code
 - **Hosted sessions** — add `Repl.WebSocket` or `Repl.Telnet` to serve the same command surface over the network to multiple concurrent clients.
 - **In-process test harness** — `Repl.Testing` runs your full command graph in-memory: real routing, real binding, real output — no subprocess, no mocking.
 - **Structured logging per session** — every log statement emitted from a handler automatically carries session metadata (`ReplSessionId`, `ReplTransport`, etc.) with no configuration.
+
+---
+
+## Upgrading from 0.11 to 0.12
+
+Repl 0.12 changes observable behaviour in the places below. Each item links to the page that explains it; the [release notes](https://github.com/yllibed/repl/releases/tag/v0.12.0) list everything else.
+
+**Exit codes and signals**
+
+- **Usage and binding refusals exit `2`**, not `1`. See [Exit Codes & Signals](/reference/exit-codes/#outcomes-and-default-codes).
+- **A handler's own `OperationCanceledException` is a failure** (`HandlerException`), unless the caller asked for cancellation. See [Exit Codes & Signals](/reference/exit-codes/).
+- **The CLI and interactive profiles own Ctrl+C and SIGTERM.** An interrupted run exits `130` or `143`, and a one-shot handler's token is disposed when the run ends. See [process signals](/reference/exit-codes/#process-signals).
+
+**Output streams**
+
+- **Feedback moves to stderr for machine output.** With `--json`, `--xml`, `--yaml` or a redirected stdout, progress, status and prompt labels go to stderr. See [feedback stays out of machine output](/reference/customization/#feedback-stays-out-of-machine-output).
+- **Framework diagnostics go to stderr**: hosted-lifecycle failures and a refused `--output` format. See [restoring the pre-policy codes](https://github.com/yllibed/repl/blob/v0.12.0/docs/configuration-reference.md#restoring-the-pre-policy-codes).
+- **A protocol-passthrough command's feedback leaves the protocol stream.** Write to `IReplIoContext.Output` to put text on it. See [which stream receives progress](https://github.com/yllibed/repl/blob/v0.12.0/docs/progress.md#which-stream-receives-progress).
+
+**Dependency injection**
+
+- **`Scoped` services are per session**: one scope per `Run*` call and per MCP connection. A singleton that injects a scoped service captures the first session's instance. See [service lifetimes](/reference/dependency-injection/#service-lifetimes-in-repl).
+
+**Routing and parameters**
+
+- **Refusals name the best-matching route.** An invalid argument is reported against the route that matched the most words; when no route or context wins, the input is an unknown command (`unknown_command` under `--json`). See [exit codes declared by a module](https://github.com/yllibed/repl/blob/v0.12.0/docs/execution-pipeline.md#exit-codes-declared-by-a-module).
+- **Parameters that Repl supplies cannot carry option metadata.** `Map` refuses `[ReplOption]` on them, a `.WithOption(...)` that names one, and a route segment named like one. See [parameter binding](/reference/routes-and-parameters/#binding-mode-per-parameter).
+- **A required arity with a default value is refused** by `Map`. See [parameter binding](/reference/routes-and-parameters/#binding-mode-per-parameter).
+
+**Prompts and hosted sessions**
+
+- **Esc in a timed secret prompt, and a hosted disconnect during any prompt, throw `OperationCanceledException`.** See [cancellation](/reference/interactivity/#cancellation).
+- **Cancelling a hosted session's token ends it as a cancellation**, instead of exit `0`. See [how a session ends](/cookbook/hosting-remote/#how-a-session-ends).
+- **WebSocket messages are limited to 64 KiB**, and Telnet sessions end when the peer closes its input. See [how a session ends](/cookbook/hosting-remote/#how-a-session-ends).
+
+**MCP**
+
+- **`Repl.Mcp` requires the MCP SDK 2.x**, and `IMcpFeedback.SendMessageAsync` takes `McpMessageLevel`. See [protocol revisions](/reference/mcp-advanced/#protocol-revisions).
+- **An uncaught exception reaches the client as `Command failed with exit code N.`**; the detail goes to the operator log. See [operator diagnostics](/reference/mcp-advanced/#operator-diagnostics).
+- **`.LongRunning()` no longer advertises task support.** See [upgrading from the 1.x SDK](https://github.com/yllibed/repl/blob/v0.12.0/docs/mcp-reference.md#upgrading-from-the-1x-sdk).
+- **Unknown resources and prompts answer `-32002` or `-32602`**, not `-32603`. See [protocol revisions](/reference/mcp-advanced/#protocol-revisions).
+- **A required hidden option breaks MCP discovery** with one sanitized error, logged as event `2008`. See [hidden options](/reference/routes-and-parameters/#hidden-options).
+
+**Testing**
+
+- **`TryGetResult<T>()` reads through `Results.Exit(code, payload)`** to the payload. See [Testing](/cookbook/testing/#single-command-execution).
 
 ---
 

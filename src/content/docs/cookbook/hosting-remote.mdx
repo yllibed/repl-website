@@ -10,70 +10,95 @@ Repl can host multiple concurrent sessions over any transport that delivers a st
 
 The built-in packages cover the most common cases:
 
-- **`Repl.WebSocket`** — WebSocket transport, served from ASP.NET Core. Good for browser clients, reverse-proxy friendly.
-- **`Repl.Telnet`** — Telnet *session protocol* (framing + NAWS terminal-size negotiation) layered on top of a WebSocket transport. For terminal emulators and Telnet clients.
+- **`Repl.WebSocket`** — raw WebSocket sessions, served from ASP.NET Core. Good for browser clients, reverse-proxy friendly.
+- **`Repl.Telnet`** — the Telnet *session protocol* (framing, NAWS window size, terminal type) over a WebSocket, a `Stream` or an `IDuplexPipe`. For terminal emulators and Telnet clients.
 
-Any other transport — SSH, named pipes, TCP sockets, gRPC streams — works by instantiating <ApiRef uid="Repl.StreamedReplHost" /> with a `TextWriter`, pushing received text via `EnqueueInput`, and calling `RunSessionAsync`.
+Any other transport — SSH, TCP sockets, gRPC streams — works by instantiating <ApiRef uid="Repl.StreamedReplHost" /> with a `TextWriter`, pushing received text via `EnqueueInput`, and calling `RunSessionAsync`. For an operator console on the same machine, use [Remote Administration](/cookbook/remote-administration/), which ships a named-pipe endpoint.
 
 <Aside type="tip">
-  Full runnable code: [`samples/05-hosting-remote`](https://github.com/yllibed/repl/tree/main/samples/05-hosting-remote)
+  Full runnable code: [`samples/05-hosting-remote`](https://github.com/yllibed/repl/tree/v0.12.0/samples/05-hosting-remote)
 </Aside>
 
 ## WebSocket transport (`Repl.WebSocket`)
 
-Add `Repl.WebSocket` and wire it into ASP.NET Core:
+Add `Repl.WebSocket`, accept the socket in an ASP.NET Core endpoint, and hand it to <ApiRef uid="Repl.WebSocket.ReplWebSocketSession" />. `RunWithServicesAsync` runs the session against the request's services, so handlers resolve what the host registered:
 
 ```csharp
+using Repl;
 using Repl.WebSocket;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.Services.AddReplWebSocket();
 
-// register shared services — must be thread-safe (see caution below)
+// shared services — must be thread-safe (see caution below)
 builder.Services.AddSingleton<IContactStore, ContactStore>();
+
+// define the command graph once, for every session
+builder.Services.AddRepl((_, repl) =>
+{
+    repl.UseEmbeddedConsoleProfile();
+    repl.Context("client", client =>
+    {
+        client.Map("list", (IContactStore store) => store.All());
+        // ...
+    });
+});
 
 var app = builder.Build();
 app.UseWebSockets();
-app.MapReplWebSocket("/repl");  // WebSocket endpoint
 
-// define command graph
-var repl = app.Services.GetRequiredService<IReplApp>();
-repl.Context("client", client =>
+app.Map("/ws/repl", async (HttpContext context, ReplApp repl, IHostApplicationLifetime lifetime) =>
 {
-    client.Map("list", (IContactStore store) => store.All());
-    // ...
+    if (!context.WebSockets.IsWebSocketRequest)
+    {
+        context.Response.StatusCode = StatusCodes.Status400BadRequest;
+        return;
+    }
+
+    using var socket = await context.WebSockets.AcceptWebSocketAsync();
+    using var session = CancellationTokenSource.CreateLinkedTokenSource(
+        context.RequestAborted, lifetime.ApplicationStopping);
+    try
+    {
+        await ReplWebSocketSession.RunWithServicesAsync(repl, socket, context.RequestServices,
+            new ReplRunOptions { SessionScope = SessionScopeBehavior.CallerOwned },
+            cancellationToken: session.Token);
+    }
+    catch (OperationCanceledException) when (session.IsCancellationRequested)
+    {
+        // the client went away, or the host is stopping
+    }
 });
 
 app.Run();
 ```
 
-Connect with any WebSocket client (browser, `wscat`, terminal emulator).
+`SessionScopeBehavior.CallerOwned` makes the request scope the session scope: a service registered with `AddScoped` in the host resolves once per WebSocket connection. Linking `ApplicationStopping` ends open sessions when the host stops; otherwise a long-lived WebSocket request may only be aborted when the server's shutdown timeout runs out.
+
+`ReplWebSocketSession.RunAsync(repl, socket, ct)` also exists, but it runs on the Repl application's own container, which does not see the host's registrations.
 
 <Aside type="caution">
   **Singleton stores must be thread-safe.** Multiple sessions run concurrently and share every Singleton instance. A store backed by `List<T>` or bare `Dictionary<K,V>` will race. Use `ConcurrentDictionary<K,V>`, an immutable+swap pattern, or a `lock`-guarded wrapper. For per-user state, register as `AddScoped<T>` instead.
 </Aside>
 
 <Aside type="caution">
-`MapReplWebSocket` exposes your entire command graph to any connecting client with no authentication by default. Place the endpoint behind ASP.NET Core authentication middleware (`app.UseAuthentication()` / `app.UseAuthorization()`) and apply `[Authorize]` policies, or add an auth guard as Repl middleware, before using in production.
+The endpoint exposes your entire command graph to any connecting client, with no authentication of its own. Place it behind ASP.NET Core authentication and authorization (`RequireAuthorization()` on the endpoint, or `[Authorize]` policies), or add an auth guard as Repl middleware, before using it in production.
 </Aside>
 
 ## Telnet session protocol (`Repl.Telnet`)
 
-`Repl.Telnet` layers Telnet framing and NAWS window-size negotiation on top of the WebSocket transport. The network layer is still WebSocket; Telnet is the session protocol above it:
+`Repl.Telnet` adds Telnet framing and terminal negotiation on top of a transport. To serve it over WebSocket, map a second endpoint like the one above and call <ApiRef uid="Repl.Telnet.ReplTelnetSession" /> instead:
 
 ```csharp
 using Repl.Telnet;
 
-app.MapReplTelnet("/telnet");
+await ReplTelnetSession.RunAsync(repl, socket, new ReplRunOptions(), session.Token);
 ```
 
-Connect with a Telnet-to-WebSocket bridge or a terminal emulator that supports WebSocket:
+Other overloads accept a `Stream` or an `IDuplexPipe`, plus callbacks for window-size and terminal-type changes. Terminal size and type are negotiated automatically via NAWS (RFC 1073) and TERMINAL-TYPE (RFC 1091). Connect with a Telnet-to-WebSocket bridge, or with `wscat` pointed at that endpoint.
 
-```bash
-wscat -c ws://localhost:5000/telnet
-```
-
-Terminal size and type are negotiated automatically via NAWS (RFC 1073) and TERMINAL-TYPE (RFC 1091).
+<Aside type="note">
+`ReplTelnetSession` has no overload that takes a service provider: its sessions run on the Repl application's own container. To share host services with Telnet sessions, resolve them in the `AddRepl((sp, repl) => ...)` callback and pass them to a module's constructor, as [sample 05](https://github.com/yllibed/repl/blob/v0.12.0/samples/05-hosting-remote/Program.cs) does.
+</Aside>
 
 ## Terminal metadata
 
@@ -97,14 +122,23 @@ Handlers can adapt output to the terminal width, or degrade gracefully when ANSI
 | Registration | Scope |
 |---|---|
 | `AddSingleton<T>` | Shared across all sessions |
-| `AddScoped<T>` | One instance per session |
-| `AddTransient<T>` | New instance per command invocation |
+| `AddScoped<T>` | One instance per session (per WebSocket connection with `CallerOwned`) |
+| `AddTransient<T>` | New instance per resolution |
 
 Use `AddScoped<T>` for per-user state (shopping cart, selection, cursor position).
 
-## Graceful shutdown
+## How a session ends
 
-When the host process receives a shutdown signal, active sessions drain gracefully. `CancellationToken` is cancelled in all running handlers, giving them time to complete or clean up before the process exits.
+- **The client leaves.** A peer that closes the connection ends the session normally. Telnet ends as soon as the peer closes its input, then sends the remaining output.
+- **Ctrl+C** interrupts only the current command; the session stays open.
+- **The session's token is cancelled**, as when the sample above links host shutdown and the request abort. The running command and any waiting prompt are cancelled, and the session throws `OperationCanceledException` unless `ExitCodes.Cancelled` or a resolver maps it to a code. Catch it in the endpoint, as above.
+- **A message is too large.** Incoming WebSocket messages are limited to 64 KiB across all fragments; a larger one closes the session with `MessageTooBig` (1009).
+
+A WebSocket session closes the socket with a normal close handshake, waiting up to a second for the peer. When building on the Telnet blocks directly, dispose `TelnetFraming` before completing its pipe.
+
+<Aside type="note">
+**Changed in 0.12.** Cancelling a session's token while the editor waited for input used to end the session with exit code `0`, and a waiting prompt took its default. It now ends as a cancellation. The repository's [execution pipeline](https://github.com/yllibed/repl/blob/v0.12.0/docs/execution-pipeline.md#12-exit-code) lists the other Telnet and WebSocket changes.
+</Aside>
 
 ---
 
@@ -113,3 +147,4 @@ When the host process receives a shutdown signal, active sessions drain graceful
 - [Dependency Injection](/reference/dependency-injection/) — service lifetimes and how `AddScoped` maps to per-session state in hosted sessions.
 - [Terminal Integration](/reference/terminal-integration/) — terminal capability detection, ANSI support, and window-size negotiation.
 - [Pipelining & Lifecycle](/reference/pipelining/) — hosted service integration and <ApiRef uid="Repl.ReplRunOptions" />.
+- [Remote Administration](/cookbook/remote-administration/) — attach an operator console to the running process over a named pipe.

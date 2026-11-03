@@ -36,6 +36,27 @@ app.Options(o =>
 });
 ```
 
+### Feedback stays out of machine output
+
+When the output is meant for a program, standard output carries the payload alone. Progress, status lines, notices and prompt labels go to standard error when either of these holds:
+
+- the command renders a machine-readable format: `--json`, `--xml`, `--yaml`, or a custom transformer whose `IsMachineReadable` is `true`;
+- or standard output is redirected, as in `myapp sync > report.txt` or `myapp sync | jq`.
+
+Otherwise feedback stays on standard output, beside the result. Framework diagnostics, such as a refused `--output` format, always go to standard error.
+
+```bash
+myapp sync --json > result.json   # result.json holds the JSON; progress shows in the terminal
+```
+
+<Aside type="note">
+**Changed in 0.12.** Feedback used to stay on standard output in every case. To restore that, set `o.Output.FeedbackStream = ReplFeedbackStream.Output`; `ReplFeedbackStream.Error` forces standard error instead. See [which stream receives progress](https://github.com/yllibed/repl/blob/v0.12.0/docs/progress.md#which-stream-receives-progress).
+</Aside>
+
+### JSON values render as data
+
+A handler can return a `JsonNode` or a `JsonElement`. With `--json` it is written as is; in `human` and `spectre` output, an object renders as key/value lines and an array of objects as a table, like any other result.
+
 ---
 
 ## Paged result rendering

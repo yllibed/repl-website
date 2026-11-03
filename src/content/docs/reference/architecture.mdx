@@ -52,7 +52,7 @@ import ApiRef from '../../../components/ApiRef.astro';
 
 A *channel* is the transport through which a session runs. The same command graph is executed on all channels. Each channel implementation adapts input/output to its transport protocol.
 
-Custom transports implement <ApiRef uid="Repl.StreamedReplHost" />, which accepts any `(TextReader, TextWriter)` pair. The built-in `Repl.WebSocket` and `Repl.Telnet` packages are examples — SSH, named pipes, TCP sockets, or gRPC streams fit the same model.
+Custom transports use <ApiRef uid="Repl.StreamedReplHost" />: it writes to a `TextWriter`, receives text through `EnqueueInput`, and runs a session with `RunSessionAsync`. The built-in `Repl.WebSocket` and `Repl.Telnet` packages are examples — SSH, named pipes, TCP sockets, or gRPC streams fit the same model.
 
 ## Key abstractions
 
@@ -73,4 +73,4 @@ First-class paging contracts (<ApiRef uid="Repl.IReplPageSource`1" label="IReplP
 
 ## Source
 
-Full architecture documentation (with diagrams): [`docs/architecture.md`](https://github.com/yllibed/repl/blob/main/docs/architecture.md) in the source repository.
+Full architecture documentation (with diagrams): [`docs/architecture.md`](https://github.com/yllibed/repl/blob/v0.12.0/docs/architecture.md) in the source repository.

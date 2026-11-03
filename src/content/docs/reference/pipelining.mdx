@@ -22,12 +22,14 @@ Every command invocation goes through a 12-stage pipeline. Understanding it lets
  9. Middleware & Handler        — your Use() chain + handler invocation
 10. Result Processing           — unwrap IExitResult, EnterInteractiveResult; page sources materialized here (see [Result-Flow Paging](/reference/result-flow-paging/))
 11. Output Transformation       — format selection and rendering
-12. Exit Code                   — 0 success, 1 all other results, n via Results.Exit(n)
+12. Exit Code                   — outcome kind mapped by ReplOptions.ExitCodes, n via Results.Exit(n)
 ```
 
 ---
 
 ## Middleware
+
+Middleware wraps resolved commands. To adapt raw arguments, intercept a parsed invocation, or validate input before routing completes, see [Advanced Input & Startup](/reference/advanced-input-startup/).
 
 Register middleware with `app.Use(...)`. The delegate receives a <ApiRef uid="Repl.ReplExecutionContext" /> (with `Services`, `Items`, and `CancellationToken`) and a <ApiRef uid="Repl.ReplNext" /> delegate to invoke the next stage:
 
@@ -145,25 +147,34 @@ myapp contacts add --help --json | jq '.parameters'
 
 ## Integrating with ASP.NET Core
 
-Repl integrates natively with `WebApplicationBuilder`. The command graph and HTTP endpoints share the same DI container:
+Repl integrates natively with `WebApplicationBuilder`. Register the command graph with `AddRepl`, and run sessions against the request's services so commands and HTTP endpoints resolve the same registrations:
 
 ```csharp
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddSingleton<IContactStore, ContactStore>();
 
+// Repl command graph — same services as the web endpoints
+builder.Services.AddRepl((_, repl) =>
+{
+    repl.UseEmbeddedConsoleProfile();
+    repl.Map("contacts list", static (IContactStore store) => store.All());
+});
+
 var webApp = builder.Build();
 webApp.UseWebSockets();
-webApp.MapReplWebSocket("/repl");   // REPL sessions
 webApp.MapGet("/api/contacts", (IContactStore store) => store.All());  // REST API
-
-// Repl command graph — same services; register all routes before RunAsync
-var repl = webApp.Services.GetRequiredService<IReplApp>();
-repl.Map("contacts list", static (IContactStore store) => store.All());
+webApp.Map("/ws/repl", async (HttpContext context, ReplApp repl) =>     // REPL sessions
+{
+    using var socket = await context.WebSockets.AcceptWebSocketAsync();
+    await ReplWebSocketSession.RunWithServicesAsync(repl, socket, context.RequestServices,
+        new ReplRunOptions { SessionScope = SessionScopeBehavior.CallerOwned },
+        cancellationToken: context.RequestAborted);
+});
 
 await webApp.RunAsync();
 ```
 
-The REPL command `contacts list` and the REST endpoint `/api/contacts` share the same `IContactStore` instance.
+The REPL command `contacts list` and the REST endpoint `/api/contacts` share the same `IContactStore` instance. [Hosting Remote Sessions](/cookbook/hosting-remote/) shows the complete endpoint, with request validation and shutdown handling.
 
 ---
 
@@ -209,7 +220,7 @@ public class SessionCleanupService(IContactStore store) : BackgroundService
 
 ## Signal handling and graceful shutdown
 
-Repl handles `SIGINT` (`Ctrl+C`) and propagates a `CancellationToken` to all handlers. Long-running commands should honor it:
+With `UseCliProfile()` or `UseDefaultInteractive()`, Ctrl+C or `SIGTERM` cancels the `CancellationToken` passed to a one-shot handler. Long-running commands should honor it:
 
 ```csharp
 app.Map("process {file}", async (string file, CancellationToken ct) =>
@@ -223,7 +234,7 @@ app.Map("process {file}", async (string file, CancellationToken ct) =>
 });
 ```
 
-In hosted sessions, graceful shutdown sends a disconnect signal to all active sessions before the server exits.
+[Exit Codes & Signals](/reference/exit-codes/#process-signals) covers the exit codes, the token's lifetime, and how to opt in or out per run. Hosted sessions end when their own token is cancelled; [Hosting Remote Sessions](/cookbook/hosting-remote/#how-a-session-ends) shows how to tie it to host shutdown.
 
 ---
 
@@ -245,14 +256,18 @@ app.Map("pay {amount:double}", async (double amount, IPaymentService payments) =
 });
 ```
 
-Unhandled exceptions are caught at stage 9, rendered to stderr with a stack trace in debug mode, and produce exit code `5`.
+Unhandled exceptions are caught at stage 9 and reported as an error result in the requested format. The run ends as a `HandlerException` outcome.
 
-### Custom exit codes
+### Exit codes
+
+Every run ends in exactly one <ApiRef uid="Repl.ReplExecutionOutcomeKind" />. The process exit code is read from `ReplOptions.ExitCodes`, not from the handler's return value. A handler that must pick its own code returns `Results.Exit(n)`, which bypasses the table:
 
 ```csharp
 return Results.Exit(42);   // explicit exit code
 ```
 
 <Aside type="tip">
-Use `Results.Cancelled(...)` for user-initiated cancellations and `Results.Validation(message)` for bad input — they render with distinct messages and are semantically separate from `Results.Error(code, message)`. All three return exit code 1. Use `Results.Exit(n)` for an explicit non-zero code.
+Use `Results.Cancelled(...)` for user-initiated cancellations and `Results.Validation(message)` for bad input — they render with distinct messages and are semantically separate from `Results.Error(code, message)`. All three are handler failures. A command that ran to completion but found failures, such as a test run, returns `Results.CompletedWithFailures(report)` instead.
 </Aside>
+
+[Exit Codes & Signals](/reference/exit-codes/) covers the full table, the resolver hook, codes declared by a module, and process signals.

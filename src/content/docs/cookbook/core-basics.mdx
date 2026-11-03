@@ -9,7 +9,7 @@ import ApiRef from '../../../components/ApiRef.astro';
 This recipe covers the fundamentals using **`Repl.Core` only** — no DI, no hosting extras. It's the minimal building block everything else is composed from.
 
 <Aside type="tip">
-  Full runnable code: [`samples/01-core-basics`](https://github.com/yllibed/repl/tree/main/samples/01-core-basics)
+  Full runnable code: [`samples/01-core-basics`](https://github.com/yllibed/repl/tree/v0.12.0/samples/01-core-basics)
 </Aside>
 
 ## The command graph
@@ -83,7 +83,7 @@ app.Map("debug reset", commands.Reset);
 public void Reset() { /* ... */ }
 ```
 
-`[Browsable(false)]` hides the command from `--help` and discovery, but it still runs if invoked directly.
+`[Browsable(false)]` hides the command from `--help` and discovery, but it still runs if invoked directly. To hide a single option instead, see [hidden options](/reference/routes-and-parameters/#hidden-options).
 
 ## Return value rendering
 
@@ -95,7 +95,10 @@ public void Reset() { /* ... */ }
 | Any + `--json` | JSON |
 | `Results.Error(...)` | Error message, exit code 1 |
 | `Results.Cancelled(...)` | Message, exit code 1 |
-| `Results.Exit(n)` | (none) — explicit exit code `n` |
+| `Results.CompletedWithFailures(report)` | The report, without an error prefix, exit code 1 |
+| `Results.Exit(n)` | Optional payload, explicit exit code `n` |
+
+An `int` returned by a handler is data, rendered like any other value; it never becomes the exit code. See [Exit Codes & Signals](/reference/exit-codes/).
 
 ## Reusable options groups
 

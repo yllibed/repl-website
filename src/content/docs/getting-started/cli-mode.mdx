@@ -160,11 +160,14 @@ $ myapp client --help --json
 
 | Condition | Exit code |
 |-----------|-----------|
-| Success | `0` |
-| All named errors — command not found, validation failure, cancellation, unhandled exception | `1` |
-| Custom (explicit) | any `N` — use `Results.Exit(N)` in a handler to return an arbitrary code |
+| Success, `--help` | `0` |
+| Refusal before the handler runs — unknown command, invalid option, an argument that cannot be bound | `2` |
+| Handler failure — `Results.Error`, `Results.Validation`, `Results.NotFound`, `Results.Cancelled`, an unhandled exception | `1` |
+| Ran to completion with failures — `Results.CompletedWithFailures(report)` | `1` |
+| Interrupted by Ctrl+C or SIGTERM, under `UseCliProfile()` or `UseDefaultInteractive()` | `130` or `143` |
+| Custom (explicit) | any `N` — return `Results.Exit(N)` from a handler |
 
-All error conditions produce exit code `1` by default. To signal a specific failure mode to callers or scripts, return `Results.Exit(N)` from your handler with the code that makes sense for your application.
+Every code except `Results.Exit(N)` comes from one table, `ReplOptions.ExitCodes`, so an application can change any of them in one place. See [Exit Codes & Signals](/reference/exit-codes/) for the full outcome model.
 
 ## Next step
 
