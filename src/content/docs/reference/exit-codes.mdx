@@ -1,0 +1,139 @@
+---
+title: Exit Codes & Signals
+description: How a run becomes a process exit code, how to change the mapping, and how Ctrl+C and SIGTERM end a run.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import ApiRef from '../../../components/ApiRef.astro';
+
+Scripts, CI steps and container supervisors read your app through one number. Every run ends in exactly one <ApiRef uid="Repl.ReplExecutionOutcomeKind" />, and a single table maps that outcome to the exit code.
+
+## Outcomes and default codes
+
+| Outcome | Produced by | Default |
+|---|---|---|
+| `Success` | A success-like result, plain data, `void`, a clean interactive exit | `0` |
+| `Help` | `--help`, a bare invocation that prints help | `0` |
+| `UsageError` | Unknown command, ambiguous prefix, invalid option, unknown `--output` format | `2` |
+| `BindingError` | An argument that cannot be converted, or a service the binder cannot resolve | `2` |
+| `HandlerError` | `Results.Error`, `Validation`, `NotFound`, `Cancelled` | `1` |
+| `HandlerException` | The handler or a middleware threw | `1` |
+| `CompletedWithFailures` | `Results.CompletedWithFailures(report)` | `1` |
+| `FrameworkError` | A hosted service failed to start or stop, an unsupported hosting capability | `1` |
+| `Interrupted` | Ctrl+C, Ctrl+Break or SIGTERM claimed by Repl (see [Process signals](#process-signals)) | `130` / `143` |
+| `Cancelled` | The caller's own `CancellationToken` stopped the run | not mapped: the exception propagates, unless `ExitCodes.Cancelled` or a `Resolver` is set (a resolver receives `130`) |
+| `HandlerExitCode` | `Results.Exit(n)` | `n`, verbatim |
+
+An `int` returned by a handler is data: `int Count() => 3` prints `3` and exits `0`. `Results.Exit(n)` is the only way for a handler to choose the code itself.
+
+<Aside type="note">
+**Changed in 0.12.** Usage and binding refusals used to exit `1`, like handler failures. They now exit `2`, so a script can tell "you called me wrong" from "the command failed". A test that asserts `1` for an unknown command now needs `2`. The repository explains [how to restore the previous codes](https://github.com/yllibed/repl/blob/v0.12.0/docs/configuration-reference.md#restoring-the-pre-policy-codes).
+</Aside>
+
+## A command that completed with failures
+
+A test runner, a linter or a batch import can run to the end and still report failures. That is not a handler error: the report is the result. Return it with `Results.CompletedWithFailures`:
+
+```csharp
+app.Map("tests run", async (ITestRunner runner, CancellationToken ct) =>
+{
+    var report = await runner.RunAllAsync(ct);
+    return report.Failed == 0
+        ? Results.Success("All tests passed.", report)
+        : Results.CompletedWithFailures(report);
+});
+```
+
+The report renders as a normal result, with no error prefix, and the run exits with `ExitCodes.CompletedWithFailures` (`1` by default). Over MCP it is not a tool error: the agent reads the report.
+
+## Changing the mapping
+
+`ReplOptions.ExitCodes` is an <ApiRef uid="Repl.ExitCodeOptions" />. Set any code, and add a `Resolver` for the final say:
+
+```csharp
+app.Options(options =>
+{
+    options.ExitCodes.UsageError = 64;               // EX_USAGE, for scripts that follow sysexits
+    options.ExitCodes.CompletedWithFailures = 3;     // tell "tests failed" from "the run failed"
+    options.ExitCodes.Cancelled = 130;               // return a code instead of throwing
+    options.ExitCodes.Resolver = outcome =>
+        outcome.Kind == ReplExecutionOutcomeKind.HandlerException ? 70 : outcome.ExitCode;
+});
+```
+
+The resolver receives a <ApiRef uid="Repl.ReplExecutionOutcome" /> with the outcome `Kind`, the `ExitCode` already mapped, the `Result`, the `Exception` and the `Route` template of the command. It also runs for the codes of interactive commands that decorate [shell-integration marks](/reference/terminal-integration/); `Scope` tells the two apart. It must not throw: a failing resolver falls back to the mapped code.
+
+Keep codes within `0`–`255`. Repl does not clamp them, and POSIX shells only see the low eight bits.
+
+### Codes declared by a module
+
+A module that follows another tool's conventions can declare its own codes by implementing <ApiRef uid="Repl.IReplModuleExitCodes" />. They apply to its commands wherever the module is mounted, before the application's table:
+
+```csharp
+public sealed class TestRunnerModule : IReplModuleExitCodes
+{
+    // dotnet test conventions: 2 = tests failed, 5 = invalid command line.
+    public ReplExitCodeOverrides ExitCodes { get; } = new() { CompletedWithFailures = 2, UsageError = 5 };
+
+    public void Map(IReplMap map) => map.Map("tests run", RunTests);
+}
+```
+
+A module covers `Success`, `UsageError`, `BindingError`, `HandlerError`, `HandlerException` and `CompletedWithFailures`. Help, cancellation, interruption and framework errors describe the whole run and keep the application's codes. The [execution pipeline](https://github.com/yllibed/repl/blob/v0.12.0/docs/execution-pipeline.md#exit-codes-declared-by-a-module) explains which module owns a refused invocation.
+
+## Process signals
+
+With `UseCliProfile()` or `UseDefaultInteractive()`, a one-shot run owns process signals:
+
+| Signal | Typical source | Exit code |
+|---|---|---|
+| `SIGINT` | Ctrl+C | `130` |
+| `ControlBreak` | Ctrl+Break, Windows only | `130` |
+| `SIGTERM` | `docker stop`, a service manager, `kill` (Unix only) | `143` |
+
+On Windows, `taskkill`, closing the console window or a service stop do not raise `SIGTERM`; a Windows host translates those into the caller's cancellation token itself.
+
+The first signal cancels the handler's `CancellationToken`, so the command can clean up and return. A second signal is not intercepted: the operating system terminates the process. Repl adds no grace-period timeout of its own; a supervisor that needs one escalates itself. If a handler returns its own non-zero code after the signal, that code wins.
+
+The handler receives a token scoped to the run, which Repl disposes when the run ends. Await work with it; do not keep it for background work.
+
+An app with no profile, `UseEmbeddedConsoleProfile()`, and the `Run` overloads that receive an external `IServiceProvider`, `IHost` or `IReplHost` leave signals to the caller. Override the default for one run with <ApiRef uid="Repl.ReplRunOptions" />:
+
+```csharp
+var exitCode = await app.RunAsync(
+    args,
+    new ReplRunOptions { ProcessSignalHandling = ProcessSignalHandlingMode.None },
+    stoppingToken);
+```
+
+<Aside type="caution">
+**Changed in 0.12.** `UseCliProfile()` and `UseDefaultInteractive()` now take signal ownership by default. An interrupted run exits `130` or `143` instead of the operating system's default, and a handler that stored its token for detached work now finds it disposed. `ProcessSignalHandlingMode.None` restores the previous behaviour. See [what changes for an existing application](https://github.com/yllibed/repl/blob/v0.12.0/docs/configuration-reference.md#what-changes-for-an-existing-application).
+</Aside>
+
+Inside the interactive loop, Ctrl+C keeps its usual meaning: the first press cancels the running command and the session continues.
+
+## Testing exit codes and signals
+
+`CommandExecution.ExitCode` in `Repl.Testing` follows the configured table, and `OutcomeKind` gives the outcome itself. Signals have their own entry points:
+
+- <ApiRef uid="Repl.Testing.ReplProcessSignalHarness" /> drives the signal lifecycle in memory. It is deterministic and runs on every platform, and it can declare which platform's rules apply.
+- <ApiRef uid="Repl.Testing.ReplProcessProbe" /> starts your real executable and sends it real signals, on Unix. Use it for the few guarantees only a process can prove, such as actually exiting `143`.
+
+```csharp
+await using var harness = ReplProcessSignalHarness.Create(CreateApp);
+var run = await harness.StartRunAsync("work");
+
+harness.SendSignal(ReplProcessSignal.Interrupt);
+var result = await run.Completion;
+
+result.OutcomeKind.Should().Be(ReplExecutionOutcomeKind.Interrupted);
+result.ExitCode.Should().Be(130);
+```
+
+The [testing toolkit documentation](https://github.com/yllibed/repl/blob/v0.12.0/docs/testing-toolkit.md#process-signals) explains what each half can and cannot prove.
+
+## Further reading
+
+- [Pipelines & Integration](/reference/pipelining/) — where the exit code is decided in the execution pipeline.
+- [Configuration](/reference/configuration/) — every `ReplOptions` setting.
+- [Execution pipeline, exit code stage](https://github.com/yllibed/repl/blob/v0.12.0/docs/execution-pipeline.md#12-exit-code) — the full rules, in the repository.
