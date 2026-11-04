@@ -12,7 +12,7 @@ import ExecutionStages from '../../../components/diagrams/ExecutionStages.astro'
 | Package | Purpose |
 |---------|---------|
 | `Repl.Core` | Dependency-free authoring/runtime core: routing, parsing, binding, output pipeline, <ApiRef uid="Repl.CoreReplApp" />, <ApiRef uid="Repl.IReplMap" />, <ApiRef uid="Repl.Results" label="Results.*" /> |
-| `Repl.Defaults` | DI-enabled facade (<ApiRef uid="Repl.ReplApp" />), lifecycle orchestration, default composition profiles (`UseDefaultInteractive`, `UseCliProfile`) |
+| `Repl.Defaults` | DI-enabled facade (<ApiRef uid="Repl.ReplApp" />), lifecycle orchestration, default composition profiles (`UseDefaultInteractive`, `UseCliProfile`, `UseEmbeddedConsoleProfile`) |
 | `Repl` | Meta-package — bundles Core + Defaults + Protocol. Start here. |
 | `Repl.Protocol` | Machine-readable contracts: help schemas, error contracts, minimal MCP manifest types |
 | `Repl.WebSocket` | WebSocket transport for hosted sessions (<ApiRef uid="Repl.WebSocket.ReplWebSocketSession" /> over <ApiRef uid="Repl.StreamedReplHost" />) |

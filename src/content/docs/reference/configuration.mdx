@@ -3,6 +3,7 @@ title: Configuration Reference
 description: All configuration options for Repl Toolkit.
 ---
 
+import { Aside } from '@astrojs/starlight/components';
 import ApiRef from '../../../components/ApiRef.astro';
 
 ## App creation
@@ -36,17 +37,63 @@ var app = ReplApp.Create(services =>
 
 ## Profiles
 
-### `UseDefaultInteractive()`
+A profile is a preset: one call that applies a few options for a hosting situation. Profiles are extension methods on <ApiRef uid="Repl.ReplApp" /> from `Repl.Defaults`; `CoreReplApp` has none.
 
-Activates interactive REPL mode when no arguments are passed. This is the standard starting point for most apps.
+### What each profile changes
 
-### `UseCliProfile()`
+| | No profile | `UseDefaultInteractive()` | `UseCliProfile()` | `UseEmbeddedConsoleProfile()` |
+|---|---|---|---|---|
+| Ctrl+C or `SIGTERM` during a one-shot `Run(args)` | Left to the caller | Repl cancels the handler, exits `130` or `143` | Repl cancels the handler, exits `130` or `143` | Left to the caller |
+| The `exit` command | Available | Available | Available | Disabled: hidden from help, and typing it prints an error |
 
-Disables the interactive REPL. The app only runs in one-shot CLI mode.
+Every profile also assigns `InteractivePolicy.Auto`, and restates a few defaults: the `>` prompt for `UseDefaultInteractive()`, human output and the banner for `UseCliProfile()`. In 0.12, called first, `UseDefaultInteractive()` and `UseCliProfile()` therefore behave the same; pick the name that states your intent.
+
+Everything else is the same with or without a profile: `myapp` with no arguments opens the REPL, Tab completes, history works, and Ctrl+C in the REPL cancels the running command and keeps the session open.
+
+<Aside type="caution">
+To ship a command-line tool without a REPL, set `InteractivePolicy.Prevent` **after** the profile, which would otherwise assign `Auto` back; `myapp` alone then prints the help:
+
+```csharp
+var app = ReplApp.Create()
+    .UseCliProfile()
+    .Options(o => o.Interactive.InteractivePolicy = InteractivePolicy.Prevent);
+```
+
+A caller can also pass `--no-interactive`, or `--interactive` to force the REPL, for one run.
+</Aside>
+
+### `UseDefaultInteractive()` and `UseCliProfile()`
+
+For an app that runs as its own process and calls `app.RunAsync(args)` without a service provider or host. Repl owns Ctrl+C and `SIGTERM` during a one-shot run: the handler's token is cancelled, and the process exits `130` or `143`, which scripts and supervisors can tell apart from a failure. See [Exit Codes & Signals](/reference/exit-codes/#process-signals).
+
+- `UseDefaultInteractive()` reads well for a tool people both explore and script: an operations console, a developer utility, an admin tool for a service. `myapp` opens the REPL to browse contexts; `myapp client 42 show` runs one command and exits.
+- `UseCliProfile()` reads well for a process run from a shell, a script, CI or a service manager: a .NET global tool, a deployment step, a container health probe. Add `InteractivePolicy.Prevent`, as shown above, if `myapp` alone should print the help instead of opening the REPL.
+
+```csharp
+var app = ReplApp.Create().UseDefaultInteractive();
+```
 
 ### `UseEmbeddedConsoleProfile()`
 
-For apps embedded in a larger host — no entry-point management, just command dispatching.
+For a command graph that runs inside a host that owns the process, such as a worker service, a test runner or another command framework that calls `app.RunAsync(args, ct)` itself. The host keeps its signals and its shutdown. The `RunAsync` overloads that take an `IServiceProvider` or an `IHost` already leave signals to the caller under every profile.
+
+It is also the profile of the [WebSocket and Telnet](/cookbook/hosting-remote/) and [remote administration](/cookbook/remote-administration/) samples. Those sessions run through an `IReplHost`, which also leaves signals to the caller under any profile, so there the profile's effect is the disabled `exit` command: users leave by closing the connection, or with Ctrl+D in a remote console. Set `o.AmbientCommands.ExitCommandEnabled = true` after the profile to bring `exit` back.
+
+```csharp
+builder.Services.AddRepl((_, repl) =>
+{
+    repl.UseEmbeddedConsoleProfile();
+    repl.Map("status", () => "ok");
+});
+```
+
+### Do I need one, and can I combine them?
+
+No: without one you get the *No profile* column above.
+
+Profiles can be chained: each call assigns its options in order, and the last one wins where they overlap. Several [repository samples](https://github.com/yllibed/repl/tree/v0.12.0/samples) chain `UseDefaultInteractive().UseCliProfile()`; in 0.12 the second call adds nothing the first does not already set. `UseEmbeddedConsoleProfile()` contradicts the other two on signal ownership, so use it alone.
+
+Call the profile first, before `app.Options(...)` and other `Use*` extensions. A profile called later assigns its values again: `InteractivePolicy` returns to `Auto`, and `UseCliProfile()` resets the default output format that `UseSpectreConsole()` sets to `spectre`.
 
 ## Route registration
 
