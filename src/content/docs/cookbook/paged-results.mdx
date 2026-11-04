@@ -124,7 +124,7 @@ app.Map("contacts", (ContactStore store, string search) =>
 <FilterPlacement />
 
 <Aside type="caution">
-Client-side filtering fetches and discards rows that never reach the terminal. The `totalCount` reported in `pageInfo` reflects the unfiltered source — the number of items actually shown is lower. Prefer server-side filtering whenever the store supports it.
+Client-side filtering fetches and discards rows that never reach the terminal. With `FromOffset`, `pageInfo.totalCount` is whatever you pass as `totalCount`, unchanged by the filter: a count of the whole store overstates the matches, so leave it out, as above. Prefer server-side filtering whenever the store supports it.
 </Aside>
 
 ---

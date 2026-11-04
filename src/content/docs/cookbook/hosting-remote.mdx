@@ -85,6 +85,8 @@ app.Run();
 
 <Aside type="caution">
 The endpoint exposes your entire command graph to any connecting client, with no authentication of its own. Place it behind ASP.NET Core authentication and authorization (`RequireAuthorization()` on the endpoint, or `[Authorize]` policies), or add an auth guard as Repl middleware, before using it in production.
+
+Whenever a browser can reach the endpoint, also check the `Origin` header. CORS does not apply to WebSockets, and a browser attaches cookies or Windows authentication by itself. SameSite does not stop a page on a sibling subdomain, nor any page when the cookie is `SameSite=None`, and an endpoint on localhost with no authentication is open to every page the user visits. Such a page can open the socket from a signed-in user's browser and drive the whole command graph. Set `WebSocketOptions.AllowedOrigins` in `app.UseWebSockets(...)`, or, in the endpoint and before `AcceptWebSocketAsync`, refuse an `Origin` that is not an exact match in your list. The check only stops browsers; it does not replace authentication.
 </Aside>
 
 ## Telnet session protocol (`Repl.Telnet`)
