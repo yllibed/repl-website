@@ -1,16 +1,24 @@
 ---
 title: MCP — Advanced
-description: Programmatic sampling, elicitation, client roots, custom transports, HTTP hosting, protocol revisions and operator diagnostics for Repl MCP servers.
+description: Protocol revisions, custom transports, HTTP hosting and operator diagnostics for Repl MCP servers, and the legacy sampling, elicitation and client roots.
 ---
 
 import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
 import ApiRef from '../../../components/ApiRef.astro';
 
-`Repl.Mcp` is built on the official `ModelContextProtocol` C# SDK, version 2.2. The basics — tools, resources, prompts, MCP Apps, behavioral annotations — are covered in [MCP In Depth](/reference/mcp-concepts/). This page goes one level deeper: direct access to agent capabilities (sampling and elicitation) from handler code, client roots and soft roots, dynamic tool compatibility, custom transports, HTTP hosting, protocol revisions, and operator diagnostics.
+`Repl.Mcp` is built on the official `ModelContextProtocol` C# SDK, version 2.2. The basics — tools, resources, prompts, MCP Apps, behavioral annotations — are covered in [MCP In Depth](/reference/mcp-concepts/). This page goes one level deeper: the legacy direct access to sampling, elicitation and client roots, dynamic tool compatibility, custom transports, HTTP hosting, protocol revisions, and operator diagnostics.
+
+<Aside type="caution" title="Not for new applications">
+[Sampling](#programmatic-sampling), [elicitation](#programmatic-elicitation) and [client roots](#client-roots-and-soft-roots) are legacy on MCP `2026-07-28`; each section says what to use instead. That revision also replaces the requests a server sends to its client with [multi round-trip requests](https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/mrtr) (SEP-2322), which Repl 0.12 has not adopted yet ([version notes](https://github.com/yllibed/repl/blob/v0.12.0/docs/mcp-reference.md#sdk-and-protocol-versions)). Do not count on these three features with a host on that revision.
+</Aside>
 
 ---
 
 ## Programmatic sampling
+
+<Aside type="caution">
+Sampling is deprecated by MCP `2026-07-28` ([SEP-2577](https://github.com/modelcontextprotocol/modelcontextprotocol/pull/2577)). The specification keeps it for at least twelve months, and the SDK may drop it in a future version; Repl keeps it for hosts that still use it. A new application that needs a model's judgment calls its LLM provider's API directly, as the specification suggests, or takes the result as a tool argument.
+</Aside>
 
 MCP sampling lets your server ask the connected AI client to produce an LLM completion. The client uses its own model and returns the generated text.
 
@@ -63,6 +71,10 @@ public interface IMcpSampling
 
 ## Programmatic elicitation
 
+<Aside type="caution">
+Elicitation stays in MCP `2026-07-28`, but that revision carries it inside [multi round-trip requests](https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/mrtr): the server answers `input_required`, and the client retries the call with the answers. `IMcpElicitation` still sends a request of its own; Repl keeps it for hosts that still use it. A new application takes the value as a parameter. For a destructive command, a person's confirmation can only come from the host's tool-approval policy, if it asks at all, and the server cannot tell: `.Destructive()` states the intent, and a `--confirm` option is filled in by the agent, not by a person. Keep a command that must never run without a person present out of MCP with `.AutomationHidden()`.
+</Aside>
+
 MCP elicitation lets your server ask a structured question to the user through the connected client. Unlike <ApiRef uid="Repl.Interaction.IReplInteractionChannel" /> prompts (which are automatically triggered by missing parameters), elicitation is explicit: you call it from handler code at the moment you need input.
 
 ```csharp
@@ -114,13 +126,17 @@ All methods return `null` when the client does not support elicitation or the us
 | `IMcpSampling.SampleAsync` | LLM (the agent) | Need an AI judgment — classifying, mapping, summarizing |
 | <ApiRef uid="Repl.Mcp.IMcpElicitation" /> | User (human) | Need explicit human confirmation or structured input |
 | <ApiRef uid="Repl.Interaction.IReplInteractionChannel" /> | User — but automatically wired | Prompting for missing parameters in interactive or REPL mode |
-| `InteractivityMode.PrefillThenElicitation` | User — as fallback pipeline | Automatic elicitation when a parameter has no prefill value |
+| `InteractivityMode.PrefillThenElicitation` | User, then LLM — as fallback pipeline | Elicitation, then sampling, when a prompt has no prefill value |
 
-Use <ApiRef uid="Repl.Mcp.IMcpSampling" /> / <ApiRef uid="Repl.Mcp.IMcpElicitation" /> directly when you need control over *when* and *how* the question is asked. Use <ApiRef uid="Repl.Mcp.InteractivityMode" /> when you want the framework to handle missing parameters automatically.
+In an existing application, use <ApiRef uid="Repl.Mcp.IMcpSampling" /> / <ApiRef uid="Repl.Mcp.IMcpElicitation" /> when you need control over *when* and *how* the question is asked, and <ApiRef uid="Repl.Mcp.InteractivityMode" /> when you want the framework to handle missing parameters. In a new application, take every value as a parameter and keep the default `PrefillThenFail`: when the agent did not pass a value and the prompt has no default, the call then fails visibly instead of being answered with the first choice or an empty value.
 
 ---
 
 ## Client roots and soft roots
+
+<Aside type="caution">
+Roots are deprecated by MCP `2026-07-28` ([SEP-2577](https://github.com/modelcontextprotocol/modelcontextprotocol/pull/2577)); Repl keeps them for hosts that still use them. Soft roots are not their replacement, nor an access boundary: in the pattern below the agent sets them itself. A new application takes the workspace or the path as a parameter and checks it against directories from the server's own configuration, as the specification suggests.
+</Aside>
 
 ### Native MCP roots
 
@@ -141,7 +157,7 @@ app.Map("read {path}",
             var rootPath = r.Uri.LocalPath;
             var full     = Path.GetFullPath(path, rootPath);
             var rel      = Path.GetRelativePath(rootPath, full);
-            if (!rel.StartsWith("..", StringComparison.Ordinal) && !Path.IsPathRooted(rel))
+            if (rel != ".." && !rel.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal) && !Path.IsPathRooted(rel))
             {
                 safePath = full;
                 break;
@@ -203,7 +219,7 @@ app.Map("workspace init {path}",
 ```
 
 <Aside type="note">
-Soft roots are stored per-session, not persisted across sessions. A fresh MCP connection always starts without them.
+Soft roots are stored per-session, not persisted across sessions. A fresh MCP connection always starts without them. A host that reuses one `BuildMcpServerOptions()` result shares them across the whole process instead.
 </Aside>
 
 ---
@@ -353,9 +369,9 @@ When an MCP client connects, Repl announces what the server supports:
 | `tools` | Yes — with `listChanged: true` | All non-hidden commands. Dynamic graphs send `notifications/tools/list_changed`. |
 | `resources` | Yes — with `listChanged: true` | `.ReadOnly()`, `.AsResource()` and `ui://` registrations. |
 | `prompts` | Yes — with `listChanged: true` | `.AsPrompt()` commands and `options.Prompt(...)` registrations. |
-| `logging` | Yes | Used by `IReplInteractionChannel.WriteNoticeAsync` / `WriteWarningAsync` etc. |
+| `logging` | Yes | Used by `IReplInteractionChannel.WriteNoticeAsync` / `WriteWarningAsync` etc. Deprecated on `2026-07-28`, where feedback rides in the tool result. |
 | MCP Apps (`experimental`) | Conditional | Advertised when `EnableApps = true` or `ui://` resources are present. |
-| `sampling` | Client capability | Repl **consumes** this. `IMcpSampling.IsSupported` reads it. |
-| `elicitation` | Client capability | Repl **consumes** this. `IMcpElicitation.IsSupported` reads it. |
-| `roots` | Client capability | Repl **consumes** this. `IMcpClientRoots.IsSupported` reads it. |
+| `sampling` | Client capability | Repl **consumes** this. `IMcpSampling.IsSupported` reads it. Deprecated on `2026-07-28`. |
+| `elicitation` | Client capability | Repl **consumes** this. `IMcpElicitation.IsSupported` reads it. Carried by multi round-trip requests on `2026-07-28`. |
+| `roots` | Client capability | Repl **consumes** this. `IMcpClientRoots.IsSupported` reads it. Deprecated on `2026-07-28`. |
 | `completions` | Not implemented | Argument autocomplete via `completion/complete` — not yet exposed. See [MCP argument completions](#mcp-argument-completions) above. |

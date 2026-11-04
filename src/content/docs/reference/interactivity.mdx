@@ -91,7 +91,7 @@ await ui.ClearScreenAsync(ct);
 Call `WriteProgressAsync` on each update — pass the label, a `double?` between 0 and 1, and the cancellation token:
 
 <Aside type="caution">
-  In hosted or MCP contexts, validate that `file` resolves within an allowed directory before opening it. For MCP tools use `IMcpClientRoots.IsAllowed(path)`. For WebSocket sessions check the resolved path against a configured allowlist. Unvalidated user-supplied file paths become arbitrary-read vulnerabilities the moment this command is exposed over a network transport.
+  In hosted or MCP contexts, validate that `file` resolves within a directory from the server's configuration before opening it, as [Restrict file paths](/cookbook/mcp-server/#restrict-file-paths) shows. Unvalidated file paths become arbitrary-read vulnerabilities the moment an agent or a remote user can call this command.
 </Aside>
 
 ```csharp
@@ -177,10 +177,12 @@ Configure the mode when enabling MCP:
 ```csharp
 app.UseMcpServer(o =>
 {
-    o.InteractivityMode = InteractivityMode.PrefillThenElicitation;
-    // or: PrefillThenFail | PrefillThenDefaults | PrefillThenSampling
+    o.InteractivityMode = InteractivityMode.PrefillThenFail;   // the default
+    // or: PrefillThenDefaults, or the legacy PrefillThenElicitation | PrefillThenSampling
 });
 ```
+
+Elicitation and sampling are legacy on MCP `2026-07-28`; see [MCP — Advanced](/reference/mcp-advanced/).
 
 <Aside type="tip">
 For agent-driven workflows, design your commands to accept all required values as route arguments or named options. Use prompts only for the interactive human experience — agents should supply everything upfront.
