@@ -10,7 +10,10 @@
         { "files": ["*.csproj"], "src": "C:/src/Repl-Public/src/Repl.Spectre" },
         { "files": ["*.csproj"], "src": "C:/src/Repl-Public/src/Repl.Testing" },
         { "files": ["*.csproj"], "src": "C:/src/Repl-Public/src/Repl.WebSocket" },
-        { "files": ["*.csproj"], "src": "C:/src/Repl-Public/src/Repl.Telnet" }
+        { "files": ["*.csproj"], "src": "C:/src/Repl-Public/src/Repl.Telnet" },
+        { "files": ["*.csproj"], "src": "C:/src/Repl-Public/src/Repl.Logging" },
+        { "files": ["*.csproj"], "src": "C:/src/Repl-Public/src/Repl.Remote" },
+        { "files": ["*.csproj"], "src": "C:/src/Repl-Public/src/Repl.Remote.Defaults" }
       ],
       "dest": "api",
       "filter": "filterConfig.yml",
