@@ -5,6 +5,7 @@ description: How to ask users questions, report progress, and handle prompts —
 
 import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
 import ApiRef from '../../../components/ApiRef.astro';
+import McpInteractionModes from '../../../components/diagrams/McpInteractionModes.astro';
 
 Repl provides a typed interaction channel (<ApiRef uid="Repl.Interaction.IReplInteractionChannel" />) that works across all execution modes: interactive REPL, hosted sessions, MCP tools, and automated scripts. The same handler code asks questions in a terminal, receives answers from an MCP client, or reads pre-filled values from `--answer:*` flags.
 
@@ -90,7 +91,7 @@ await ui.ClearScreenAsync(ct);
 Call `WriteProgressAsync` on each update — pass the label, a `double?` between 0 and 1, and the cancellation token:
 
 <Aside type="caution">
-  In hosted or MCP contexts, validate that `file` resolves within an allowed directory before opening it. For MCP tools use `IMcpClientRoots.IsAllowed(path)`. For WebSocket sessions check the resolved path against a configured allowlist. Unvalidated user-supplied file paths become arbitrary-read vulnerabilities the moment this command is exposed over a network transport.
+  In hosted or MCP contexts, validate that `file` resolves within a directory from the server's configuration before opening it, as [Restrict file paths](/cookbook/mcp-server/#restrict-file-paths) shows. Unvalidated file paths become arbitrary-read vulnerabilities the moment an agent or a remote user can call this command.
 </Aside>
 
 ```csharp
@@ -160,24 +161,28 @@ var result = await session.RunCommandAsync(
 
 ## MCP interaction tiers
 
-When a command is called via MCP, Repl tries to answer prompts in this order:
+<McpInteractionModes />
+
+When a command is called via MCP, Repl tries to answer prompts in this order. `AskMultiChoiceAsync` skips elicitation, and `AskSecretAsync` uses prefill only:
 
 | Tier | Mechanism | Notes |
 |---|---|---|
 | 1 | **Prefill** — from tool call arguments | Always tried first |
 | 2 | **Elicitation** — structured form through the agent | Requires `elicitation` capability |
 | 3 | **Sampling** — LLM generates an answer | Requires `sampling` capability |
-| 4 | **Default / Fail** | Depends on <ApiRef uid="Repl.Mcp.InteractivityMode" /> |
+| 4 | **Default / Fail** | The prompt's own default when it has one; otherwise `PrefillThenDefaults` answers the first choice, `false` or an empty value, and the other modes fail. See <ApiRef uid="Repl.Mcp.InteractivityMode" /> |
 
 Configure the mode when enabling MCP:
 
 ```csharp
 app.UseMcpServer(o =>
 {
-    o.InteractivityMode = InteractivityMode.PrefillThenElicitation;
-    // or: PrefillThenFail | PrefillThenDefaults | PrefillThenSampling
+    o.InteractivityMode = InteractivityMode.PrefillThenFail;   // the default
+    // or: PrefillThenDefaults, or the legacy PrefillThenElicitation | PrefillThenSampling
 });
 ```
+
+Elicitation and sampling are legacy on MCP `2026-07-28`; see [MCP — Advanced](/reference/mcp-advanced/).
 
 <Aside type="tip">
 For agent-driven workflows, design your commands to accept all required values as route arguments or named options. Use prompts only for the interactive human experience — agents should supply everything upfront.

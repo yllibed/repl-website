@@ -5,6 +5,7 @@ description: How DI works in Repl Toolkit — service registration, handler inje
 
 import { Aside } from '@astrojs/starlight/components';
 import ApiRef from '../../../components/ApiRef.astro';
+import SessionScopes from '../../../components/diagrams/SessionScopes.astro';
 
 Repl Toolkit uses **Microsoft.Extensions.DependencyInjection** through <ApiRef uid="Repl.ReplApp" /> (the `Repl.Defaults` package). `Repl.Core` (<ApiRef uid="Repl.CoreReplApp" />) has no DI container — services are passed explicitly.
 
@@ -80,10 +81,12 @@ Static lambdas prevent accidental closures and make handlers independently testa
 
 ## Service lifetimes in Repl
 
+<SessionScopes />
+
 | Lifetime | Scope in Repl |
 |---|---|
 | `Singleton` | Shared across all sessions and all commands |
-| `Scoped` | One instance per session: one `Run*` call (a CLI invocation, an interactive run, a Telnet or WebSocket connection), or one client connection under MCP |
+| `Scoped` | One instance per session: one `Run*` call (a CLI invocation, an interactive run, a Telnet or WebSocket connection), or one client connection under MCP, except a server built from a reused `BuildMcpServerOptions()` result, where one scope serves every client |
 | `Transient` | New instance per resolution |
 
 Use `Scoped` for per-user state (shopping cart, authentication context, cursor position). Use `Singleton` for shared data stores. A `Scoped` disposable is disposed when its session ends, so do not keep a reference to it beyond the session.

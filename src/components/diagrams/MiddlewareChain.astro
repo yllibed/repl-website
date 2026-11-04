@@ -1,0 +1,60 @@
+---
+import Figure from '../Figure.astro';
+import Pocket from './Pocket.astro';
+
+/* Middleware registered first wraps everything registered after it, then the handler. */
+const layers = [
+	{ title: 'app.Use(...) first', code: 'logging' },
+	{ title: 'app.Use(...) second', code: 'auth check' },
+];
+const shortCircuit = 'the handler is skipped; context.Result, if set, is still rendered';
+const handler = { width: 364, height: 64 };
+const inset = 44;
+const side = 110; // room on each side for the flow labels
+const top = 12;
+/* Layers are drawn from the handler outward: layer i sits (layers.length - i) insets around it. */
+const handlerX = side + layers.length * inset;
+const handlerY = top + layers.length * inset;
+const layerBox = (index: number) => {
+	const around = layers.length - index;
+	return {
+		x: handlerX - around * inset,
+		y: handlerY - around * inset,
+		width: handler.width + 2 * around * inset,
+		height: handler.height + 2 * around * inset,
+	};
+};
+const outer = layerBox(0);
+const innermost = layerBox(layers.length - 1);
+const flowY = handlerY + handler.height / 2;
+const viewWidth = 2 * outer.x + outer.width;
+const noteY = outer.y + outer.height + 34;
+const viewHeight = noteY + 12;
+const label = `Middleware nesting: after binding, the call enters ${layers.map((layer) => `${layer.title} (${layer.code})`).join(', then ')}, then reaches the handler, and returns through the same layers before rendering. Without next(), ${shortCircuit}.`;
+---
+
+<Figure
+	viewWidth={viewWidth}
+	viewHeight={viewHeight}
+	label={label}
+	caption="The order in which registered middleware wraps the handler, and what a middleware that never calls next() leaves out."
+>
+	{
+		layers.map((layer, index) => {
+			const box = layerBox(index);
+			return (
+				<g>
+					<rect class="rt-cloth" x={box.x} y={box.y} width={box.width} height={box.height} rx="2" />
+					<text class="rt-tag" x={box.x + 14} y={box.y + 24}>{layer.title}</text>
+					<text class="rt-code" x={box.x + box.width - 14} y={box.y + 24} text-anchor="end">{layer.code}</text>
+				</g>
+			);
+		})
+	}
+	<path class="rt-thread" d={`M${side - 40} ${flowY}H${handlerX}M${handlerX + handler.width} ${flowY}H${viewWidth - side + 26}`}></path>
+	<Pocket x={handlerX} y={handlerY} width={handler.width} height={handler.height} title="Handler" code="your Map(...) delegate" />
+	<text class="rt-note" x="10" y={flowY + 4}>binding</text>
+	<text class="rt-note" x={viewWidth - 10} y={flowY + 4} text-anchor="end">rendering</text>
+	<path class="rt-lead" d={`M${innermost.x + 60} ${innermost.y + innermost.height}V${noteY - 14}`}></path>
+	<text class="rt-note" x={outer.x + 10} y={noteY}>without next(): {shortCircuit}</text>
+</Figure>

@@ -140,19 +140,36 @@ app.Map("debug reset", static (IContactStore store) => store.Clear())
 
 `.AutomationHidden()` hides the command from MCP and other programmatic surfaces while keeping it accessible in the interactive REPL and `--help`.
 
-## Client roots
+## Restrict file paths
 
-Expose the client's file system roots to your tools:
+A tool that opens a file the agent names must keep it inside the directories the server may read. Take those directories from the server's own configuration, and resolve the path against each one:
 
 ```csharp
-app.Map("analyze {path}", static async (string path, IMcpClientRoots roots) =>
-{
-    if (!roots.IsAllowed(path))
-        return Results.Error("outside_root", $"Path '{path}' is not within an allowed root.");
+// Fully qualified directories this server may read, from its own configuration.
+IReadOnlyList<string> workspaceRoots = ["/srv/projects"];
 
-    return await AnalyzeFile(path);
+app.Map("analyze {path}", async (string path) =>
+{
+    foreach (var root in workspaceRoots)
+    {
+        var full = Path.GetFullPath(path, root);
+        var relative = Path.GetRelativePath(root, full);
+        if (relative != ".." && !relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal)
+            && !Path.IsPathRooted(relative))
+        {
+            return await AnalyzeFile(full);
+        }
+    }
+
+    return Results.Error("outside_root", $"Path '{path}' is outside the configured directories.");
 });
 ```
+
+<Aside type="caution">
+This check works on the path text: it does not resolve symbolic links or junctions. If the directories can hold content you do not control, such as cloned repositories or uploads, also reject a path in which any segment is a link (`FileSystemInfo.LinkTarget` is not null), or run the server under an account that can read only those directories.
+</Aside>
+
+MCP client roots, which a host declares for the same purpose, are deprecated by `2026-07-28`; see [client roots](/reference/mcp-advanced/#client-roots-and-soft-roots) for hosts that still use them.
 
 ---
 

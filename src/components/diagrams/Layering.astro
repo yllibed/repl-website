@@ -1,0 +1,89 @@
+---
+import Figure from '../Figure.astro';
+import Pocket from './Pocket.astro';
+
+/* Two rows of channels keep the diagram narrow enough for its labels to stay legible.
+   The first row needs an even number of pockets: the trunk to the second row runs down the middle,
+   between its two central pockets. */
+const rows = [
+	[
+		{ title: 'Console', code: 'local' },
+		{ title: 'WebSocket', code: 'Repl.WebSocket' },
+		{ title: 'Telnet', code: 'Repl.Telnet' },
+		{ title: 'MCP', code: 'Repl.Mcp' },
+	],
+	[
+		{ title: 'Remote', code: 'Repl.Remote' },
+		{ title: 'Testing', code: 'Repl.Testing' },
+		{ title: 'Custom', code: 'any stream' },
+	],
+];
+const pocketWidth = 136;
+const pocketHeight = 68;
+const gap = 8;
+const margin = 5;
+const rowWidth = (count: number) => count * pocketWidth + (count - 1) * gap;
+const viewWidth = 2 * margin + Math.max(...rows.map((row) => row.length).map(rowWidth));
+const mid = viewWidth / 2;
+
+const app = { y: 12, width: 260, height: 48 };
+const core = { y: 92, width: 520, height: 78 };
+const coreX = mid - core.width / 2;
+const coreBottom = core.y + core.height;
+const busGap = 26; // from a bus line down to the top of its pockets
+const firstBusY = coreBottom + busGap;
+const rowPitch = pocketHeight + 2 * busGap;
+const busY = (rowIndex: number) => firstBusY + rowIndex * rowPitch;
+const pocketY = (rowIndex: number) => busY(rowIndex) + busGap;
+const pocketX = (rowIndex: number, index: number) =>
+	mid - rowWidth(rows[rowIndex].length) / 2 + index * (pocketWidth + gap);
+const centerX = (rowIndex: number, index: number) => pocketX(rowIndex, index) + pocketWidth / 2;
+const viewHeight = pocketY(rows.length - 1) + pocketHeight + 8;
+
+const threads = [
+	`M${mid} ${app.y + app.height}V${core.y}`,
+	`M${mid} ${coreBottom}V${busY(rows.length - 1)}`,
+	...rows.flatMap((row, rowIndex) => [
+		`M${centerX(rowIndex, 0)} ${busY(rowIndex)}H${centerX(rowIndex, row.length - 1)}`,
+		...row.map((_, index) => `M${centerX(rowIndex, index)} ${busY(rowIndex)}v${busGap}`),
+	]),
+];
+const channels = rows.flat();
+const label = `Layering: your application registers commands with Repl.Defaults and Repl.Core, which dispatch the same command graph to ${channels.length} channels: ${channels.map((channel) => `${channel.title} (${channel.code})`).join(', ')}.`;
+---
+
+<Figure
+	viewWidth={viewWidth}
+	viewHeight={viewHeight}
+	label={label}
+	caption="Every channel runs the same command graph, registered once through Repl.Defaults and Repl.Core."
+>
+	<rect class="rt-cloth" x={mid - app.width / 2} y={app.y} width={app.width} height={app.height} rx="2"></rect>
+	<text class="rt-tag" x={mid} y={app.y + 30} text-anchor="middle">Your application</text>
+	<text class="rt-note" x={mid + 12} y={app.y + app.height + 21}>registers commands via</text>
+
+	<rect class="rt-cloth" x={coreX} y={core.y} width={core.width} height={core.height} rx="2"></rect>
+	<text class="rt-tag" x={coreX + 20} y={core.y + 32}>Repl.Defaults</text>
+	<text class="rt-code" x={coreX + 150} y={core.y + 32}>ReplApp, UseDefaultInteractive, UseCliProfile</text>
+	<text class="rt-tag" x={coreX + 20} y={core.y + 62}>Repl.Core</text>
+	<text class="rt-code" x={coreX + 150} y={core.y + 62}>routing, binding, output</text>
+
+	<path class="rt-thread" d={threads.join('')}></path>
+	<text class="rt-note" x={mid + 12} y={coreBottom + 18}>dispatches to runtime channels</text>
+	<circle class="rt-node" cx={mid} cy={firstBusY} r="4"></circle>
+
+	{
+		rows.map((row, rowIndex) =>
+			row.map((channel, index) => (
+				<Pocket
+					x={pocketX(rowIndex, index)}
+					y={pocketY(rowIndex)}
+					width={pocketWidth}
+					height={pocketHeight}
+					title={channel.title}
+					code={channel.code}
+				/>
+			)),
+		)
+	}
+</Figure>

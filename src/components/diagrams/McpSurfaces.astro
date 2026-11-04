@@ -1,0 +1,71 @@
+---
+import Figure from '../Figure.astro';
+import Pocket from './Pocket.astro';
+
+/* Each route lists the MCP surfaces it reaches. Tool names drop the dynamic segments. */
+const surfaces = [
+	{ key: 'tool', title: 'Tools', code: 'contact_add, contact_show' },
+	{ key: 'resource', title: 'Resources', code: 'repl://config/{env}, ...' },
+	{ key: 'prompt', title: 'Prompts', code: 'triage' },
+] as const;
+type Surface = (typeof surfaces)[number]['key'];
+const routes: { route: string; modifier: string; reaches: Surface[] }[] = [
+	{ route: 'contact add', modifier: '', reaches: ['tool'] },
+	{ route: 'contact {id} show', modifier: '.ReadOnly()', reaches: ['tool', 'resource'] },
+	{ route: 'config {env}', modifier: '.AsResource()', reaches: ['resource'] },
+	{ route: 'triage', modifier: '.AsPrompt()', reaches: ['prompt'] },
+	{ route: 'debug reset', modifier: '.AutomationHidden()', reaches: [] },
+];
+const rowTop = 70;
+const rowHeight = 42;
+const rowY = (index: number) => rowTop + index * rowHeight;
+const graph = { x: 10, y: 10, width: 320, height: rowY(routes.length - 1) + 26 - 10 };
+const pocket = { x: 500, width: 250, height: 62, gap: 14 };
+const pocketTop = rowTop - 30;
+const pocketY = (index: number) => pocketTop + index * (pocket.height + pocket.gap);
+const pocketMid = (key: Surface) => pocketY(surfaces.findIndex((surface) => surface.key === key)) + pocket.height / 2;
+const graphRight = graph.x + graph.width;
+const hiddenRow = routes.findIndex((row) => row.reaches.length === 0);
+const viewWidth = pocket.x + pocket.width + 10;
+const viewHeight = Math.max(graph.y + graph.height, pocketY(surfaces.length - 1) + pocket.height) + 10;
+const bend = (graphRight + pocket.x) / 2;
+const threads = routes.flatMap((row, index) =>
+	row.reaches.map((key) => `M${graphRight} ${rowY(index)}C${bend} ${rowY(index)} ${bend} ${pocketMid(key)} ${pocket.x} ${pocketMid(key)}`),
+);
+const surfaceTitle = (key: Surface) => surfaces.find((surface) => surface.key === key)?.title.toLowerCase().replace(/s$/, '');
+const label = `Command graph to MCP: ${routes
+	.map((row) =>
+		row.reaches.length
+			? `${row.route}${row.modifier ? ` with ${row.modifier}` : ''} becomes a ${row.reaches.map(surfaceTitle).join(' and a ')}`
+			: `${row.route} with ${row.modifier} is not exposed`,
+	)
+	.join('; ')}.`;
+---
+
+<Figure
+	viewWidth={viewWidth}
+	viewHeight={viewHeight}
+	label={label}
+	caption="Every mapped command becomes an MCP tool unless a modifier sends it elsewhere; read-only commands also become resources."
+>
+	<rect class="rt-cloth" x={graph.x} y={graph.y} width={graph.width} height={graph.height} rx="2"></rect>
+	<text class="rt-tag" x={graph.x + 20} y={graph.y + 30}>Command graph</text>
+	<path class="rt-thread" d={threads.join('')}></path>
+	{
+		routes.map((row, index) => (
+			<g>
+				<text class="rt-code" x={graph.x + 20} y={rowY(index) + 4}>
+					{row.route}
+					{row.modifier && <tspan class="rt-note"> {row.modifier}</tspan>}
+				</text>
+				{row.reaches.length > 0 && <circle class="rt-node" cx={graphRight} cy={rowY(index)} r="4" />}
+			</g>
+		))
+	}
+	{hiddenRow >= 0 && <text class="rt-note" x={graphRight + 14} y={rowY(hiddenRow) + 4}>not exposed to agents</text>}
+	{
+		surfaces.map((surface, index) => (
+			<Pocket x={pocket.x} y={pocketY(index)} width={pocket.width} height={pocket.height} title={surface.title} code={surface.code} />
+		))
+	}
+</Figure>

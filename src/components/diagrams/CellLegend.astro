@@ -1,0 +1,25 @@
+---
+import CellRow from './CellRow.astro';
+import { cell, cellMeaning, legendLayout, legendSpacing, type LegendKind } from './cells';
+
+/** One entry per cell kind a diagram uses, laid out on one line from (x, y). */
+interface Props {
+	x: number;
+	y: number;
+	kinds: readonly LegendKind[];
+}
+
+const { x, y, kinds } = Astro.props;
+const { offsets } = legendLayout(kinds);
+---
+
+<g>
+	{
+		kinds.map((kind, index) => (
+			<g>
+				<CellRow x={x + offsets[index]} y={y} cells={[kind]} />
+				<text class="rt-note" x={x + offsets[index] + cell.size + legendSpacing.label} y={y + cell.size / 2 + 4}>{cellMeaning[kind]}</text>
+			</g>
+		))
+	}
+</g>

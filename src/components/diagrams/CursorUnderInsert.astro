@@ -1,0 +1,89 @@
+---
+import Figure from '../Figure.astro';
+import CellLegend from './CellLegend.astro';
+import CellRow from './CellRow.astro';
+import { cell, cellRun, lane, laneY, lanesLegendY, legendHeight, legendKinds, legendLayout, rowWidth, type CellKind } from './cells';
+import { textWidth } from './metrics';
+
+/* Page 1 returned the first rows; then a row is inserted among them. Each lane shows the table as the
+   next page reads it, row by row, and which rows come back. The inserted row must land inside page 1
+   for the offset lane to repeat a row. */
+const pageSize = 5;
+const before = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
+const inserted = { name: 'N', at: 2 };
+const after = [...before.slice(0, inserted.at), inserted.name, ...before.slice(inserted.at)];
+const lastSeen = before[pageSize - 1];
+const page = (skipped: number, skippedAs: CellKind, rows: number): CellKind[] =>
+	cellRun([[skippedAs, skipped], ['kept', Math.min(pageSize, rows - skipped)]]);
+const keysetSkipped = after.indexOf(lastSeen) + 1;
+const lanes = [
+	{
+		title: 'Page 1',
+		cursor: 'no cursor',
+		rows: before,
+		cells: page(0, 'read', before.length),
+		note: `returns ${before.slice(0, pageSize).join(' ')}; then ${inserted.name} is inserted after ${before[inserted.at - 1]}`,
+		seek: false,
+	},
+	{
+		title: 'Page 2, offset cursor',
+		cursor: `cursor "${pageSize}"`,
+		rows: after,
+		cells: page(pageSize, 'read', after.length),
+		note: `skips ${pageSize} rows of the changed table: ${lastSeen} comes back a second time, and ${inserted.name} is never shown`,
+		seek: false,
+	},
+	{
+		title: 'Page 2, keyset cursor',
+		cursor: `cursor base64(${lastSeen})`,
+		rows: after,
+		cells: page(keysetSkipped, 'none', after.length),
+		note: `seeks past ${lastSeen}; ${inserted.name}, inserted before it, is never shown either`,
+		seek: true,
+	},
+	{
+		title: 'Page 2, snapshot cursor',
+		cursor: `cursor base64(snapshot, ${pageSize})`,
+		rows: before,
+		cells: page(pageSize, 'read', before.length),
+		note: `reads the copy taken for page 1, where ${inserted.name} does not exist`,
+		seek: false,
+	},
+];
+const kinds = legendKinds(lanes.map((item) => item.cells));
+const left = 10;
+const cursorX = left + rowWidth(Math.max(...lanes.map((item) => item.rows.length))) + 26;
+const viewWidth =
+	Math.max(
+		cursorX + Math.max(...lanes.map((item) => textWidth(item.cursor, 'code'))),
+		left + Math.max(...lanes.map((item) => textWidth(item.note, 'note'))),
+		left + legendLayout(kinds).width,
+	) + left;
+const legendY = lanesLegendY(lanes.length);
+const viewHeight = legendY + legendHeight;
+const label = `Rows ${before[0]} to ${before[before.length - 1]}, ${pageSize} per page. ${lanes
+	.map((item) => `${item.title}, ${item.cursor}: ${item.note}`)
+	.join('. ')}.`;
+---
+
+<Figure
+	viewWidth={viewWidth}
+	viewHeight={viewHeight}
+	label={label}
+	caption="What the second page returns when a row is inserted between two requests, with an offset, a keyset and a snapshot cursor."
+>
+	{
+		lanes.map((item, index) => {
+			const y = laneY(index);
+			return (
+				<g>
+					<text class="rt-tag" x={left} y={y - 10}>{item.title}</text>
+					<CellRow x={left} y={y} cells={item.cells} labels={item.rows} seek={item.seek} />
+					<text class="rt-code" x={cursorX} y={y + cell.size / 2 + 4}>{item.cursor}</text>
+					<text class="rt-note" x={left} y={y + lane.note}>{item.note}</text>
+				</g>
+			);
+		})
+	}
+	<CellLegend x={left} y={legendY} kinds={kinds} />
+</Figure>

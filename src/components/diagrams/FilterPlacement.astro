@@ -1,0 +1,68 @@
+---
+import Figure from '../Figure.astro';
+import CellLegend from './CellLegend.astro';
+import CellRow from './CellRow.astro';
+import { cell, cellRun, lane, laneY, lanesLegendY, legendHeight, legendKinds, legendLayout, rowWidth, type CellKind } from './cells';
+import { textWidth } from './metrics';
+
+/* One page of FromOffset, filtered by the store or by a predicate after each fetch. FromOffset asks the
+   store for pageSize + 1 rows at a time; the last matching row read is the probe for a next page. The
+   second lane ends exactly at a batch boundary, so it counts what the store sends. */
+const pageSize = 5;
+const batch = pageSize + 1;
+const lanes: { title: string; note: string; cells: CellKind[] }[] = [
+	{
+		title: 'Filter in the query',
+		note: 'the store sends matching rows only',
+		cells: cellRun([['kept', pageSize], ['probe', 1]]),
+	},
+	{
+		title: 'Filter after the fetch',
+		note: `Repl fetches ${batch} rows at a time and drops those that fail the predicate`,
+		cells: cellRun([
+			['read', 1], ['kept', 1], ['read', 2], ['kept', 2],
+			['read', 1], ['kept', 1], ['read', 1], ['kept', 1], ['read', 1], ['probe', 1],
+		]),
+	},
+];
+const kinds = legendKinds(lanes.map((item) => item.cells));
+const counts = lanes.map((item) => {
+	const read = item.cells.filter((kind) => kind !== 'none').length;
+	const shown = item.cells.filter((kind) => kind === 'kept').length;
+	return `${read} read, ${shown} shown`;
+});
+const left = 10;
+const countX = left + rowWidth(Math.max(...lanes.map((item) => item.cells.length))) + 26;
+const viewWidth = Math.max(
+	countX + Math.max(...counts.map((count) => textWidth(count, 'code'))),
+	left + Math.max(...lanes.map((item) => textWidth(item.note, 'note'))),
+	left + legendLayout(kinds).width,
+) + left;
+const legendY = lanesLegendY(lanes.length);
+const viewHeight = legendY + legendHeight;
+const label = `Server-side versus client-side filtering for one page of ${pageSize} rows: ${lanes
+	.map((item, index) => `${item.title}: ${item.note}; ${counts[index]}`)
+	.join('. ')}.`;
+---
+
+<Figure
+	viewWidth={viewWidth}
+	viewHeight={viewHeight}
+	label={label}
+	caption="How many rows the store sends for the same page, depending on where the filter runs."
+>
+	{
+		lanes.map((item, index) => {
+			const y = laneY(index);
+			return (
+				<g>
+					<text class="rt-tag" x={left} y={y - 10}>{item.title}</text>
+					<CellRow x={left} y={y} cells={item.cells} />
+					<text class="rt-code" x={countX} y={y + cell.size / 2 + 4}>{counts[index]}</text>
+					<text class="rt-note" x={left} y={y + lane.note}>{item.note}</text>
+				</g>
+			);
+		})
+	}
+	<CellLegend x={left} y={legendY} kinds={kinds} />
+</Figure>

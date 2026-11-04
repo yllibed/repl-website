@@ -1,0 +1,47 @@
+---
+import Figure from '../Figure.astro';
+
+const stages = [
+	{ title: 'Parse', code: 'route + bind' },
+	{ title: 'Middleware', code: 'app.Use(...)' },
+	{ title: 'Dispatch', code: 'handler via DI' },
+	{ title: 'Output', code: 'transformer' },
+	{ title: 'Render', code: 'formatter' },
+];
+const boxWidth = 124;
+const gap = 30;
+const margin = 10;
+const viewWidth = 2 * margin + stages.length * boxWidth + (stages.length - 1) * gap;
+const stageX = (index: number) => margin + index * (boxWidth + gap);
+const label = `Execution in ${stages.length} phases: ${stages.map((stage, index) => `${index + 1} ${stage.title}`).join(', ')}.`;
+---
+
+<Figure
+	viewWidth={viewWidth}
+	viewHeight={130}
+	label={label}
+	caption="The main path of a command, in five phases. Pipelines & Integration lists the twelve stages in detail."
+>
+	<path
+		class="rt-thread"
+		d={stages
+			.slice(1)
+			.map((_, index) => `M${stageX(index) + boxWidth} 74h${gap}`)
+			.join('')}
+	></path>
+	{
+		stages.map((stage, index) => {
+			const x = stageX(index);
+			const center = x + boxWidth / 2;
+			return (
+				<g>
+					<rect class="rt-cloth" x={x} y="36" width={boxWidth} height="76" rx="2" />
+					<circle class="rt-step" cx={x + 22} cy="36" r="11" />
+					<text class="rt-stepn" x={x + 22} y="40" text-anchor="middle">{index + 1}</text>
+					<text class="rt-tag" x={center} y="74" text-anchor="middle">{stage.title}</text>
+					<text class="rt-code" x={center} y="96" text-anchor="middle">{stage.code}</text>
+				</g>
+			);
+		})
+	}
+</Figure>

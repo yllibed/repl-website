@@ -1,0 +1,47 @@
+<!-- Social card. Uses literal colours because the renderer cannot read CSS variables; its terminal is a
+     shortened copy of the landing-page hero in src/content/docs/index.mdx: change them together, then
+     run `npm run og:image` to refresh public/og-image.png. The renderer uses fonts installed on the
+     machine, so the PNG shows system fallbacks for JetBrains Mono and IBM Plex Sans. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630" role="img" aria-label="Repl Toolkit. One graph. Every surface.">
+  <rect width="1200" height="630" fill="#121A28"/>
+  <!-- Mark and name -->
+  <g transform="translate(72 64) scale(1.25)">
+    <path d="M14 4l10 23M50 4L40 27" fill="none" stroke="#F0B44C" stroke-width="6"/>
+    <rect x="11" y="26" width="42" height="33" rx="3" fill="none" stroke="#F0B44C" stroke-width="3.5"/>
+    <path d="M20 36.5l7.5 6-7.5 6" fill="none" stroke="#F0B44C" stroke-width="4" stroke-linecap="square"/>
+    <rect x="31" y="46" width="13" height="4.5" fill="#F0B44C"/>
+    <circle cx="23.5" cy="27.5" r="3.6" fill="#FFE6B0" stroke="#F0B44C" stroke-width="1.5"/>
+    <circle cx="40.5" cy="27.5" r="3.6" fill="#FFE6B0" stroke="#F0B44C" stroke-width="1.5"/>
+  </g>
+  <text x="168" y="126" font-family="'JetBrains Mono', Consolas, Menlo, monospace" font-size="32" font-weight="700" fill="#F4F6FA">Repl Toolkit</text>
+  <!-- Headline -->
+  <g font-family="'JetBrains Mono', Consolas, Menlo, monospace" font-size="56" font-weight="800" fill="#F4F6FA">
+    <text x="72" y="262">One graph.</text>
+    <text x="72" y="332">Every surface.<tspan fill="#F0B44C">█</tspan></text>
+  </g>
+  <g font-family="'IBM Plex Sans', 'Segoe UI', Arial, sans-serif" font-size="24" fill="#A9B6CA">
+    <text x="72" y="404">CLI, interactive REPL, MCP server</text>
+    <text x="72" y="438">and remote sessions from one</text>
+    <text x="72" y="472">.NET command graph.</text>
+  </g>
+  <text x="72" y="556" font-family="'JetBrains Mono', Consolas, Menlo, monospace" font-size="24" fill="#F0B44C">repl.yllibed.org</text>
+  <!-- Terminal, with brass rivets for window buttons -->
+  <rect x="616" y="96" width="528" height="414" rx="8" fill="#0B111C" stroke="#24324A" stroke-width="1.5"/>
+  <path d="M616 136h528" stroke="#24324A" stroke-width="1.5"/>
+  <circle cx="640" cy="116" r="7" fill="#F0B44C" stroke="#9C7426" stroke-width="1.5"/>
+  <circle cx="662" cy="116" r="7" fill="#F0B44C" stroke="#9C7426" stroke-width="1.5"/>
+  <text x="684" y="121" font-family="'JetBrains Mono', Consolas, Menlo, monospace" font-size="15" fill="#8290A8">myapp: one graph, three runs</text>
+  <g font-family="'JetBrains Mono', Consolas, Menlo, monospace" font-size="18" fill="#CFD8E6" xml:space="preserve">
+    <text x="640" y="172" fill="#8290A8"># cli</text>
+    <text x="640" y="200"><tspan fill="#F0B44C">$</tspan> myapp client list --json</text>
+    <text x="640" y="228" fill="#8FD19E">[{"id":1,"name":"ACME"},…]</text>
+    <text x="640" y="270" fill="#8290A8"># repl</text>
+    <text x="640" y="298"><tspan fill="#F0B44C">&gt;</tspan> client 42</text>
+    <text x="640" y="326"><tspan fill="#F0B44C">[client/42]&gt;</tspan> show</text>
+    <text x="640" y="354" fill="#8FD19E">Id:   42   Name: ACME</text>
+    <text x="640" y="396" fill="#8290A8"># mcp: the same graph, served to an agent</text>
+    <text x="640" y="424"><tspan fill="#F0B44C">$</tspan> myapp mcp serve</text>
+    <text x="640" y="452" fill="#8290A8">&lt;- tools/list</text>
+    <text x="640" y="480" fill="#8FD19E">-&gt; client_list, client_show, client_remove</text>
+  </g>
+</svg>

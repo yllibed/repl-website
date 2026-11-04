@@ -5,6 +5,11 @@ description: Quick-reference table of cursor encoding strategies for result-flow
 
 import { Aside } from '@astrojs/starlight/components';
 import ApiRef from '../../../components/ApiRef.astro';
+import CursorChecks from '../../../components/diagrams/CursorChecks.astro';
+import CursorUnderInsert from '../../../components/diagrams/CursorUnderInsert.astro';
+import MessageSequence from '../../../components/diagrams/MessageSequence.astro';
+import OffsetVersusKeyset from '../../../components/diagrams/OffsetVersusKeyset.astro';
+import RangeWindowPages from '../../../components/diagrams/RangeWindowPages.astro';
 
 A cursor is an opaque continuation token. The handler encodes it; Repl passes it back on the next call. This page is a dense reference — for the conceptual background, see [Result-Flow Paging](/reference/result-flow-paging/).
 
@@ -23,7 +28,9 @@ Treat incoming cursors as untrusted input. Validate length (Repl enforces ≤ 51
 | **External page token** | Wrapping a paginated API (Azure SDK, etc.) | Opaque token from the API response | `paging.CreateSource(...)` |
 | **nextLink / URL** | OData, Microsoft Graph, REST APIs with `@nextLink` | Full URL string — **validate origin** | `paging.CreateSource(...)` |
 | **Snapshot** | Consistent views over changing data | `(snapshotId, offset)` as base64-JSON | `paging.CreateSource(...)` |
-| **Range / window** | Time-series, log scans, fixed-time windows | `(startTimestamp, endTimestamp)` ISO 8601 | `paging.CreateSource(...)` |
+| **Range / window** | Time-series and log scans: one time window, paged by count | base64 of `(lastTimestamp, lastId, windowEnd)` | `paging.CreateSource(...)` |
+
+<CursorUnderInsert />
 
 ---
 
@@ -43,7 +50,9 @@ public ReplPage<Row> Query(IReplPagingContext paging)
 }
 
 private static int ParseOffset(string? cursor) =>
-    int.TryParse(cursor, NumberStyles.None, CultureInfo.InvariantCulture, out var v) && v > 0 ? v : 0;
+    cursor is null ? 0
+    : int.TryParse(cursor, NumberStyles.None, CultureInfo.InvariantCulture, out var v) ? v
+    : throw new ArgumentException("Invalid continuation cursor.");
 ```
 
 Or use the built-in helper:
@@ -59,6 +68,8 @@ ReplPageSource.FromOffset<Row>(
 ## Keyset / seek cursor
 
 Best for large tables with frequent inserts or deletes. Encodes the sort key + tie-breaker of the last row seen. Pages are stable even as the underlying data changes.
+
+<OffsetVersusKeyset />
 
 ```csharp
 app.Map("orders", async (IReplPagingContext paging, OrderStore store, CancellationToken ct) =>
@@ -79,23 +90,40 @@ private static (DateTimeOffset? after, int? id) ParseKeysetCursor(string? cursor
     if (cursor is null) return (null, null);
     try
     {
-        var json = JsonSerializer.Deserialize<KeysetCursor>(Convert.FromBase64String(cursor));
-        return (json?.After, json?.Id);
+        var json = JsonSerializer.Deserialize<KeysetCursor>(Convert.FromBase64String(cursor))
+            ?? throw new ArgumentException("Invalid continuation cursor.");
+        return (json.LastCreatedAt, json.LastId);
     }
-    catch { return (null, null); }
+    catch (Exception ex) when (ex is FormatException or JsonException)
+    {
+        // A cursor that does not decode is refused, never read as "start over".
+        throw new ArgumentException("Invalid continuation cursor.", ex);
+    }
 }
 
 private static string EncodeKeysetCursor(DateTimeOffset at, int id) =>
     Convert.ToBase64String(JsonSerializer.SerializeToUtf8Bytes(new KeysetCursor(at, id)));
 
-private sealed record KeysetCursor(DateTimeOffset After, int Id);
+private sealed record KeysetCursor(DateTimeOffset LastCreatedAt, int LastId);
 ```
 
 ---
 
 ## External page token
 
-Forward the API's opaque token as-is. Validate that the token came from your source before sending it to the API.
+Forward the API's opaque token as-is. A caller can send any string back as the cursor, so the API must treat the token as untrusted; if it does not, keep the token server-side and hand out an opaque key instead.
+
+<MessageSequence
+	left={{ title: 'Handler', code: 'paging.CreateSource' }}
+	right={{ title: 'Messages API', code: 'external service' }}
+	messages={[
+		{ from: 'left', kind: 'request', text: 'GetMessagesAsync(pageToken: null, 20)' },
+		{ from: 'right', kind: 'response', text: '20 messages, NextPageToken "CiAKGjBi..."' },
+		{ from: 'left', kind: 'request', text: 'GetMessagesAsync(pageToken: "CiAKGjBi...", 20)' },
+		{ from: 'right', kind: 'response', text: '7 messages, NextPageToken null' },
+	]}
+	caption="The handler forwards the API's NextPageToken unchanged as the next cursor; a null token ends the paging."
+/>
 
 ```csharp
 app.Map("messages", async (IReplPagingContext paging, MessageApiClient client, CancellationToken ct) =>
@@ -112,15 +140,22 @@ app.Map("messages", async (IReplPagingContext paging, MessageApiClient client, C
 
 ## nextLink / URL cursor
 
-Used by OData and Microsoft Graph. The next-page URL is the cursor. Validate that it belongs to your API before sending it as a request.
+Used by OData and Microsoft Graph. The next-page URL is the cursor, and your client sends it with its own credentials, so a caller who edits it can reach any URL those credentials allow. Check the scheme, the host, the port and the collection path, not only a prefix. When the client holds a service identity rather than the caller's, keep the nextLink server-side behind an opaque key, or sign it.
 
 ```csharp
 app.Map("items", async (IReplPagingContext paging, GraphClient client, CancellationToken ct) =>
     paging.CreateSource<Item>(async (req, innerCt) =>
     {
-        // Validate: cursor must be null or start with the expected base URL.
-        if (req.Cursor is not null && !req.Cursor.StartsWith("https://graph.example.com/", StringComparison.Ordinal))
+        // Accept only a nextLink for this collection on this API, not any URL on the host.
+        if (req.Cursor is not null
+            && !(Uri.TryCreate(req.Cursor, UriKind.Absolute, out var next)
+                && next.Scheme == Uri.UriSchemeHttps
+                && next.IdnHost == "graph.example.com"
+                && next.IsDefaultPort
+                && next.AbsolutePath == "/v1.0/items"))
+        {
             throw new ArgumentException("Invalid continuation cursor.");
+        }
 
         var response = req.Cursor is null
             ? await client.GetItemsAsync(req.PageSize, innerCt)
@@ -139,16 +174,16 @@ app.Map("items", async (IReplPagingContext paging, GraphClient client, Cancellat
 Creates an immutable snapshot on the first page request and pages through it. The view is consistent even if the underlying table changes between pages.
 
 ```csharp
-app.Map("audit", async (IReplPagingContext paging, AuditStore store, CancellationToken ct) =>
+app.Map("audit", async (IReplPagingContext paging, AuditStore store, ICurrentUser user, CancellationToken ct) =>
     paging.CreateSource<AuditRow>(async (req, innerCt) =>
     {
         var (snapshotId, offset) = ParseSnapshotCursor(req.Cursor);
 
-        // First page: create snapshot; subsequent pages: reuse it.
-        if (snapshotId is null)
-            snapshotId = await store.CreateSnapshotAsync(innerCt);
+        // First page: create a snapshot owned by the caller; later pages: reuse it.
+        // Snapshot ids must be unguessable, and reads are scoped to their owner.
+        snapshotId ??= await store.CreateSnapshotAsync(user.Id, innerCt);
 
-        var items = await store.ReadSnapshotAsync(snapshotId, offset, req.PageSize, innerCt);
+        var items = await store.ReadSnapshotAsync(user.Id, snapshotId, offset, req.PageSize, innerCt);
         var nextOffset = offset + items.Count;
         var hasMore = items.Count == req.PageSize;
 
@@ -160,8 +195,17 @@ app.Map("audit", async (IReplPagingContext paging, AuditStore store, Cancellatio
 private static (string? id, int offset) ParseSnapshotCursor(string? cursor)
 {
     if (cursor is null) return (null, 0);
-    var snap = JsonSerializer.Deserialize<SnapshotCursor>(Convert.FromBase64String(cursor));
-    return (snap?.Id, snap?.Offset ?? 0);
+    try
+    {
+        var snap = JsonSerializer.Deserialize<SnapshotCursor>(Convert.FromBase64String(cursor));
+        return snap is { Id: not null, Offset: >= 0 }
+            ? (snap.Id, snap.Offset)
+            : throw new ArgumentException("Invalid continuation cursor.");
+    }
+    catch (Exception ex) when (ex is FormatException or JsonException)
+    {
+        throw new ArgumentException("Invalid continuation cursor.", ex);
+    }
 }
 
 private static string EncodeSnapshotCursor(string id, int offset) =>
@@ -174,18 +218,21 @@ private sealed record SnapshotCursor(string Id, int Offset);
 
 ## Range / window cursor
 
-For time-series or log data where the user wants a fixed window per page.
+For time-series or log data: the caller picks one time window, and pages hold a fixed number of events inside it. The cursor names the last event returned, by timestamp and id, so the next page starts strictly after it even when several events share a timestamp.
+
+<RangeWindowPages />
 
 ```csharp
 app.Map("metrics", async (IReplPagingContext paging, MetricStore store, string? from, string? to, CancellationToken ct) =>
     paging.CreateSource<MetricRow>(async (req, innerCt) =>
     {
-        var (windowStart, windowEnd) = ParseWindowCursor(req.Cursor, from, to);
-        var items = await store.QueryWindowAsync(windowStart, windowEnd, req.PageSize, innerCt);
+        var (afterTime, afterId, windowEnd) = ParseWindowCursor(req.Cursor, from, to);
 
-        // Advance to next window starting from the last timestamp seen.
+        // Events strictly after (afterTime, afterId) and before windowEnd, ordered by (Timestamp, Id).
+        var items = await store.QueryWindowAsync(afterTime, afterId, windowEnd, req.PageSize, innerCt);
+
         var next = items.Count == req.PageSize
-            ? EncodeWindowCursor(items[^1].Timestamp, windowEnd)
+            ? EncodeWindowCursor(items[^1].Timestamp, items[^1].Id, windowEnd)
             : null;
 
         return new ReplPage<MetricRow>(items, nextCursor: next);
@@ -196,8 +243,11 @@ app.Map("metrics", async (IReplPagingContext paging, MetricStore store, string? 
 
 ## Cursor security checklist
 
+<CursorChecks />
+
 - **Length** — Repl enforces ≤ 512 characters. Keep your encoded cursors well under this.
-- **Encoding** — Prefer base64 for structured data. Avoid raw JSON or strings with spaces (Repl rejects whitespace in cursors).
-- **Ownership** — Cursors that encode tenant IDs or database references should be signed (HMAC) or encrypted so a user cannot tamper with another tenant's continuation.
+- **Encoding** — Prefer base64 for structured data. Avoid raw JSON or strings with spaces (Repl rejects whitespace in cursors). The interactive pager passes your `nextCursor` back without Repl's checks, so a cursor that fails them still works there, then fails when a script or an agent passes it back.
+- **Refusal** — A cursor your handler cannot decode is an error, not a request for the first page: falling back silently hands a script or an agent rows it already has. Inside `CreateSource`, throwing is the way to refuse; the run ends as a handler error, and an MCP agent sees a failed call.
+- **Ownership** — Scope every query by the authenticated caller, never by an id read from the cursor. A cursor that must carry tenant, filter or internal ids needs authenticated protection, an HMAC or authenticated encryption such as ASP.NET Core Data Protection, with the owner inside the protected payload to compare with the caller. Data Protection's string output is base64url and can start with `-`, which Repl refuses; protect bytes and use standard base64 instead.
 - **Expiry** — Consider adding a timestamp to snapshot or session-bound cursors and rejecting expired ones.
 - **Leakage** — Cursors that contain database internals (table names, raw SQL fragments, internal IDs) expose schema. Use opaque tokens or encrypt the payload.
