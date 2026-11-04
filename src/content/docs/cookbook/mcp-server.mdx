@@ -8,7 +8,7 @@ import { Aside } from '@astrojs/starlight/components';
 `Repl.Mcp` lets your app expose its command graph as an MCP server. It is not a standalone MCP server by itself: the app you build with Repl is the server that agent hosts launch. Every `Map(...)` becomes a tool; return values, resources, and prompts are all first-class.
 
 <Aside type="tip">
-  Full runnable code: [`samples/08-mcp-server`](https://github.com/yllibed/repl/tree/main/samples/08-mcp-server)
+  Full runnable code: [`samples/08-mcp-server`](https://github.com/yllibed/repl/tree/v0.12.0/samples/08-mcp-server)
 </Aside>
 
 ## Enable the MCP server
@@ -127,7 +127,7 @@ app.Map("contacts delete {id:int}", static (int id, IContactStore store) =>
 | `.ReadOnly()` | No side effects — call freely, parallelize |
 | `.Idempotent()` | Safe to retry on transient failure |
 | `.OpenWorld()` | Reaches external systems (email, HTTP, etc.) |
-| `.LongRunning()` | Enable call-now/poll-later pattern |
+| `.LongRunning()` | Slow-operation hint in help and docs; not advertised to MCP clients as task support |
 
 ## Automation visibility
 

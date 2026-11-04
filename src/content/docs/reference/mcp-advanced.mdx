@@ -1,12 +1,12 @@
 ---
 title: MCP — Advanced
-description: Programmatic sampling, elicitation, client roots, custom transports, and HTTP hosting for Repl MCP servers.
+description: Programmatic sampling, elicitation, client roots, custom transports, HTTP hosting, protocol revisions and operator diagnostics for Repl MCP servers.
 ---
 
 import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
 import ApiRef from '../../../components/ApiRef.astro';
 
-`Repl.Mcp` is built on the official `ModelContextProtocol` C# SDK. The basics — tools, resources, prompts, MCP Apps, behavioral annotations — are covered in [MCP In Depth](/reference/mcp-concepts/). This page goes one level deeper: direct access to agent capabilities (sampling and elicitation) from handler code, client roots and soft roots, dynamic tool compatibility, custom transports, and HTTP hosting.
+`Repl.Mcp` is built on the official `ModelContextProtocol` C# SDK, version 2.2. The basics — tools, resources, prompts, MCP Apps, behavioral annotations — are covered in [MCP In Depth](/reference/mcp-concepts/). This page goes one level deeper: direct access to agent capabilities (sampling and elicitation) from handler code, client roots and soft roots, dynamic tool compatibility, custom transports, HTTP hosting, protocol revisions, and operator diagnostics.
 
 ---
 
@@ -57,7 +57,7 @@ public interface IMcpSampling
 
 **Current limitations:** single-message, text-only. The wrapper does not expose system prompts, temperature, model preferences, or multi-turn conversation — those are available in the underlying SDK if you need them.
 
-**Design guidance:** prefer passing all necessary data as route parameters and returning a structured result rather than relying on sampling for core logic. Sampling is best for tasks where LLM judgment genuinely adds value and the command can degrade gracefully without it (as in the [CSV import sample](https://github.com/yllibed/repl/tree/main/samples/08-mcp-server) in `samples/08-mcp-server`).
+**Design guidance:** prefer passing all necessary data as route parameters and returning a structured result rather than relying on sampling for core logic. Sampling is best for tasks where LLM judgment genuinely adds value and the command can degrade gracefully without it (as in the [CSV import sample](https://github.com/yllibed/repl/tree/v0.12.0/samples/08-mcp-server) in `samples/08-mcp-server`).
 
 ---
 
@@ -252,36 +252,77 @@ The factory receives:
 
 ---
 
-## HTTP and multi-session hosting
+## HTTP hosting
 
-The built-in `mcp serve` command is a single-session stdio server. For HTTP-based or multi-session deployments (SSE, Streamable HTTP, ASP.NET Core), use `BuildMcpServerOptions`:
+The built-in `mcp serve` command serves stdio. To serve MCP over HTTP from an ASP.NET Core host, let the SDK own the transport and apply the Repl catalog to its options. Reference `ModelContextProtocol.AspNetCore`, at the same SDK version as `Repl.Mcp`:
 
 ```csharp
-using ModelContextProtocol.Server;
+using ModelContextProtocol.AspNetCore;
+using Repl;
 using Repl.Mcp;
 
-// Build the SDK's McpServerOptions from the Repl command graph.
-// This captures Tools, Resources, and Prompts as pre-populated collections.
-McpServerOptions mcpOptions = app.BuildMcpServerOptions(o =>
+var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddRepl((_, repl) =>
 {
-    o.ServerName = "MyApi";
-    o.ToolNamingSeparator = ToolNamingSeparator.Hyphen;
+    repl.UseEmbeddedConsoleProfile();
+    repl.Map("status", () => "all systems go").ReadOnly();
 });
 
-// Pass mcpOptions to any compatible host — ASP.NET Core, raw SDK, etc.
-// Example with the official SDK HTTP server:
-// await using var server = McpServer.Create(transport, mcpOptions, serviceProvider: app.Services);
+builder.Services.AddMcpServer().WithHttpTransport(http =>
+{
+    http.SessionMode = HttpServerSessionMode.Stateless;
+    http.ConfigureSessionOptions = (context, target, ct) =>
+    {
+        var repl = context.RequestServices.GetRequiredService<ReplApp>();
+        repl.ConfigureMcpServerOptions(target, options => options.ServerName = "MyApi",
+            context.RequestServices);
+        return Task.CompletedTask;
+    };
+});
+
+var web = builder.Build();
+web.MapMcp("/mcp");
+await web.RunAsync();
 ```
 
-The <ApiRef uid="Repl.ICoreReplApp" /> overload is available when you don't have a full <ApiRef uid="Repl.ReplApp" /> reference. Pass an explicit `serviceProvider` — without it, DI in handlers won't resolve:
+`ConfigureMcpServerOptions` replaces the server identity, capabilities and the tool, resource and prompt collections with the Repl projection, and keeps every other SDK setting: handlers, filters, authentication. In stateless mode the SDK calls it for each request, so always pass `context.RequestServices`: projection and execution then share the request's DI scope. The host owns HTTP, authentication, authorization and shutdown; compose them on the endpoint with its usual policies. `CoreReplApp` has the same helper.
 
-```csharp
-McpServerOptions mcpOptions = app.Core.BuildMcpServerOptions(configure, serviceProvider);
-```
+`BuildMcpServerOptions` still returns a ready-made `McpServerOptions` for other hosts. A server built from one reused result has no per-connection DI scope: one `Scoped` instance serves every client. The repository's [MCP transports](https://github.com/yllibed/repl/blob/v0.12.0/docs/mcp-transports.md#scenario-b-mcp-over-http) page covers both paths and what each isolates.
+
+---
+
+## Protocol revisions
+
+`Repl.Mcp` runs on the official `ModelContextProtocol` SDK 2.2 and serves two protocol revisions from the same server:
+
+| Revision | Era | Served when |
+|---|---|---|
+| `2026-07-28` | Modern: each request carries its version and capabilities, with no session | Default for a client that does not pin a version |
+| `2025-11-25` | Legacy: a session starts with an `initialize` handshake | The client pins it, or opens with `initialize` |
+
+The differences matter mostly to commands that depend on the client. On `2026-07-28` the advertised tool set must not vary between clients, so a module whose presence depends on client roots or sampling is offered to every client or to none. Feedback a command reports rides in the tool result rather than in log notifications. Roots, sampling and logging are deprecated by that revision; Repl keeps them for existing hosts. See [what differs by revision](https://github.com/yllibed/repl/blob/v0.12.0/docs/mcp-conformance.md#what-differs-by-revision).
 
 <Aside type="note">
-Repl does not ship HTTP/SSE transport wrappers. Obtain them from the `ModelContextProtocol` SDK or its ASP.NET Core integration package. `BuildMcpServerOptions` gives you the pre-wired command graph; you choose the transport.
+**Changed in 0.12.** `Repl.Mcp` requires the SDK 2.x; the 1.x and 2.x assemblies cannot coexist. `IMcpFeedback.SendMessageAsync` takes `McpMessageLevel` instead of the SDK's `LoggingLevel`. An unknown resource now answers `-32002` on `2025-11-25` or `-32602` on `2026-07-28`, and an unknown prompt `-32602`, instead of `-32603`. See [upgrading from the 1.x SDK](https://github.com/yllibed/repl/blob/v0.12.0/docs/mcp-reference.md#upgrading-from-the-1x-sdk).
 </Aside>
+
+---
+
+## Operator diagnostics
+
+Some failures are hidden from the MCP client on purpose: an exception message can carry a path or a connection string, and the client only gets `Command failed with exit code N.` `Repl.Mcp` logs the detail for the operator through `Microsoft.Extensions.Logging`, under the category `Repl.Mcp`:
+
+Events 2001 to 2009 cover a tool or resource failure whose detail is withheld (2001), failed catalog rebuilds and roots fetches with their repeats and recoveries, and a catalog that cannot be built because a hidden option is also required (2008).
+
+A failure that can repeat on every request warns once. Under `mcp serve`, standard output carries the protocol, so send logs to standard error. Repeats are logged at Debug, so set the minimum level to see them:
+
+```csharp
+var app = ReplApp.Create(services => services.AddLogging(logging => logging
+    .SetMinimumLevel(LogLevel.Debug)
+    .AddConsole(console => console.LogToStandardErrorThreshold = LogLevel.Trace)));
+```
+
+The table of events, with what each one carries, is in [operator diagnostics](https://github.com/yllibed/repl/blob/v0.12.0/docs/mcp-reference.md#operator-diagnostics).
 
 ---
 

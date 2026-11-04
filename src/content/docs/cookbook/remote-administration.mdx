@@ -1,0 +1,156 @@
+---
+title: Remote Administration
+description: Attach a console to a running process, or run one command in it, over a same-user named pipe with Repl.Remote.
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+import ApiRef from '../../../components/ApiRef.astro';
+
+A long-running service still needs an operator. `Repl.Remote` lets one attach a console to the process that is already running, or ask it to run a single command and return its exit code. The command runs inside the live process, against the same services, so `settings show` reads the settings the service is actually using, without a restart or a second instance.
+
+<Aside type="tip">
+  Full runnable code: [`samples/05-hosting-remote`](https://github.com/yllibed/repl/tree/v0.12.0/samples/05-hosting-remote) serves browser terminals, native console sessions and one-shot commands from one process. [`samples/10-docs-mcp`](https://github.com/yllibed/repl/tree/v0.12.0/samples/10-docs-mcp) is a documentation MCP server administered the same way.
+</Aside>
+
+## Remote administration vs. hosted sessions
+
+Both put a Repl session somewhere other than the app's own console, but they serve different people:
+
+| | [Hosted sessions](/cookbook/hosting-remote/) | Remote administration |
+|---|---|---|
+| Packages | `Repl.WebSocket`, `Repl.Telnet` | `Repl.Remote`, `Repl.Remote.Defaults` |
+| Who connects | Users of the app, over the network | A trusted operator on the same machine, same OS account |
+| Transport | WebSocket, Telnet, any stream pair | Named pipe (`PipeOptions.CurrentUserOnly`), or streams you supply |
+| One-shot command with an exit code | No | Yes, `cli.execute` |
+| Typical use | A REPL in a browser, a shared multi-user console | Health probes, maintenance, live inspection inside a container |
+
+MCP is a third, separate surface: it exposes selected tools to AI agents. The administration endpoint exposes the application's command surface to operators.
+
+## Explicit opt-in
+
+Nothing listens unless the application starts an endpoint. Upgrading `Repl` or `Repl.Defaults` does not add one, and referencing the remote packages alone starts nothing. `Repl.Remote.Defaults` connects a `ReplApp` and brings in `Repl.Remote`; see [Packages](/reference/packages/#replremote) for what each one holds.
+
+```bash
+dotnet add package Repl.Remote.Defaults
+```
+
+## Serve a running application
+
+The application creates a <ApiRef uid="Repl.Remote.NamedPipeReplServer" /> next to its host. Each connection gets a backend; here it borrows the existing `ReplApp` and the host's service provider, so singletons are shared with the running service:
+
+```csharp
+using Repl;
+using Repl.Remote;
+
+var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddRepl((services, app) =>
+{
+    app.UseEmbeddedConsoleProfile();
+    app.Map("health", () => new { status = "ready" });
+});
+
+await using var host = builder.Build();
+var app = host.Services.GetRequiredService<ReplApp>();
+var remote = new NamedPipeReplServer("my-app",
+    _ => ValueTask.FromResult<IRemoteReplBackend>(
+        new ReplAppRemoteBackend(app, host.Services)),
+    error => host.Logger.LogError(error, "Remote CLI failure"));
+
+try
+{
+    await host.StartAsync();
+    var stopping = Task.Delay(Timeout.InfiniteTimeSpan, host.Lifetime.ApplicationStopping);
+    if (await Task.WhenAny(stopping, remote.Completion) == remote.Completion)
+    {
+        await remote.Completion; // rethrows the fault that stopped the endpoint
+    }
+}
+finally
+{
+    host.Lifetime.StopApplication();
+    try
+    {
+        await remote.DisposeAsync();
+    }
+    catch (TimeoutException error)
+    {
+        // Remote commands still run on the host's services: never stop or dispose them underneath.
+        host.Logger.LogCritical(error, "Remote commands did not drain; terminating.");
+        Environment.Exit(1); // skips the finally below and the host's disposal
+    }
+    finally
+    {
+        await host.StopAsync();
+    }
+}
+```
+
+Three details in this code matter in production:
+
+- **The third argument, `onError`, is where failures go.** A client only ever sees "The remote backend failed." (`-32603`) or a terminal that exits `1`. The exception itself reaches `onError`; without a callback it goes to `System.Diagnostics.Trace`, which no default logging provider reads.
+- **Watch `remote.Completion`.** It faults when the endpoint stops accepting connections, so the host can stop instead of running on without its administration endpoint.
+- **Dispose the listener before stopping the host.** Remote work drains first, while the services it uses are still alive. Disposal waits at most five seconds; when it times out, commands are still running and the listener keeps cleaning up in the background, so stopping or disposing the host would pull services from under them. The example ends the process before that happens; [sample 05](https://github.com/yllibed/repl/blob/v0.12.0/samples/05-hosting-remote/HostingLifetime.cs) applies a similar fatal policy to its whole shutdown. A logger that writes on a background thread can lose that last line, so also write it to standard error if it must survive. Choose the policy your application needs.
+
+## Connect from a client
+
+The framework does not add `--remote-console` or `--remote-exec` switches to your executable. The hosting program chooses client mode itself, before it builds a host, as sample 05 does. A client connects, discovers, and executes:
+
+```csharp
+using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+await using var client = await NamedPipeReplServer.ConnectAsync("my-app", deadline.Token);
+await client.DiscoverAsync(deadline.Token);
+
+var result = await client.ExecuteAsync(
+    new RemoteInvocationRequest { Arguments = ["health"] },
+    deadline.Token);
+return result.ExitCode;
+```
+
+A <ApiRef uid="Repl.Remote.RemoteExecutionResult" /> carries the outcome `Kind`, the `ExitCode` chosen by the application's [exit-code policy](/reference/exit-codes/), the JSON `Result`, and the text written to `StandardOutput` and `StandardError`. Check `ExitCode` even when the call itself succeeds.
+
+For an interactive session, hand the client to <ApiRef uid="Repl.Remote.RemoteConsole" />: `await RemoteConsole.RunAsync(client, ct)`. Ctrl+C interrupts the remote command, and Ctrl+D detaches without stopping the server.
+
+## Probe and attach in a container
+
+Sample 05 ships a Dockerfile. Its health check and its operator console are both remote clients of the running process, so neither needs a shell or `curl` in the image:
+
+<Steps>
+
+1. Build and start the service, from the repository root:
+
+   ```bash
+   docker build -f samples/05-hosting-remote/Dockerfile -t repl-hosting-remote .
+   docker run -d --name repl-hosting-remote -p 127.0.0.1:8080:8080 repl-hosting-remote
+   ```
+
+2. Probe it without a TTY. `health --liveness` exits `0` while the host is up; `health` also fails during maintenance, which makes it a readiness probe:
+
+   ```bash
+   docker exec repl-hosting-remote dotnet /app/HostingRemoteSample.dll --remote-exec repl-hosting-sample health --liveness
+   ```
+
+3. Attach a console to the same process, and change shared state live:
+
+   ```bash
+   docker exec -it repl-hosting-remote dotnet /app/HostingRemoteSample.dll --remote-console repl-hosting-sample
+   ```
+
+</Steps>
+
+A real readiness command should check what the service needs to do its work, such as a database or a warmed cache, and return a failing exit code otherwise. The repository's [container hosting recipe](https://github.com/yllibed/repl/blob/v0.12.0/docs/container-hosting.md) also covers logs, the shutdown budget and a Portainer console.
+
+## Security and limits
+
+<Aside type="caution">
+  The named-pipe endpoint is for trusted local administration. It accepts only the same OS account, and on Windows a compatible elevation level, but it has no authentication layer of its own, no per-command authorization, and no sandbox. Hidden commands remain callable: hiding is not authorization. If you serve the protocol over another transport, establish those boundaries before passing it the streams.
+</Aside>
+
+- One connection runs one execution or one terminal at a time; separate connections run concurrently, so shared state must be thread-safe.
+- One-shot output is captured in memory. The endpoint suits administrative commands, not bulk data transfer.
+- A transport failure is never retried automatically: the command may already have run.
+
+## Further reading
+
+- [Remote CLI and local administration](https://github.com/yllibed/repl/blob/v0.12.0/docs/remote-cli.md) — startup order, stream ownership, structured invocations and the JSON-RPC wire profile.
+- [Hosting Remote Sessions](/cookbook/hosting-remote/) — WebSocket and Telnet sessions for users of the app.
+- [Exit Codes & Signals](/reference/exit-codes/) — the codes a remote execution returns.

@@ -1,0 +1,149 @@
+---
+title: Advanced Input & Startup
+description: Opt-in hooks to adapt a legacy command line, intercept parsed invocations, validate input with services, and prepare options before DI.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import ApiRef from '../../../components/ApiRef.astro';
+
+Most applications need only `Map` and `RunAsync`. The APIs on this page are for the other cases: keeping the syntax of an existing command line, checking input against application rules, or embedding Repl in a larger system that needs a say before commands run.
+
+Try ordinary routes, option aliases, route constraints and context validation first. Reach for these hooks when the old interface cannot be expressed that way.
+
+<Aside type="tip">
+  Full runnable code: [`samples/09-advanced-input`](https://github.com/yllibed/repl/tree/v0.12.0/samples/09-advanced-input) keeps a legacy search syntax, validates it against a policy chosen before DI, and guards an external action during preview and completion.
+</Aside>
+
+## Choose an extension point
+
+| Need | Extension point | Runs |
+|---|---|---|
+| Read options before creating application objects or registering services | [Preparation](#prepare-before-composition) | Once, before composition |
+| Act with the run's services before dispatch | [Startup hook](#prepare-before-composition) | Once per run or session |
+| Translate legacy textual syntax | [Argument preprocessor](#translate-an-existing-command-line) | Before strict parsing and routing |
+| Inspect parsed values, redirect a request, handle an external action | [Invocation hook](#intercept-a-parsed-invocation) | After preliminary parsing, before final validation |
+| Accept or refuse input using parsed values and services | [Input validator](#validate-parsed-values) | While typing, on completion, and on submission |
+| Wrap ordinary command execution | [Middleware](/reference/pipelining/#middleware) | After binding |
+
+## Translate an existing command line
+
+An argument preprocessor receives the arguments before Repl parses them and returns an <ApiRef uid="Repl.ArgumentPreprocessingResult" />: `Continue`, `Replace` or `Handled`.
+
+```csharp
+app.UseArgumentPreprocessor((input, ct) =>
+    input.Arguments is ["/find", var query]
+        ? ArgumentPreprocessingResult.Replace(["query", query])
+        : ArgumentPreprocessingResult.Continue());
+
+app.Map("query {text}", (string text, int limit = 3) => $"{text}, at most {limit} results");
+```
+
+`/find "hello world"` becomes `["query", "hello world"]`, with argument boundaries kept; nothing is turned back into a shell string. Repl then parses, binds and validates the replacement as usual. Preprocessors run in registration order, and `OriginalArguments` keeps the initial input.
+
+To pick a default command, replace an empty invocation:
+
+```csharp
+app.UseArgumentPreprocessor((input, _) =>
+    input.Mode == InputProcessingMode.Execution && input.Arguments.Count == 0
+        ? ArgumentPreprocessingResult.Replace(["serve"])
+        : ArgumentPreprocessingResult.Continue());
+```
+
+<Aside type="caution">
+  Preprocessors and validators also run **while the user types** and on Tab completion, not only when a command is submitted. A callback that writes a file or starts a migration must check `Mode` and `Purpose` first and only act on `InputProcessingMode.Execution`; Repl cannot undo an effect that already happened.
+</Aside>
+
+## Intercept a parsed invocation
+
+An invocation hook sees the input after Repl has resolved the route and typed the values, and before final validation. It can inject typed parameters, options groups, typed global options and services:
+
+```csharp
+app.UseInvocationHook((ReplInvocationContext context, SearchPolicy policy) =>
+{
+    if (context.Parsed.Command != "query {text}"
+        || context.Parsed.Input.Purpose != InputPurpose.Command      // leave help and completion alone
+        || !context.Parsed.TryGetValue<int>("limit", out var limit) || limit != 0
+        || !context.Parsed.TryGetValue<string>("text", out var text))
+    {
+        return ReplInvocationResult.Continue();
+    }
+
+    return ReplInvocationResult.Replace(ReplInvocationRequest.ForCommand(
+        "query {text}",
+        new Dictionary<string, object?> { ["text"] = text, ["limit"] = policy.MaximumLimit },
+        context.Parsed.GlobalValues                                   // a replacement drops globals unless carried over
+            .Where(pair => pair.Value.State == InputValueState.Available)
+            .ToDictionary(pair => pair.Key, pair => pair.Value.Value)));
+});
+```
+
+An <ApiRef uid="Repl.ReplInvocationResult" /> continues, replaces the whole request, or handles it with a result of its own. A replacement is parsed again, and routing, constraints, validators, binding and middleware still apply to it. `context.Channel` tells CLI, interactive, hosted, programmatic and MCP invocations apart. Hooks run on submission, help and explicit completion, never on the background preview.
+
+The same <ApiRef uid="Repl.ReplInvocationRequest" /> can be passed straight to `app.RunAsync(request)`. Its values bind as they are, without being turned into tokens and parsed back, which is also the path MCP tool calls take. See [submit native values](https://github.com/yllibed/repl/blob/v0.12.0/docs/advanced-input.md#submit-native-values).
+
+## Validate parsed values
+
+An input validator checks rules that span several values or need application services. It returns an <ApiRef uid="Repl.InputValidationResult" />:
+
+```csharp
+app.UseInputValidator((ParsedInputContext input, SearchPolicy policy) =>
+{
+    // Command is the full route template. An omitted --limit arrives as its default, 3, and is checked;
+    // 0 is left to the invocation hook above, which replaces it with the policy maximum.
+    if (input.Command != "query {text}"
+        || !input.TryGetValue<int>("limit", out var limit)
+        || limit == 0)
+        return InputValidationResult.Valid();
+
+    return limit >= 1 && limit <= policy.MaximumLimit
+        ? InputValidationResult.Valid()
+        : InputValidationResult.Invalid($"The result limit must be between 1 and {policy.MaximumLimit}.");
+});
+```
+
+`SearchPolicy` is the application's own `record SearchPolicy(int MaximumLimit)`, registered as a singleton, as in [sample 09](https://github.com/yllibed/repl/blob/v0.12.0/samples/09-advanced-input/Program.cs).
+
+Validators run in registration order, during live preview, completion and submission, so the user sees the refusal while typing. `Incomplete` and `Invalid` both block a submitted invocation. Interactive ambient commands such as `help` and `exit`, and input that enters a context, pass through validators too.
+
+## Prepare before composition
+
+Some applications must read their own options before they can build anything: a port, a data directory, a mode. <ApiRef uid="Repl.ReplStartup" /> parses declared global options and runs preparation hooks before any application object or service exists:
+
+```csharp
+var prepared = await ReplStartup.CreateBuilder()
+    .UseGlobalOptions<StartupOptions>()
+    .UsePreparationHook((StartupOptions options) =>
+        ArgumentPreprocessingResult.Continue(options.Port > 0
+            ? InputValidationResult.Valid()
+            : InputValidationResult.Invalid("Port must be positive.")))
+    .PrepareAsync(args);
+
+if (!prepared.CanContinue)
+    return await prepared.CompleteAsync();   // renders help or the refusal, with the exit policy
+
+var port = prepared.GetOptions<StartupOptions>().Port;
+var app = ReplApp.Create(prepared, services => services.AddSingleton(new Listener(port)));
+
+app.UseStartupHook((ReplStartupContext context, Listener listener) =>
+    context.Purpose is not (InputPurpose.Help or InputPurpose.Completion)
+        && context.RemainingArguments is ["/port"]
+        ? ArgumentPreprocessingResult.Handled(listener.Port)
+        : ArgumentPreprocessingResult.Continue());
+
+app.Map("serve", (Listener listener) => $"Serving on {listener.Port}.");
+return await app.RunAsync(prepared);
+```
+
+The prepared declarations transfer to the app, so do not call `UseGlobalOptions<T>()` again. `CoreReplApp.Create(prepared)` and `services.AddRepl(prepared, ...)` accept the same result. A startup hook runs once per run or session, with the run's services; it also works without explicit preparation, but then the service provider already exists when it runs.
+
+## Callback order and failures
+
+For a submitted input, argument preprocessors run first, then startup hooks once per run, then parsing and route resolution, then invocation hooks, and finally validators, binding, middleware and the handler. The repository documents the [full order](https://github.com/yllibed/repl/blob/v0.12.0/docs/advanced-input.md#callback-order), including the earlier preparation stages.
+
+A failing callback is an application error, not invalid input: it is reported as `input_callback_error` and exits as a `HandlerException` (see [Exit Codes & Signals](/reference/exit-codes/)).
+
+## Further reading
+
+- [Advanced input adaptation and validation](https://github.com/yllibed/repl/blob/v0.12.0/docs/advanced-input.md) — preview and completion modes, native values, structured globals, the shell completion bridge.
+- [Advanced startup preparation and hooks](https://github.com/yllibed/repl/blob/v0.12.0/docs/advanced-startup.md) — lifecycle order, externally owned providers, concurrency rules.
+- [Routes & Parameters](/reference/routes-and-parameters/) — the ordinary input model to try first.

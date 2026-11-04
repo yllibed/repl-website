@@ -224,6 +224,14 @@ The user can press `R`, `A`, or `S` without navigating the menu.
 
 ## Cancellation
 
-Every <ApiRef uid="Repl.Interaction.IReplInteractionChannel" /> method accepts a `CancellationToken`. When `Ctrl+C` is pressed or the session is terminated, the token is cancelled, and the prompt throws `OperationCanceledException` — which Repl catches and reports as <ApiRef uid="Repl.Results" label="Results.Cancelled" />.
+Every <ApiRef uid="Repl.Interaction.IReplInteractionChannel" /> method accepts a `CancellationToken`. A cancelled prompt throws `OperationCanceledException`:
 
-Press `Esc` to cancel a single prompt without cancelling the whole command (the method returns the prompt's default value instead of throwing).
+- **Esc** cancels the prompt, including a secret prompt with a timeout.
+- **Ctrl+C** cancels the command's token. In the interactive loop, Repl prints `Cancelled.` and the session continues; a second Ctrl+C exits.
+- A hosted terminal (WebSocket, Telnet, `StreamedReplHost`) that disconnects during a prompt cancels it, so no default is chosen for a user who has left.
+
+Redirected input that simply ends still settles the prompt through its `PromptFallback`. A handler that prefers the old answer can catch the exception and use an empty string or the default.
+
+<Aside type="note">
+**Changed in 0.12.** Esc in a timed secret prompt used to return an empty answer or ask again. A hosted disconnect during a prompt used to settle it through `PromptFallback`, which returned the default or threw `InvalidOperationException`. Both now throw `OperationCanceledException`. See [cancellation](https://github.com/yllibed/repl/blob/v0.12.0/docs/interaction.md#cancellation).
+</Aside>
