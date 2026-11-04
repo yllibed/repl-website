@@ -5,6 +5,7 @@ description: Dynamic scopes, REPL navigation, and DI-backed handlers.
 
 import { Aside } from '@astrojs/starlight/components';
 import ApiRef from '../../../components/ApiRef.astro';
+import ScopedTree from '../../../components/diagrams/ScopedTree.astro';
 
 Scoped contexts let users navigate into sub-trees of your command graph — like `cd` for your app's data model.
 
@@ -33,14 +34,7 @@ app.Context("client", client =>
 
 The shape of this graph:
 
-```
-myapp
-└── client
-    ├── list
-    └── {id:int}
-        ├── show
-        └── remove
-```
+<ScopedTree />
 
 ## REPL navigation
 

@@ -1,0 +1,57 @@
+---
+import Figure from '../Figure.astro';
+
+/* Each row is a route segment; `parent` is the index of the row it is nested in. A context also
+   shows the prompt the REPL displays once the user has entered it. */
+const rows = [
+	{ label: 'myapp', depth: 0, parent: -1, prompt: '>' },
+	{ label: 'client', depth: 1, parent: 0, prompt: '[client]>' },
+	{ label: 'list', depth: 2, parent: 1 },
+	{ label: '{id:int}', depth: 2, parent: 1, prompt: '[client/1]>' },
+	{ label: 'show', depth: 3, parent: 3 },
+	{ label: 'remove', depth: 3, parent: 3 },
+];
+// JetBrains Mono advances 0.6 em: 12.5px rt-code and 11.5px rt-note text.
+const codeChar = 7.5;
+const noteChar = 6.9;
+const indent = 28;
+const rowHeight = 34;
+const left = 40;
+const top = 30;
+const y = (index: number) => top + index * rowHeight;
+const x = (depth: number) => left + depth * indent;
+const labelEnd = (row: (typeof rows)[number]) => x(row.depth) + 12 + row.label.length * codeChar;
+const promptX = Math.max(...rows.map(labelEnd)) + 48;
+const longestPrompt = Math.max(...rows.map((row) => row.prompt?.length ?? 0));
+const viewWidth = Math.ceil(promptX + longestPrompt * noteChar + left);
+const viewHeight = y(rows.length - 1) + top;
+
+/* An elbow from the parent's node down to the child's row, then across to the child's node. */
+const branches = rows
+	.map((row, index) => ({ row, index }))
+	.filter(({ row }) => row.parent >= 0)
+	.map(({ row, index }) => `M${x(rows[row.parent].depth)} ${y(row.parent)}V${y(index)}H${x(row.depth)}`);
+---
+
+<Figure
+	viewWidth={viewWidth}
+	viewHeight={viewHeight}
+	label="Command tree: myapp contains client; client contains list and the {id:int} context; that context contains show and remove. Entering client shows the prompt [client]>, and entering 1 shows [client/1]>."
+	caption="Each context in the command graph is a place the REPL can enter; the prompt shows where you are."
+>
+	<path class="rt-rule" d={branches.join('')}></path>
+	{
+		rows.map((row, index) => (
+			<g>
+				<circle class="rt-node" cx={x(row.depth)} cy={y(index)} r="4" />
+				<text class="rt-code" x={x(row.depth) + 12} y={y(index) + 4}>{row.label}</text>
+				{row.prompt && (
+					<>
+						<path class="rt-lead" d={`M${labelEnd(row) + 8} ${y(index)}H${promptX - 8}`} />
+						<text class="rt-note" x={promptX} y={y(index) + 4}>{row.prompt}</text>
+					</>
+				)}
+			</g>
+		))
+	}
+</Figure>

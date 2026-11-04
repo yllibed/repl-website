@@ -1,24 +1,556 @@
-/* Landing hero enhancements */
+/*
+ * Repl Toolkit theme: "Night shift".
+ * A terminal-first look: amber phosphor on a raw-denim indigo ground. Amber doubles as the brass
+ * hardware of a pair of overalls (rivets, graph nodes, the logo straps); denim draws structure.
+ * Headings, the site title and code use JetBrains Mono; body text and the sidebar stay in IBM Plex Sans
+ * for legibility.
+ */
+
+/* ---------- Brand tokens: light values are the base, so they also apply when printing ---------- */
+:root {
+	--sl-font: 'IBM Plex Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+	--sl-font-mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+	--rt-denim: #2f5b9a;
+	--rt-cloth: #ffffff;
+	--rt-pocket: #eef1f6;
+	--rt-brass: #8a5b00;
+	--rt-rivet-edge: #5c3d00;
+	--rt-on-brass: #ffffff;
+	--rt-thread: var(--rt-brass);
+	--rt-ink: #1b2433;
+	--rt-muted: #566377;
+
+	/* The terminal panels stay dark in both themes, like a real terminal window. */
+	--rt-term-bg: #0b111c;
+	--rt-term-line: #24324a;
+	--rt-term-fg: #cfd8e6;
+	--rt-term-dim: #8290a8;
+	--rt-term-amber: #f0b44c;
+	--rt-term-ok: #8fd19e;
+	--rt-term-rivet-light: #ffe6b0;
+	--rt-term-rivet-edge: #9c7426;
+}
+
+/* ---------- Light theme ----------
+   [data-theme] matches both themes, so these values also replace the indigo of Starlight's print
+   stylesheet when a dark-theme reader prints. On screen, the dark block below overrides them. */
+:root[data-theme] {
+	--sl-color-accent-low: #f6e7c4;
+	--sl-color-accent: var(--rt-brass);
+	--sl-color-accent-high: #4a3100;
+
+	--sl-color-white: #121a28;
+	--sl-color-gray-1: #1b2433;
+	--sl-color-gray-2: #2c3546;
+	--sl-color-gray-3: #4f5b70;
+	--sl-color-gray-4: #8a95a8;
+	--sl-color-gray-5: #d6dbe3;
+	--sl-color-gray-6: #e6eaf0;
+	--sl-color-gray-7: #eff1f5;
+	--sl-color-black: #f8f9fb;
+
+	--sl-color-blue-low: #e6edf8;
+	--sl-color-blue: var(--rt-denim);
+	--sl-color-blue-high: #1f4277;
+	--sl-color-purple-low: var(--sl-color-accent-low);
+	--sl-color-purple: var(--sl-color-accent);
+	--sl-color-purple-high: var(--sl-color-accent-high);
+	--sl-color-orange-low: #fbe9e2;
+	--sl-color-orange: #c4562e;
+	--sl-color-orange-high: #8a2f12;
+	--sl-color-green-low: #e6f2e8;
+	--sl-color-green: #2f7d45;
+	--sl-color-green-high: #1d4d2b;
+	--sl-color-red-low: #fbe7e7;
+	--sl-color-red: #b3393b;
+	--sl-color-red-high: #6e1c1d;
+}
+
+/* ---------- Dark theme (screen only, so a dark page prints with the light values) ---------- */
+@media screen {
+	:root:not([data-theme='light']) {
+		--sl-color-accent-low: #3b2d12;
+		--sl-color-accent: #f0b44c;
+		--sl-color-accent-high: #ffe6b0;
+
+		--sl-color-white: #f4f6fa;
+		--sl-color-gray-1: #dce3ee;
+		--sl-color-gray-2: #c3cddc;
+		--sl-color-gray-3: #8d9ab0;
+		--sl-color-gray-4: #56657e;
+		--sl-color-gray-5: #2c3a52;
+		--sl-color-gray-6: #1a2537;
+		--sl-color-black: #121a28;
+
+		/* Links in phosphor amber rather than Starlight's pale accent-high. */
+		--sl-color-text-accent: var(--sl-color-accent);
+		--sl-color-bg-nav: #0e1520;
+		--sl-color-bg-sidebar: var(--sl-color-bg-nav);
+
+		/* Asides: note = blue (denim), tip = purple (amber), caution = orange, success = green, danger = red */
+		--sl-color-blue-low: #18243a;
+		--sl-color-blue: #7d9fd3;
+		--sl-color-blue-high: #c8d8f2;
+		--sl-color-purple-low: var(--sl-color-accent-low);
+		--sl-color-purple: var(--sl-color-accent);
+		--sl-color-purple-high: var(--sl-color-accent-high);
+		--sl-color-orange-low: #2e1a15;
+		--sl-color-orange: #e08a5f;
+		--sl-color-orange-high: #f6c3b0;
+		--sl-color-green-low: #142619;
+		--sl-color-green: #8fd19e;
+		--sl-color-green-high: #cfe8d3;
+		--sl-color-red-low: #2e1517;
+		--sl-color-red: #e07a7a;
+		--sl-color-red-high: #f5c4c4;
+
+		--rt-denim: var(--sl-color-blue);
+		--rt-cloth: var(--sl-color-gray-6);
+		--rt-pocket: var(--sl-color-bg-nav);
+		--rt-brass: var(--sl-color-accent);
+		--rt-rivet-edge: var(--rt-term-rivet-edge);
+		--rt-on-brass: var(--sl-color-black);
+		--rt-ink: var(--sl-color-gray-1);
+		--rt-muted: var(--sl-color-gray-3);
+	}
+}
+
+/* ---------- Typography ---------- */
+.site-title,
+.sl-markdown-content :is(h1, h2, h3, h4),
+h1#_top {
+	font-family: var(--sl-font-mono);
+	letter-spacing: -0.02em;
+	text-wrap: balance;
+}
+
+.site-title {
+	font-weight: 700;
+}
+
+h1#_top {
+	font-weight: 800;
+	letter-spacing: -0.035em;
+}
+
+.sl-markdown-content :is(h2, h3) {
+	font-weight: 700;
+}
+
+/* Programming ligatures would turn `=>` and `>=` into glyphs that do not match what readers type. */
+code,
+pre,
+kbd {
+	font-variant-ligatures: none;
+}
+
+/* Inline code glows like phosphor: amber text on a dim amber ground. Screen only, so print keeps
+   Starlight's plain inline code; code inside a link keeps the link's look. */
+@media screen {
+	.sl-markdown-content :not(pre, a, a *) > code {
+		color: var(--sl-color-accent-high);
+		background-color: var(--sl-color-accent-low);
+		border-radius: 2px;
+	}
+}
+
+/* ---------- Landing page (the only page with a hero) ---------- */
+/* Generated markers are decorative: the text after the slash gives them an empty accessible name.
+   The first declaration is the fallback for browsers without that syntax. */
+[data-has-hero] .sl-markdown-content h2::before {
+	content: '## ';
+	content: '## ' / '';
+	color: var(--sl-color-accent);
+}
+
 .hero {
-	padding-block: 4rem;
+	padding-block: 3rem;
+}
+
+/* The hero title is h1#_top, so it shares the page-title style above; only its size differs. */
+.hero h1 {
+	font-size: clamp(2.2rem, 3.8vw, 3.25rem);
+	line-height: 1.08;
 }
 
 .hero .tagline {
 	font-size: var(--sl-text-xl);
-	max-width: 50ch;
+	max-width: 34rem;
 }
 
-/* Feature grid spacing */
+.rt-nowrap {
+	white-space: nowrap;
+}
+
+.rt-cursor {
+	display: inline-block;
+	width: 0.55em;
+	height: 0.9em;
+	margin-inline-start: 0.12em;
+	vertical-align: -0.08em;
+	background: var(--sl-color-accent);
+	/* A few blinks, then it stays lit: endless blinking would distract from the content around it. */
+	animation: rt-blink 1.1s steps(1) 4;
+}
+
+@keyframes rt-blink {
+	50% {
+		opacity: 0;
+	}
+}
+
+/* Starlight sizes the hero image for a small illustration and puts it first on phones; the terminal
+   needs room and reads after the headline. Custom CSS is unlayered, so these rules win. */
+.hero > .hero-html {
+	order: 2;
+	width: 100%;
+	min-width: 0;
+}
+
+@media (min-width: 50rem) {
+	.hero {
+		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+		gap: 3rem;
+	}
+}
+
+/* ---------- Terminal panel ----------
+   Brass rivets stand in for the window buttons: the overalls are sewn into the terminal. */
+.rt-term {
+	width: 100%;
+	min-width: 0;
+	overflow: hidden;
+	text-align: start;
+	background: var(--rt-term-bg);
+	border: 1px solid var(--rt-term-line);
+	border-radius: 6px;
+	box-shadow: 0 30px 60px -30px rgb(5 10 20 / 0.55);
+}
+
+.rt-term-bar {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 0.55rem 0.8rem;
+	border-bottom: 1px solid var(--rt-term-line);
+	font-family: var(--sl-font-mono);
+	font-size: 0.78rem;
+	color: var(--rt-term-dim);
+}
+
+.rt-term-rivet {
+	flex: none;
+	width: 11px;
+	height: 11px;
+	border-radius: 50%;
+	background: radial-gradient(
+		circle at 35% 35%,
+		var(--rt-term-rivet-light),
+		var(--rt-term-amber) 45%,
+		var(--rt-term-rivet-edge)
+	);
+}
+
+.rt-term-title {
+	margin-inline-start: 0.5rem;
+}
+
+/* Long lines wrap rather than scroll, so the panel never becomes a scroller inside an image. */
+.rt-term-body {
+	padding: 1rem 1.15rem 1.2rem;
+	font-family: var(--sl-font-mono);
+	font-size: 0.84rem;
+	line-height: 1.65;
+	color: var(--rt-term-fg);
+	font-variant-ligatures: none;
+}
+
+/* One element per line, so each can light up in turn. */
+.rt-term-body > span {
+	display: block;
+	min-height: 1.65em;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+	animation: rt-excite 0.5s ease-out both;
+	animation-delay: calc(var(--i, 0) * 140ms + 200ms);
+}
+
+@keyframes rt-excite {
+	from {
+		opacity: 0.35;
+	}
+	60% {
+		text-shadow: 0 0 8px color-mix(in srgb, var(--rt-term-amber) 60%, transparent);
+	}
+	to {
+		opacity: 1;
+	}
+}
+
+.rt-term .rt-prompt {
+	color: var(--rt-term-amber);
+}
+
+.rt-term .rt-dim {
+	color: var(--rt-term-dim);
+}
+
+.rt-term .rt-out {
+	color: var(--rt-term-ok);
+}
+
+/* On paper the dark panel would lose its background and its light text would vanish. */
+@media print {
+	.hero > .hero-html {
+		display: none;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.rt-cursor,
+	.rt-term-body > span {
+		animation: none;
+	}
+}
+
+/* ---------- Landing sections: a listing and two checklists ---------- */
+.rt-listing,
+.rt-checks {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr);
+	column-gap: 3rem;
+	margin-block: 2rem;
+}
+
+@media (min-width: 50rem) {
+	.rt-listing,
+	.rt-checks {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+}
+
+:is(.rt-listing, .rt-checks) > section {
+	margin: 0;
+	padding-block: 1.1rem 1.25rem;
+	border-top: 1px dashed var(--sl-color-gray-5);
+}
+
+:is(.rt-listing, .rt-checks) :is(.sl-heading-wrapper, h3) {
+	margin-top: 0;
+	font-size: var(--sl-text-base);
+}
+
+:is(.rt-listing, .rt-checks) :is(h3, .sl-heading-wrapper) + * {
+	margin-top: 0.5rem;
+}
+
+.rt-listing h3::before {
+	content: '> ';
+	content: '> ' / '';
+	color: var(--sl-color-accent);
+}
+
+.rt-checks ul {
+	padding-inline-start: 0;
+	list-style: none;
+}
+
+.rt-checks li {
+	position: relative;
+	padding-inline-start: 2.6rem;
+}
+
+.rt-checks li::before {
+	position: absolute;
+	inset-inline-start: 0;
+	content: '[x]';
+	content: '[x]' / '';
+	font-family: var(--sl-font-mono);
+	font-size: 0.88em;
+	color: var(--sl-color-accent);
+}
+
+.rt-checks-added li::before {
+	content: '[+]';
+	content: '[+]' / '';
+}
+
+/* "Where to go next" reads as a directory listing. */
+.rt-ls {
+	display: grid;
+	grid-template-columns: max-content minmax(0, 1fr);
+	margin-block: 1.5rem;
+	border-top: 1px solid var(--sl-color-gray-5);
+	font-family: var(--sl-font-mono);
+	font-size: var(--sl-text-sm);
+}
+
+.rt-ls > * {
+	grid-column: 1 / -1;
+}
+
+.rt-ls p {
+	margin: 0;
+	padding-block: 0.5rem;
+	color: var(--sl-color-gray-3);
+}
+
+.rt-ls a {
+	display: grid;
+	grid-template-columns: subgrid;
+	column-gap: 2rem;
+	margin: 0;
+	padding-block: 0.7rem;
+	border-bottom: 1px solid var(--sl-color-gray-5);
+	color: var(--sl-color-text);
+	text-decoration: none;
+}
+
+.rt-ls a b {
+	font-weight: 500;
+	color: var(--sl-color-accent);
+}
+
+.rt-ls a span {
+	font-family: var(--sl-font);
+	color: var(--sl-color-gray-2);
+}
+
+.rt-ls a:hover b,
+.rt-ls a:focus-visible b {
+	text-decoration: underline;
+}
+
+/* On phones the description goes under its entry: one column, which each subgrid row inherits. */
+@media (max-width: 40rem) {
+	.rt-ls {
+		grid-template-columns: minmax(0, 1fr);
+	}
+}
+
+/* ---------- Content helpers ---------- */
 .card-grid {
 	margin-block: 2rem;
 }
 
-/* Code tab enhancements */
 starlight-tabs {
 	margin-block: 1.5rem;
 }
 
-/* Badge alignment in tables */
-.badge {
-	vertical-align: middle;
+/* ---------- Diagrams ----------
+   Classes for the inline SVG diagrams; src/components/diagrams/README.md describes their vocabulary. */
+.rt-figure {
+	margin-block: 2rem;
+}
+
+.rt-figure .rt-scroll {
+	overflow-x: auto;
+	padding: 1rem;
+	border: 1px solid var(--sl-color-gray-5);
+	border-radius: 4px;
+}
+
+/* Figure sets both bounds from the diagram's viewBox width; narrower screens scroll. */
+.rt-figure svg {
+	display: block;
+	width: 100%;
+	min-width: var(--rt-min-width);
+	max-width: var(--rt-max-width);
+	height: auto;
+	margin-inline: auto;
+	font-family: var(--sl-font-mono);
+}
+
+/* Paper cannot scroll: let a wide diagram shrink to the page instead. */
+@media print {
+	.rt-figure .rt-scroll {
+		overflow: visible;
+	}
+
+	.rt-figure svg {
+		min-width: 0;
+	}
+}
+
+.rt-figure figcaption {
+	margin-top: 0.5rem;
+	color: var(--sl-color-gray-3);
+	font-size: var(--sl-text-sm);
+}
+
+.rt-cloth,
+.rt-pocket {
+	stroke: var(--rt-denim);
+	stroke-width: 2;
+	stroke-linejoin: round;
+}
+
+.rt-cloth {
+	fill: var(--rt-cloth);
+}
+
+.rt-pocket {
+	fill: var(--rt-pocket);
+}
+
+.rt-stitch {
+	fill: none;
+	stroke: var(--rt-thread);
+	stroke-width: 1.5;
+	stroke-dasharray: 6 4;
+	stroke-linecap: round;
+}
+
+.rt-thread {
+	fill: none;
+	stroke: var(--rt-thread);
+	stroke-width: 2.5;
+	stroke-dasharray: 8 5;
+	stroke-linecap: round;
+}
+
+.rt-rule {
+	fill: none;
+	stroke: var(--rt-denim);
+	stroke-width: 1.5;
+	stroke-linecap: round;
+}
+
+.rt-lead {
+	fill: none;
+	stroke: var(--rt-muted);
+	stroke-width: 1;
+}
+
+.rt-node {
+	fill: var(--rt-brass);
+}
+
+.rt-step {
+	fill: var(--rt-brass);
+	stroke: var(--rt-rivet-edge);
+	stroke-width: 1.25;
+}
+
+.rt-tag {
+	font-size: 14px;
+	font-weight: 700;
+	fill: var(--rt-denim);
+}
+
+.rt-code {
+	font-size: 12.5px;
+	fill: var(--rt-ink);
+}
+
+.rt-note {
+	font-size: 11.5px;
+	fill: var(--rt-muted);
+}
+
+.rt-stepn {
+	font-size: 12px;
+	font-weight: 700;
+	fill: var(--rt-on-brass);
 }

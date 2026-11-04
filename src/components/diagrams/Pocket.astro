@@ -1,0 +1,25 @@
+---
+/** A pocket: a component or channel the reader can plug in, drawn with its stitched inner outline. */
+interface Props {
+	x: number;
+	y: number;
+	width: number;
+	height: number;
+	title: string;
+	code?: string;
+	/** 'middle' centres the labels; 'start' aligns them on the left padding. */
+	align?: 'middle' | 'start';
+}
+
+const { x, y, width, height, title, code, align = 'middle' } = Astro.props;
+const inset = 5;
+const labelX = align === 'middle' ? x + width / 2 : x + 20;
+const center = y + height / 2;
+---
+
+<g>
+	<rect class="rt-pocket" x={x} y={y} width={width} height={height} rx="4"></rect>
+	<rect class="rt-stitch" x={x + inset} y={y + inset} width={width - 2 * inset} height={height - 2 * inset} rx="2"></rect>
+	<text class="rt-tag" x={labelX} y={code ? center - 4 : center + 5} text-anchor={align}>{title}</text>
+	{code && <text class="rt-code" x={labelX} y={center + 18} text-anchor={align}>{code}</text>}
+</g>

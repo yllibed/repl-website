@@ -1,0 +1,26 @@
+---
+import Figure from '../Figure.astro';
+import Pocket from './Pocket.astro';
+---
+
+<Figure
+	viewWidth={760}
+	viewHeight={300}
+	label="A running process holds the application's services and a NamedPipeReplServer endpoint. Two clients on the same machine and OS account connect to that pipe: a console that attaches interactively, and a one-shot command such as a health probe that returns an exit code."
+	caption="An operator on the same machine attaches a console, or runs one command, over the named pipe."
+>
+	<rect class="rt-cloth" x="300" y="16" width="440" height="268" rx="2"></rect>
+	<text class="rt-tag" x="324" y="46">Running process</text>
+	<text class="rt-note" x="324" y="66">container or service</text>
+
+	<Pocket x={324} y={88} width={392} height={72} align="start" title="Application services" code="ReplApp, singletons, hosted services" />
+	<Pocket x={324} y={188} width={392} height={72} align="start" title="NamedPipeReplServer" code="ReplAppRemoteBackend, onError" />
+	<path class="rt-rule" d="M520 160v28"></path>
+
+	<Pocket x={20} y={88} width={220} height={72} align="start" title="Console attach" code="RemoteConsole" />
+	<Pocket x={20} y={188} width={220} height={72} align="start" title="One-shot command" code="health → exit code" />
+
+	<path class="rt-thread" d="M240 124h30q14 0 14 14v74q0 12 12 12h28M240 224h84"></path>
+	<circle class="rt-node" cx="324" cy="224" r="4"></circle>
+	<text class="rt-note" x="20" y="290">same machine, same OS account</text>
+</Figure>

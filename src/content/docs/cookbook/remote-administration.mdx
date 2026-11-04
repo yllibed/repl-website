@@ -5,12 +5,15 @@ description: Attach a console to a running process, or run one command in it, ov
 
 import { Aside, Steps } from '@astrojs/starlight/components';
 import ApiRef from '../../../components/ApiRef.astro';
+import RemoteAdministration from '../../../components/diagrams/RemoteAdministration.astro';
 
 A long-running service still needs an operator. `Repl.Remote` lets one attach a console to the process that is already running, or ask it to run a single command and return its exit code. The command runs inside the live process, against the same services, so `settings show` reads the settings the service is actually using, without a restart or a second instance.
 
 <Aside type="tip">
   Full runnable code: [`samples/05-hosting-remote`](https://github.com/yllibed/repl/tree/v0.12.0/samples/05-hosting-remote) serves browser terminals, native console sessions and one-shot commands from one process. [`samples/10-docs-mcp`](https://github.com/yllibed/repl/tree/v0.12.0/samples/10-docs-mcp) is a documentation MCP server administered the same way.
 </Aside>
+
+<RemoteAdministration />
 
 ## Remote administration vs. hosted sessions
 

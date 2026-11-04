@@ -1,0 +1,36 @@
+---
+/**
+ * Draws an inline SVG diagram: the <svg> element with its accessible label, a scroll box for narrow
+ * screens, and a caption. The slot holds the drawing. See ./diagrams/README.md for how to draw one.
+ */
+interface Props {
+	/** The viewBox width. The diagram renders between 85 % and 120 % of it, so labels stay legible. */
+	viewWidth: number;
+	viewHeight: number;
+	/** What connects to what, for screen readers. */
+	label: string;
+	/** What the diagram shows, displayed under it. */
+	caption: string;
+}
+
+const { viewWidth, viewHeight, label, caption } = Astro.props;
+const sizes = {
+	'--rt-min-width': `${Math.round(viewWidth * 0.85)}px`,
+	'--rt-max-width': `${Math.round(viewWidth * 1.2)}px`,
+};
+// Captions differ between the diagrams of a page, so they make a stable id.
+const captionId = `rt-fig-${caption
+	.toLowerCase()
+	.replace(/[^a-z0-9]+/g, '-')
+	.slice(0, 48)}`;
+---
+
+<figure class="rt-figure" style={sizes}>
+	{/* Focusable so keyboard users can scroll the diagram when it is wider than the screen. */}
+	<div class="rt-scroll" tabindex="0" role="group" aria-labelledby={captionId}>
+		<svg viewBox={`0 0 ${viewWidth} ${viewHeight}`} role="img" aria-label={label}>
+			<slot />
+		</svg>
+	</div>
+	<figcaption id={captionId}>{caption}</figcaption>
+</figure>

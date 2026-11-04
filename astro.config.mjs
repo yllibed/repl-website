@@ -4,15 +4,23 @@ import starlight from '@astrojs/starlight';
 import sitemap from '@astrojs/sitemap';
 
 const gaId = process.env.GOOGLE_ANALYTICS_ID;
+const site = 'https://repl.yllibed.org';
+const ogImage = new URL('/og-image.png', site).href;
+const ogImageAlt = 'Repl Toolkit: one graph, every surface. A terminal runs the same app as a CLI, a REPL and an MCP server.';
 
 // https://astro.build/config
 export default defineConfig({
-	site: 'https://repl.yllibed.org',
+	site,
 	integrations: [
 		sitemap(),
 		starlight({
 			title: 'Repl Toolkit',
 			description: 'A .NET framework for building composable command surfaces — CLI, REPL, remote sessions, and MCP tools from one command graph.',
+			logo: {
+				light: './src/assets/logo-light.svg',
+				dark: './src/assets/logo-dark.svg',
+				alt: '',
+			},
 			social: [
 				{ icon: 'github', label: 'GitHub', href: 'https://github.com/yllibed/repl' },
 			],
@@ -81,13 +89,24 @@ export default defineConfig({
 					],
 				},
 			],
-			customCss: ['./src/styles/custom.css'],
+			customCss: [
+				// Self-hosted font files; src/styles/custom.css assigns the families.
+				'@fontsource-variable/jetbrains-mono/wght.css',
+				'@fontsource/ibm-plex-sans/400.css',
+				'@fontsource/ibm-plex-sans/400-italic.css',
+				'@fontsource/ibm-plex-sans/600.css',
+				'./src/styles/custom.css',
+			],
 			head: [
-				{ tag: 'meta', attrs: { property: 'og:image', content: '/og-image.png' } },
+				{ tag: 'meta', attrs: { property: 'og:image', content: ogImage } },
+				{ tag: 'meta', attrs: { property: 'og:image:width', content: '1200' } },
+				{ tag: 'meta', attrs: { property: 'og:image:height', content: '630' } },
+				{ tag: 'meta', attrs: { property: 'og:image:alt', content: ogImageAlt } },
 				{ tag: 'meta', attrs: { property: 'og:type', content: 'website' } },
 				{ tag: 'meta', attrs: { property: 'og:locale', content: 'en_US' } },
 				{ tag: 'meta', attrs: { name: 'twitter:card', content: 'summary_large_image' } },
-				{ tag: 'meta', attrs: { name: 'twitter:image', content: '/og-image.png' } },
+				{ tag: 'meta', attrs: { name: 'twitter:image', content: ogImage } },
+				{ tag: 'meta', attrs: { name: 'twitter:image:alt', content: ogImageAlt } },
 				...(gaId ? [
 					{
 						tag: 'script',
