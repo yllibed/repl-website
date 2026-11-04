@@ -5,6 +5,7 @@ description: Middleware pipeline, command chaining, scripting, and integration w
 
 import { Aside } from '@astrojs/starlight/components';
 import ApiRef from '../../../components/ApiRef.astro';
+import MiddlewareChain from '../../../components/diagrams/MiddlewareChain.astro';
 
 ## The execution pipeline
 
@@ -40,6 +41,8 @@ app.Use(async (context, next) =>
     logger.LogInformation("Command completed in {Elapsed}ms", sw.ElapsedMilliseconds);
 });
 ```
+
+<MiddlewareChain />
 
 Middleware runs between argument binding (step 7) and your handler (step 9). Chain multiple `Use(...)` calls — they execute in registration order.
 

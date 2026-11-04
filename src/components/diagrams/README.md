@@ -12,7 +12,8 @@ follows the light and dark themes without a second file.
    it is drawn.
 3. Use only the `rt-*` classes below; do not add `<style>` blocks or literal colours.
 4. Use `Pocket.astro` for a pocket, and compute the `viewBox` from the data when the diagram repeats
-   an element, as `Layering.astro` does, so adding an item cannot clip the drawing.
+   an element, as `Layering.astro` does, so adding an item cannot clip the drawing. Measure text with
+   `textWidth` from `metrics.ts` rather than counting characters by hand.
 5. Import the component in the MDX page, next to the text it illustrates.
 
 ## Vocabulary
@@ -27,6 +28,11 @@ follows the light and dark themes without a second file.
 | Node | A point in the command graph, or where flows meet | `rt-node`, r 4 |
 | Step | A position in a real sequence, never decoration | `rt-step`, r 11, number in `rt-stepn` |
 | Leader | A thin line from an annotation to what it describes | `rt-lead` |
+| Bracket | Groups a span of shapes under one annotation | `Bracket.astro` (`rt-lead`) |
+
+For messages between two parties, use `MessageSequence.astro`: each message is a row between two lifelines,
+with a node at its sender. Requests and notifications are threads; a response, which answers one, is a
+rule.
 
 Text uses `rt-tag` for box titles, `rt-code` for routes, types and commands, and `rt-note` for
 annotations outside the drawing.

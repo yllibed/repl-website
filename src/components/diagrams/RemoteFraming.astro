@@ -1,0 +1,53 @@
+---
+import Figure from '../Figure.astro';
+import Bracket from './Bracket.astro';
+import { textWidth } from './metrics';
+
+/* One message as it travels on the stream. The header counts the body in UTF-8 bytes. */
+const body = '{"jsonrpc":"2.0","id":1,"method":"cli.describe"}';
+const bodyBytes = new TextEncoder().encode(body).length;
+const header = `Content-Length: ${bodyBytes}\\r\\n\\r\\n`;
+const next = 'next frame';
+const padding = 16;
+const gap = 8;
+const margin = 10;
+const height = 52;
+const top = 14;
+const headerBox = { x: margin, width: textWidth(header, 'code') + 2 * padding };
+const bodyBox = { x: headerBox.x + headerBox.width + gap, width: textWidth(body, 'code') + 2 * padding };
+const nextBox = { x: bodyBox.x + bodyBox.width + gap, width: textWidth(next, 'note') + 2 * padding };
+const viewWidth = nextBox.x + nextBox.width + margin;
+const textY = top + height / 2 + 4;
+const braceY = top + height + 14;
+const viewHeight = braceY + 58;
+const label = `One framed message: the ASCII header ${header.replaceAll('\\r\\n', ' CRLF')}, then ${bodyBytes} bytes of UTF-8 JSON, ${body}, then the next frame's header.`;
+---
+
+<Figure
+	viewWidth={viewWidth}
+	viewHeight={viewHeight}
+	label={label}
+	caption="The two parts of one message on the stream, and what the header's number counts."
+>
+	<rect class="rt-cloth" x={headerBox.x} y={top} width={headerBox.width} height={height} rx="2"></rect>
+	<text class="rt-code" x={headerBox.x + padding} y={textY}>{header}</text>
+	<rect class="rt-cloth" x={bodyBox.x} y={top} width={bodyBox.width} height={height} rx="2"></rect>
+	<text class="rt-code" x={bodyBox.x + padding} y={textY}>{body}</text>
+	<rect class="rt-cloth" x={nextBox.x} y={top} width={nextBox.width} height={height} rx="2"></rect>
+	<text class="rt-note" x={nextBox.x + nextBox.width / 2} y={textY} text-anchor="middle">{next}</text>
+
+	<Bracket
+		x={headerBox.x + 2}
+		width={headerBox.width - 4}
+		y={braceY}
+		title="header"
+		lines={[{ text: 'ASCII, ends with a blank line', kind: 'note' }]}
+	/>
+	<Bracket
+		x={bodyBox.x + 2}
+		width={bodyBox.width - 4}
+		y={braceY}
+		title={`body: ${bodyBytes} bytes`}
+		lines={[{ text: 'UTF-8 JSON; count bytes, not characters', kind: 'note' }]}
+	/>
+</Figure>

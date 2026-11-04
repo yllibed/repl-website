@@ -1,0 +1,46 @@
+---
+import Figure from '../Figure.astro';
+
+const steps = [
+	{ title: 'First signal', code: 'Ctrl+C or SIGTERM', note: "the handler's token is cancelled" },
+	{ title: 'Handler returns', code: 'after its cleanup', note: '' },
+	{ title: 'Process exits', code: '130 or 143', note: 'a non-zero code from the handler wins' },
+];
+const second = { title: 'Second signal', note: 'not intercepted: the operating system ends the process' };
+const lineY = 100;
+const lineStart = 44;
+const firstStep = 170;
+const stepGap = 240;
+const stepX = (index: number) => firstStep + index * stepGap;
+/* The second signal can arrive while the handler is still cleaning up, between steps 1 and 2. */
+const branch = { x: (stepX(0) + stepX(1)) / 2, y: 176 };
+const viewWidth = stepX(steps.length - 1) + firstStep - lineStart + 20;
+const viewHeight = branch.y + 34;
+const label = `Process signal timeline for a one-shot run: ${steps
+	.map((step, index) => `${index + 1}, ${step.title}: ${step.code}${step.note ? `, ${step.note}` : ''}`)
+	.join('; ')}. ${second.title}, before the handler returns: ${second.note}.`;
+---
+
+<Figure
+	viewWidth={viewWidth}
+	viewHeight={viewHeight}
+	label={label}
+	caption="What happens between a first signal and the exit code, and where a second signal cuts the sequence short."
+>
+	<text class="rt-note" x="10" y={lineY + 4}>run</text>
+	<path class="rt-thread" d={`M${lineStart} ${lineY}H${stepX(steps.length - 1)}M${branch.x} ${lineY}V${branch.y - 12}q0 12 12 12h20`}></path>
+	{
+		steps.map((step, index) => (
+			<g>
+				<text class="rt-tag" x={stepX(index)} y={lineY - 44} text-anchor="middle">{step.title}</text>
+				<text class="rt-code" x={stepX(index)} y={lineY - 24} text-anchor="middle">{step.code}</text>
+				<circle class="rt-step" cx={stepX(index)} cy={lineY} r="11" />
+				<text class="rt-stepn" x={stepX(index)} y={lineY + 4} text-anchor="middle">{index + 1}</text>
+				{step.note && <text class="rt-note" x={stepX(index)} y={lineY + 32} text-anchor="middle">{step.note}</text>}
+			</g>
+		))
+	}
+	<circle class="rt-node" cx={branch.x} cy={lineY} r="4"></circle>
+	<text class="rt-tag" x={branch.x + 42} y={branch.y + 5}>{second.title}</text>
+	<text class="rt-note" x={branch.x + 42} y={branch.y + 24}>{second.note}</text>
+</Figure>

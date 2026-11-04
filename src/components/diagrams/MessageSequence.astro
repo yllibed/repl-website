@@ -1,0 +1,59 @@
+---
+import Figure from '../Figure.astro';
+import Pocket from './Pocket.astro';
+
+/** One JSON-RPC message between the two participants, in the order it travels. */
+interface Message {
+	from: 'left' | 'right';
+	kind: 'request' | 'response' | 'notification';
+	text: string;
+}
+
+interface Props {
+	left: { title: string; code: string };
+	right: { title: string; code: string };
+	messages: Message[];
+	caption: string;
+}
+
+const { left, right, messages, caption } = Astro.props;
+const viewWidth = 760;
+const head = { y: 10, width: 220, height: 60 };
+const lifeline = { left: 150, right: 610 };
+const middle = (lifeline.left + lifeline.right) / 2;
+const firstRow = head.y + head.height + 44;
+const rowHeight = 50;
+const rowY = (index: number) => firstRow + index * rowHeight;
+const lastRow = rowY(messages.length - 1);
+const viewHeight = lastRow + 34;
+
+/* Requests and notifications are flows the sender starts, drawn as thread; a response answers one, drawn as rule. */
+const lineClass = (message: Message) => (message.kind === 'response' ? 'rt-rule' : 'rt-thread');
+const senderX = (message: Message) => (message.from === 'left' ? lifeline.left : lifeline.right);
+const receiverX = (message: Message) => (message.from === 'left' ? lifeline.right : lifeline.left);
+const label = `Message sequence between ${left.title} and ${right.title}: ${messages
+	.map((message, index) => `${index + 1}, ${message.from === 'left' ? left.title : right.title} sends the ${message.kind} ${message.text}`)
+	.join('; ')}.`;
+---
+
+<Figure viewWidth={viewWidth} viewHeight={viewHeight} label={label} caption={caption}>
+	<path class="rt-lead" d={`M${lifeline.left} ${head.y + head.height}V${lastRow + 20}M${lifeline.right} ${head.y + head.height}V${lastRow + 20}`}></path>
+	<Pocket x={lifeline.left - head.width / 2} y={head.y} width={head.width} height={head.height} title={left.title} code={left.code} />
+	<Pocket x={lifeline.right - head.width / 2} y={head.y} width={head.width} height={head.height} title={right.title} code={right.code} />
+	{
+		messages.map((message, index) => {
+			const y = rowY(index);
+			const fromLeft = message.from === 'left';
+			return (
+				<g>
+					<path class={lineClass(message)} d={`M${senderX(message)} ${y}H${receiverX(message)}`} />
+					<circle class="rt-node" cx={senderX(message)} cy={y} r="4" />
+					<text class="rt-code" x={middle} y={y - 9} text-anchor="middle">{message.text}</text>
+					<text class="rt-note" x={senderX(message) + (fromLeft ? 12 : -12)} y={y + 17} text-anchor={fromLeft ? 'start' : 'end'}>
+						{message.kind}
+					</text>
+				</g>
+			);
+		})
+	}
+</Figure>

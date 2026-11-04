@@ -1,5 +1,6 @@
 ---
 import Figure from '../Figure.astro';
+import { textWidth } from './metrics';
 
 /* Each row is a route segment; `parent` is the index of the row it is nested in. A context also
    shows the prompt the REPL displays once the user has entered it. */
@@ -11,19 +12,16 @@ const rows = [
 	{ label: 'show', depth: 3, parent: 3 },
 	{ label: 'remove', depth: 3, parent: 3 },
 ];
-// JetBrains Mono advances 0.6 em: 12.5px rt-code and 11.5px rt-note text.
-const codeChar = 7.5;
-const noteChar = 6.9;
 const indent = 28;
 const rowHeight = 34;
 const left = 40;
 const top = 30;
 const y = (index: number) => top + index * rowHeight;
 const x = (depth: number) => left + depth * indent;
-const labelEnd = (row: (typeof rows)[number]) => x(row.depth) + 12 + row.label.length * codeChar;
+const labelEnd = (row: (typeof rows)[number]) => x(row.depth) + 12 + textWidth(row.label, 'code');
 const promptX = Math.max(...rows.map(labelEnd)) + 48;
-const longestPrompt = Math.max(...rows.map((row) => row.prompt?.length ?? 0));
-const viewWidth = Math.ceil(promptX + longestPrompt * noteChar + left);
+const longestPrompt = Math.max(...rows.map((row) => textWidth(row.prompt ?? '', 'note')));
+const viewWidth = Math.ceil(promptX + longestPrompt + left);
 const viewHeight = y(rows.length - 1) + top;
 
 /* An elbow from the parent's node down to the child's row, then across to the child's node. */

@@ -1,0 +1,59 @@
+---
+import Figure from '../Figure.astro';
+import Bracket from './Bracket.astro';
+import Pocket from './Pocket.astro';
+
+const stages = [
+	{ title: 'Backing store', code: 'SQL, API, stream' },
+	{ title: 'Source page', code: '20 rows + cursor' },
+	{ title: 'Renderer', code: 'rows become lines' },
+	{ title: 'Output pager', code: 'a screen at a time' },
+];
+/* Each layer spans a run of stages: the handler fetches a page, the terminal shows a screen. */
+const layers = [
+	{ from: 0, to: 1, title: 'Source paging', note: 'rows the handler fetches', code: '--result:page-size, --result:cursor' },
+	{ from: 2, to: 3, title: 'Output paging', note: 'lines the terminal shows', code: '--result:pager' },
+];
+const margin = 10;
+const boxWidth = 164;
+const boxHeight = 64;
+const gap = 30;
+const top = 12;
+const stageX = (index: number) => margin + index * (boxWidth + gap);
+const viewWidth = 2 * margin + stages.length * boxWidth + (stages.length - 1) * gap;
+const braceY = top + boxHeight + 18;
+const viewHeight = braceY + 78;
+const label = `Two independent paging layers along ${stages.map((stage) => stage.title).join(', then ')}. ${layers
+	.map((layer) => `${layer.title} covers ${stages[layer.from].title} to ${stages[layer.to].title}: ${layer.note}, set with ${layer.code}`)
+	.join('. ')}.`;
+---
+
+<Figure
+	viewWidth={viewWidth}
+	viewHeight={viewHeight}
+	label={label}
+	caption="Where each paging layer acts along the path from the data source to the screen, and the options that tune it."
+>
+	<path
+		class="rt-thread"
+		d={stages
+			.slice(1)
+			.map((_, index) => `M${stageX(index) + boxWidth} ${top + boxHeight / 2}h${gap}`)
+			.join('')}
+	></path>
+	{stages.map((stage, index) => <Pocket x={stageX(index)} y={top} width={boxWidth} height={boxHeight} title={stage.title} code={stage.code} />)}
+	{
+		layers.map((layer) => (
+			<Bracket
+				x={stageX(layer.from) + 2}
+				width={stageX(layer.to) + boxWidth - stageX(layer.from) - 4}
+				y={braceY}
+				title={layer.title}
+				lines={[
+					{ text: layer.note, kind: 'note' },
+					{ text: layer.code, kind: 'code' },
+				]}
+			/>
+		))
+	}
+</Figure>

@@ -1,0 +1,66 @@
+---
+import Figure from '../Figure.astro';
+import Pocket from './Pocket.astro';
+
+/* A session is one Run* call, or one client connection under MCP; each opens its own DI scope. */
+const sessions = [
+	{ title: 'CLI invocation', code: 'one Run* call' },
+	{ title: 'Hosted connection', code: 'Telnet, WebSocket' },
+	{ title: 'MCP connection*', code: 'concurrent tool calls' },
+];
+const exception = '* except a server built from a reused BuildMcpServerOptions(): one Scoped instance for every client';
+const margin = 10;
+const padding = 20;
+const gap = 20;
+const sessionWidth = 220;
+const viewWidth = 2 * margin + 2 * padding + sessions.length * sessionWidth + (sessions.length - 1) * gap;
+const singleton = { y: 52, height: 60 };
+const session = { y: 150, height: 140 };
+const scoped = { inset: 16, y: session.y + 62, height: 62 };
+const sessionX = (index: number) => margin + padding + index * (sessionWidth + gap);
+const noteY = session.y + session.height + 26;
+const viewHeight = noteY + padding + margin;
+const label = `Dependency injection scopes: one application holds the Singleton instances; ${sessions.length} kinds of session, ${sessions.map((item) => `${item.title} (${item.code})`).join(', ')}, each hold their own Scoped instances and share the Singletons. ${exception.slice(2)}.`;
+---
+
+<Figure
+	viewWidth={viewWidth}
+	viewHeight={viewHeight}
+	label={label}
+	caption="Each session opens its own DI scope; Singletons are shared by every session of the application."
+>
+	<rect class="rt-cloth" x={margin} y={margin} width={viewWidth - 2 * margin} height={viewHeight - 2 * margin} rx="2"></rect>
+	<text class="rt-tag" x={margin + padding} y={margin + 26}>Application</text>
+	<Pocket
+		x={margin + padding}
+		y={singleton.y}
+		width={viewWidth - 2 * (margin + padding)}
+		height={singleton.height}
+		align="start"
+		title="Singleton"
+		code="one instance: stores, caches, clients; must be thread-safe"
+	/>
+	{
+		sessions.map((item, index) => {
+			const x = sessionX(index);
+			const center = x + sessionWidth / 2;
+			return (
+				<g>
+					<path class="rt-rule" d={`M${center} ${singleton.y + singleton.height}V${session.y}`} />
+					<rect class="rt-cloth" x={x} y={session.y} width={sessionWidth} height={session.height} rx="2" />
+					<text class="rt-tag" x={x + scoped.inset} y={session.y + 26}>{item.title}</text>
+					<text class="rt-code" x={x + scoped.inset} y={session.y + 46}>{item.code}</text>
+					<Pocket
+						x={x + scoped.inset}
+						y={scoped.y}
+						width={sessionWidth - 2 * scoped.inset}
+						height={scoped.height}
+						title="Scoped"
+						code="per-user state"
+					/>
+				</g>
+			);
+		})
+	}
+	<text class="rt-note" x={margin + padding} y={noteY}>{exception}</text>
+</Figure>

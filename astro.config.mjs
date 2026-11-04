@@ -67,6 +67,7 @@ export default defineConfig({
 						{ label: 'Pipelines & Integration', slug: 'reference/pipelining' },
 						{ label: 'Exit Codes & Signals', slug: 'reference/exit-codes' },
 						{ label: 'Terminal Integration', slug: 'reference/terminal-integration' },
+						{ label: 'Remote Protocol', slug: 'reference/remote-protocol' },
 						{ label: 'Architecture', slug: 'reference/architecture' },
 					],
 				},

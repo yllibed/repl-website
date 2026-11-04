@@ -5,6 +5,7 @@ description: Run the same command surface over any text-based session transport 
 
 import { Aside } from '@astrojs/starlight/components';
 import ApiRef from '../../../components/ApiRef.astro';
+import HostedTransports from '../../../components/diagrams/HostedTransports.astro';
 
 Repl can host multiple concurrent sessions over any transport that delivers a stream pair — a reader and a writer. Each session gets its own scope, history, and context; shared state is opt-in via DI singletons.
 
@@ -18,6 +19,8 @@ Any other transport — SSH, TCP sockets, gRPC streams — works by instantiatin
 <Aside type="tip">
   Full runnable code: [`samples/05-hosting-remote`](https://github.com/yllibed/repl/tree/v0.12.0/samples/05-hosting-remote)
 </Aside>
+
+<HostedTransports />
 
 ## WebSocket transport (`Repl.WebSocket`)
 

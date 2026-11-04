@@ -38,6 +38,7 @@
 - [Pipelines & Integration](https://repl.yllibed.org/reference/pipelining/): 12-stage execution pipeline, middleware, CLI scripting with pipes/jq, ASP.NET Core integration, IHostedService, process signals and graceful shutdown.
 - [Exit Codes & Signals](https://repl.yllibed.org/reference/exit-codes/): Outcome kinds and default codes (0 success, 2 usage/binding refusal, 1 handler failure, 130/143 on Ctrl+C or SIGTERM), ReplOptions.ExitCodes and Resolver, Results.CompletedWithFailures, IReplModuleExitCodes, ReplProcessSignalHarness.
 - [Terminal Integration](https://repl.yllibed.org/reference/terminal-integration/): ANSI capability levels, NO_COLOR, shell autocomplete installation, response files, terminal detection.
+- [Remote Protocol](https://repl.yllibed.org/reference/remote-protocol/): The experimental JSON-RPC 2.0 profile behind Repl.Remote — Content-Length framing, rpc.discover/cli.describe/cli.execute, terminal.* methods and notifications, errors, cancellation and retries, security limits.
 - [Architecture](https://repl.yllibed.org/reference/architecture/): Internal design, execution model, extension points, and how the packages compose.
 
 ## Reference

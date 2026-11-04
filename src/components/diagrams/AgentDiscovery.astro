@@ -1,0 +1,47 @@
+---
+import Figure from '../Figure.astro';
+import { textWidth } from './metrics';
+
+/* What an agent runs at each step, and what comes back, in the order the page's examples follow. */
+const steps = [
+	{ title: 'Discover', command: 'myapp --help --json', returns: 'top-level contexts and commands' },
+	{ title: 'Drill in', command: 'myapp contacts --help --json', returns: 'the commands of one context' },
+	{ title: 'Describe', command: 'myapp contacts add --help --json', returns: 'parameters, types, constraints' },
+	{ title: 'Call', command: 'myapp contacts add ... --json', returns: 'the result as JSON' },
+];
+const minWidth = 560;
+const stepX = 26;
+const row = { x: 52, height: 64, gap: 14 };
+const titleX = row.x + 20;
+const commandX = titleX + Math.max(...steps.map((step) => textWidth(step.title, 'tag'))) + 32;
+const textEnd = Math.max(...steps.map((step) => Math.max(textWidth(step.command, 'code'), textWidth(`returns ${step.returns}`, 'note'))));
+const viewWidth = Math.max(minWidth, commandX + textEnd + 30);
+const top = 10;
+const rowY = (index: number) => top + index * (row.height + row.gap);
+const centerY = (index: number) => rowY(index) + row.height / 2;
+const viewHeight = rowY(steps.length - 1) + row.height + 10;
+const label = `How an agent uses a Repl app, in ${steps.length} steps: ${steps
+	.map((step, index) => `${index + 1}, ${step.title}: run ${step.command}, which returns ${step.returns}`)
+	.join('; ')}.`;
+---
+
+<Figure
+	viewWidth={viewWidth}
+	viewHeight={viewHeight}
+	label={label}
+	caption="The commands an agent runs, from knowing only the executable's name to a call that returns data."
+>
+	<path class="rt-thread" d={`M${stepX} ${centerY(0)}V${centerY(steps.length - 1)}`}></path>
+	{
+		steps.map((step, index) => (
+			<g>
+				<rect class="rt-cloth" x={row.x} y={rowY(index)} width={viewWidth - row.x - 10} height={row.height} rx="2" />
+				<circle class="rt-step" cx={stepX} cy={centerY(index)} r="11" />
+				<text class="rt-stepn" x={stepX} y={centerY(index) + 4} text-anchor="middle">{index + 1}</text>
+				<text class="rt-tag" x={titleX} y={centerY(index) + 5}>{step.title}</text>
+				<text class="rt-code" x={commandX} y={centerY(index) - 4}>{step.command}</text>
+				<text class="rt-note" x={commandX} y={centerY(index) + 16}>returns {step.returns}</text>
+			</g>
+		))
+	}
+</Figure>
