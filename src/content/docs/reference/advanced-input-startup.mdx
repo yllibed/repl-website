@@ -35,7 +35,7 @@ app.UseArgumentPreprocessor((input, ct) =>
         ? ArgumentPreprocessingResult.Replace(["query", query])
         : ArgumentPreprocessingResult.Continue());
 
-app.Map("query {text}", (string text) => text);
+app.Map("query {text}", (string text, int limit = 3) => $"{text}, at most {limit} results");
 ```
 
 `/find "hello world"` becomes `["query", "hello world"]`, with argument boundaries kept; nothing is turned back into a shell string. Repl then parses, binds and validates the replacement as usual. Preprocessors run in registration order, and `OriginalArguments` keeps the initial input.
@@ -86,19 +86,22 @@ The same <ApiRef uid="Repl.ReplInvocationRequest" /> can be passed straight to `
 An input validator checks rules that span several values or need application services. It returns an <ApiRef uid="Repl.InputValidationResult" />:
 
 ```csharp
-app.UseInputValidator((ParsedInputContext input, LimitPolicy policy) =>
+app.UseInputValidator((ParsedInputContext input, SearchPolicy policy) =>
 {
-    if (input.Command != "query")
+    // Command is the full route template. An omitted --limit arrives as its default, 3, and is checked;
+    // 0 is left to the invocation hook above, which replaces it with the policy maximum.
+    if (input.Command != "query {text}"
+        || !input.TryGetValue<int>("limit", out var limit)
+        || limit == 0)
         return InputValidationResult.Valid();
 
-    if (!input.TryGetValue<int>("limit", out var limit))
-        return InputValidationResult.Incomplete("Supply a result limit.");
-
-    return limit <= policy.Maximum
+    return limit >= 1 && limit <= policy.MaximumLimit
         ? InputValidationResult.Valid()
-        : InputValidationResult.Invalid($"The maximum is {policy.Maximum}.");
+        : InputValidationResult.Invalid($"The result limit must be between 1 and {policy.MaximumLimit}.");
 });
 ```
+
+`SearchPolicy` is the application's own `record SearchPolicy(int MaximumLimit)`, registered as a singleton, as in [sample 09](https://github.com/yllibed/repl/blob/v0.12.0/samples/09-advanced-input/Program.cs).
 
 Validators run in registration order, during live preview, completion and submission, so the user sees the refusal while typing. `Incomplete` and `Invalid` both block a submitted invocation. Interactive ambient commands such as `help` and `exit`, and input that enters a context, pass through validators too.
 

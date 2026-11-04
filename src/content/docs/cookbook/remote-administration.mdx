@@ -68,8 +68,20 @@ try
 finally
 {
     host.Lifetime.StopApplication();
-    try { await remote.DisposeAsync(); }
-    finally { await host.StopAsync(); }
+    try
+    {
+        await remote.DisposeAsync();
+    }
+    catch (TimeoutException error)
+    {
+        // Remote commands still run on the host's services: never stop or dispose them underneath.
+        host.Logger.LogCritical(error, "Remote commands did not drain; terminating.");
+        Environment.Exit(1); // skips the finally below and the host's disposal
+    }
+    finally
+    {
+        await host.StopAsync();
+    }
 }
 ```
 
@@ -77,7 +89,7 @@ Three details in this code matter in production:
 
 - **The third argument, `onError`, is where failures go.** A client only ever sees "The remote backend failed." (`-32603`) or a terminal that exits `1`. The exception itself reaches `onError`; without a callback it goes to `System.Diagnostics.Trace`, which no default logging provider reads.
 - **Watch `remote.Completion`.** It faults when the endpoint stops accepting connections, so the host can stop instead of running on without its administration endpoint.
-- **Dispose the listener before stopping the host.** Remote work drains first, while the services it uses are still alive.
+- **Dispose the listener before stopping the host.** Remote work drains first, while the services it uses are still alive. Disposal waits at most five seconds; when it times out, commands are still running and the listener keeps cleaning up in the background, so stopping or disposing the host would pull services from under them. The example ends the process before that happens; [sample 05](https://github.com/yllibed/repl/blob/v0.12.0/samples/05-hosting-remote/HostingLifetime.cs) applies a similar fatal policy to its whole shutdown. A logger that writes on a background thread can lose that last line, so also write it to standard error if it must survive. Choose the policy your application needs.
 
 ## Connect from a client
 
