@@ -6,22 +6,41 @@ interface Props {
 	x: number;
 	y: number;
 	cells: readonly CellKind[];
+	/** Optional one-letter names, one per cell, for diagrams that follow individual rows; not for probe cells. */
+	labels?: readonly string[];
+	/** Draws the index seek: a thread from the row's start to its first drawn cell, over the 'none' gap. */
+	seek?: boolean;
 }
 
-const { x, y, cells } = Astro.props;
+const { x, y, cells, labels, seek = false } = Astro.props;
 const half = cell.size / 2;
+const firstDrawn = cells.findIndex((kind) => kind !== 'none');
+const seekEnd = x + Math.max(0, firstDrawn) * cellPitch;
 ---
 
 <g>
 	{
+		seek && firstDrawn > 0 && (
+			<g>
+				<path class="rt-thread" d={`M${x + 4} ${y + half}H${seekEnd - 10}`} />
+				<circle class="rt-node" cx={seekEnd - 6} cy={y + half} r="4" />
+			</g>
+		)
+	}
+	{
 		cells.map((kind, index) => {
 			const left = x + index * cellPitch;
 			if (kind === 'none') return null;
-			if (kind === 'kept') return <rect class="rt-cell-kept" x={left} y={y} width={cell.size} height={cell.size} rx="3" />;
+			const label = labels?.[index];
 			return (
 				<g>
-					<rect class="rt-lead" x={left} y={y} width={cell.size} height={cell.size} rx="3" />
+					{kind === 'kept' ? (
+						<rect class="rt-cell-kept" x={left} y={y} width={cell.size} height={cell.size} rx="3" />
+					) : (
+						<rect class="rt-lead" x={left} y={y} width={cell.size} height={cell.size} rx="3" />
+					)}
 					{kind === 'probe' && <circle class="rt-node" cx={left + half} cy={y + half} r="4" />}
+					{label && <text class="rt-code" x={left + half} y={y + half + 4} text-anchor="middle">{label}</text>}
 				</g>
 			);
 		})

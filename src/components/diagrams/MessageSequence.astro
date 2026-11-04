@@ -2,7 +2,7 @@
 import Figure from '../Figure.astro';
 import Pocket from './Pocket.astro';
 
-/** One JSON-RPC message between the two participants, in the order it travels. */
+/** One message between the two participants, in the order it travels. */
 interface Message {
 	from: 'left' | 'right';
 	kind: 'request' | 'response' | 'notification';

@@ -1,7 +1,7 @@
 ---
 import Figure from '../Figure.astro';
 import Bracket from './Bracket.astro';
-import { textWidth } from './metrics';
+import { bracketHeight, textWidth } from './metrics';
 
 /* One message as it travels on the stream. The header counts the body in UTF-8 bytes. */
 const body = '{"jsonrpc":"2.0","id":1,"method":"cli.describe"}';
@@ -19,7 +19,7 @@ const nextBox = { x: bodyBox.x + bodyBox.width + gap, width: textWidth(next, 'no
 const viewWidth = nextBox.x + nextBox.width + margin;
 const textY = top + height / 2 + 4;
 const braceY = top + height + 14;
-const viewHeight = braceY + 58;
+const viewHeight = braceY + bracketHeight(1);
 const label = `One framed message: the ASCII header ${header.replaceAll('\\r\\n', ' CRLF')}, then ${bodyBytes} bytes of UTF-8 JSON, ${body}, then the next frame's header.`;
 ---
 

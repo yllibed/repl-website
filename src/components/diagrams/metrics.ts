@@ -9,3 +9,10 @@ export type TextKind = keyof typeof fontSize;
 
 /** The width of `text` in viewBox units when drawn with the given rt-* text class. */
 export const textWidth = (text: string, kind: TextKind): number => text.length * fontSize[kind] * 0.6;
+
+/** Vertical layout of `Bracket.astro`, below its stroke: the title, then each annotation line. */
+export const bracketLayout = { title: 28, firstLine: 47, line: 20, descent: 11 } as const;
+
+/** The room a bracket with `lines` annotation lines takes below its stroke. */
+export const bracketHeight = (lines: number): number =>
+	bracketLayout.firstLine + (lines - 1) * bracketLayout.line + bracketLayout.descent;

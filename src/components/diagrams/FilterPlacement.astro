@@ -2,7 +2,7 @@
 import Figure from '../Figure.astro';
 import CellLegend from './CellLegend.astro';
 import CellRow from './CellRow.astro';
-import { cell, cellRun, lane, legendHeight, legendKinds, legendLayout, rowWidth, type CellKind } from './cells';
+import { cell, cellRun, lane, laneY, lanesLegendY, legendHeight, legendKinds, legendLayout, rowWidth, type CellKind } from './cells';
 import { textWidth } from './metrics';
 
 /* One page of FromOffset, filtered by the store or by a predicate after each fetch. FromOffset asks the
@@ -38,8 +38,7 @@ const viewWidth = Math.max(
 	left + Math.max(...lanes.map((item) => textWidth(item.note, 'note'))),
 	left + legendLayout(kinds).width,
 ) + left;
-const laneY = (index: number) => lane.title + index * lane.height;
-const legendY = laneY(lanes.length) - lane.title + 10;
+const legendY = lanesLegendY(lanes.length);
 const viewHeight = legendY + legendHeight;
 const label = `Server-side versus client-side filtering for one page of ${pageSize} rows: ${lanes
 	.map((item, index) => `${item.title}: ${item.note}; ${counts[index]}`)

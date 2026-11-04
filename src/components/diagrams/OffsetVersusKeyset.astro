@@ -2,10 +2,10 @@
 import Figure from '../Figure.astro';
 import CellLegend from './CellLegend.astro';
 import CellRow from './CellRow.astro';
-import { cell, cellPitch, cellRun, lane, legendHeight, legendKinds, legendLayout, rowWidth } from './cells';
+import { cell, cellRun, lane, laneY, lanesLegendY, legendHeight, legendKinds, legendLayout, rowWidth } from './cells';
 import { textWidth } from './metrics';
 
-/* The same page of a sorted table, fetched with FromOffset and with the keyset recipe on this page. */
+/* The same page of a sorted table, fetched with FromOffset and with a keyset cursor such as the keyset recipes build. */
 const page = 3;
 const pageSize = 5;
 const offset = (page - 1) * pageSize;
@@ -33,10 +33,8 @@ const viewWidth = Math.max(
 	left + Math.max(...lanes.map((item) => textWidth(item.note, 'note'))),
 	left + legendLayout(kinds).width,
 ) + left;
-const laneY = (index: number) => lane.title + index * lane.height;
-const legendY = laneY(lanes.length) - lane.title + 10;
+const legendY = lanesLegendY(lanes.length);
 const viewHeight = legendY + legendHeight;
-const seekEndX = left + offset * cellPitch;
 const label = `Fetching page ${page} with ${pageSize} rows per page. ${lanes.map((item) => `${item.title}, ${item.cursor}: ${item.note}`).join('. ')}.`;
 ---
 
@@ -53,13 +51,7 @@ const label = `Fetching page ${page} with ${pageSize} rows per page. ${lanes.map
 			return (
 				<g>
 					<text class="rt-tag" x={left} y={y - 10}>{item.title}</text>
-					{item.seek && (
-						<g>
-							<path class="rt-thread" d={`M${left + 4} ${middle}H${seekEndX - 10}`} />
-							<circle class="rt-node" cx={seekEndX - 6} cy={middle} r="4" />
-						</g>
-					)}
-					<CellRow x={left} y={y} cells={item.cells} />
+					<CellRow x={left} y={y} cells={item.cells} seek={item.seek} />
 					<text class="rt-code" x={cursorX} y={middle + 4}>{item.cursor}</text>
 					<text class="rt-note" x={left} y={y + lane.note}>{item.note}</text>
 				</g>

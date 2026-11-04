@@ -46,6 +46,12 @@ export const legendLayout = (kinds: readonly LegendKind[]): { offsets: number[];
 /** Vertical rhythm of a lane in the comparison diagrams: title above the row, note below it. */
 export const lane = { title: 30, height: 96, note: 46 } as const;
 
+/** The top of lane `index`'s row of cells. */
+export const laneY = (index: number): number => lane.title + index * lane.height;
+
+/** The top of the legend under `count` lanes. */
+export const lanesLegendY = (count: number): number => laneY(count) - lane.title + 10;
+
 /** Builds a row from runs, such as `[['read', 5], ['kept', 5], ['probe', 1]]`. */
 export const cellRun = (runs: readonly [CellKind, number][]): CellKind[] =>
 	runs.flatMap(([kind, count]) => Array<CellKind>(count).fill(kind));

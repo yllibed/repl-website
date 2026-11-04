@@ -2,6 +2,7 @@
 import Figure from '../Figure.astro';
 import Bracket from './Bracket.astro';
 import Pocket from './Pocket.astro';
+import { bracketHeight } from './metrics';
 
 const stages = [
 	{ title: 'Backing store', code: 'SQL, API, stream' },
@@ -22,7 +23,8 @@ const top = 12;
 const stageX = (index: number) => margin + index * (boxWidth + gap);
 const viewWidth = 2 * margin + stages.length * boxWidth + (stages.length - 1) * gap;
 const braceY = top + boxHeight + 18;
-const viewHeight = braceY + 78;
+// Each layer annotates with a note and a code line.
+const viewHeight = braceY + bracketHeight(2);
 const label = `Two independent paging layers along ${stages.map((stage) => stage.title).join(', then ')}. ${layers
 	.map((layer) => `${layer.title} covers ${stages[layer.from].title} to ${stages[layer.to].title}: ${layer.note}, set with ${layer.code}`)
 	.join('. ')}.`;

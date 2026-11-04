@@ -29,7 +29,8 @@ follows the light and dark themes without a second file.
 | Step | A position in a real sequence, never decoration | `rt-step`, r 11, number in `rt-stepn` |
 | Leader | A thin line from an annotation to what it describes | `rt-lead` |
 | Bracket | Groups a span of shapes under one annotation | `Bracket.astro` (`rt-lead`) |
-| Cell | One row of a data source, in the paging diagrams: returned, read but not returned, or read to detect a next page | `CellRow.astro` (`rt-cell-kept`; `rt-lead`; `rt-lead` with an `rt-node`), explained by `CellLegend.astro`; kinds and lane spacing in `cells.ts` |
+| Cell | One row of a data source, in the paging diagrams: returned, read but not returned, or read to detect a next page | `CellRow.astro` (`rt-cell-kept`; `rt-lead`; `rt-lead` with an `rt-node`), explained by `CellLegend.astro`; kinds and lane spacing in `cells.ts`. Optional one-letter `labels` follow individual rows |
+| Seek | An index seek that jumps over rows without reading them, drawn before a row's first cell | `CellRow.astro` `seek` (`rt-thread` and an `rt-node`) |
 
 For messages between two parties, use `MessageSequence.astro`: each message is a row between two lifelines,
 with a node at its sender. Requests and notifications are threads; a response, which answers one, is a
