@@ -5,6 +5,7 @@ description: How a run becomes a process exit code, how to change the mapping, a
 
 import { Aside } from '@astrojs/starlight/components';
 import ApiRef from '../../../components/ApiRef.astro';
+import SignalTimeline from '../../../components/diagrams/SignalTimeline.astro';
 
 Scripts, CI steps and container supervisors read your app through one number. Every run ends in exactly one <ApiRef uid="Repl.ReplExecutionOutcomeKind" />, and a single table maps that outcome to the exit code.
 
@@ -92,6 +93,8 @@ With `UseCliProfile()` or `UseDefaultInteractive()`, a one-shot run owns process
 | `SIGTERM` | `docker stop`, a service manager, `kill` (Unix only) | `143` |
 
 On Windows, `taskkill`, closing the console window or a service stop do not raise `SIGTERM`; a Windows host translates those into the caller's cancellation token itself.
+
+<SignalTimeline />
 
 The first signal cancels the handler's `CancellationToken`, so the command can clean up and return. A second signal is not intercepted: the operating system terminates the process. Repl adds no grace-period timeout of its own; a supervisor that needs one escalates itself. If a handler returns its own non-zero code after the signal, that code wins.
 

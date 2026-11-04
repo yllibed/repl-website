@@ -1,0 +1,56 @@
+---
+import Figure from '../Figure.astro';
+import Bracket from './Bracket.astro';
+import { bracketHeight, textWidth } from './metrics';
+
+/* Times are minutes since midnight. */
+const window = { from: 8 * 60, to: 9 * 60 };
+const events = [3, 7, 12, 18, 21, 29, 33, 41, 47, 55].map((minute) => window.from + minute);
+const pageSize = 4;
+const time = (minutes: number) =>
+	`${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
+const pages = Array.from({ length: Math.ceil(events.length / pageSize) }, (_, index) => {
+	const slice = events.slice(index * pageSize, (index + 1) * pageSize);
+	const last = slice[slice.length - 1];
+	const full = slice.length === pageSize;
+	return {
+		title: `page ${index + 1}`,
+		first: slice[0],
+		last,
+		next: full ? `next: after ${time(last)}` : 'next: none',
+	};
+});
+const bounds = [`from ${time(window.from)}`, `to ${time(window.to)}`];
+const axisMargin = Math.max(...bounds.map((text) => textWidth(text, 'code'))) / 2 + 10;
+const axis = { x: axisMargin, width: 720, y: 52 };
+const x = (minutes: number) => axis.x + ((minutes - window.from) / (window.to - window.from)) * axis.width;
+const braceY = axis.y + 34;
+const viewWidth = axis.x * 2 + axis.width;
+const viewHeight = braceY + bracketHeight(1) + 4;
+const label = `Paging events between ${time(window.from)} and ${time(window.to)}, ${pageSize} per page: ${pages
+	.map((page) => `${page.title} returns ${time(page.first)} to ${time(page.last)}, ${page.next}`)
+	.join('; ')}.`;
+---
+
+<Figure
+	viewWidth={viewWidth}
+	viewHeight={viewHeight}
+	label={label}
+	caption={`One window from ${time(window.from)} to ${time(window.to)}, cut into ${pages.length} pages of up to ${pageSize} events.`}
+>
+	<path class="rt-rule" d={`M${x(window.from)} ${axis.y}H${x(window.to)}M${x(window.from)} ${axis.y - 8}v16M${x(window.to)} ${axis.y - 8}v16`}></path>
+	<text class="rt-code" x={x(window.from)} y={axis.y - 18} text-anchor="middle">{bounds[0]}</text>
+	<text class="rt-code" x={x(window.to)} y={axis.y - 18} text-anchor="middle">{bounds[1]}</text>
+	{events.map((minutes) => <circle class="rt-node" cx={x(minutes)} cy={axis.y} r="4" />)}
+	{
+		pages.map((page) => (
+			<Bracket
+				x={x(page.first) - 6}
+				width={x(page.last) - x(page.first) + 12}
+				y={braceY}
+				title={page.title}
+				lines={[{ text: page.next, kind: 'code' }]}
+			/>
+		))
+	}
+</Figure>

@@ -1,0 +1,60 @@
+---
+import Figure from '../Figure.astro';
+import CellLegend from './CellLegend.astro';
+import CellRow from './CellRow.astro';
+import { cellRun, legendHeight, legendKinds, legendLayout, rowWidth } from './cells';
+import { textWidth } from './metrics';
+
+/* A replayable stream paged by FromAsyncEnumerable: each page reopens the stream, skips to its offset,
+   and reads one more row than it returns to learn whether a next page exists. */
+const total = 13;
+const pageSize = 5;
+const pages = Array.from({ length: Math.ceil(total / pageSize) }, (_, index) => {
+	const offset = index * pageSize;
+	const kept = Math.min(pageSize, total - offset);
+	const next = offset + kept < total ? String(offset + kept) : null;
+	return {
+		title: `page ${index + 1}`,
+		offset,
+		kept,
+		probed: next !== null,
+		cursor: offset === 0 ? 'cursor: none' : `cursor: "${offset}"`,
+		next: next === null ? 'nextCursor: null' : `nextCursor: "${next}"`,
+		cells: cellRun([
+			['read', offset],
+			['kept', kept],
+			['probe', next === null ? 0 : 1],
+		]),
+	};
+});
+const kinds = legendKinds(pages.map((page) => page.cells));
+const left = 10;
+const rowsX = left + Math.max(...pages.map((page) => textWidth(page.cursor, 'note'))) + 40;
+const nextX = rowsX + rowWidth(Math.max(...pages.map((page) => page.cells.length))) + 26;
+const viewWidth = Math.max(nextX + Math.max(...pages.map((page) => textWidth(page.next, 'code'))), left + legendLayout(kinds).width) + left;
+const top = 14;
+const rowHeight = 52;
+const rowY = (index: number) => top + index * rowHeight;
+const legendY = rowY(pages.length) + 6;
+const viewHeight = legendY + legendHeight;
+const last = pages[pages.length - 1];
+const lastRead = last.offset + last.kept + (last.probed ? 1 : 0);
+const label = `FromAsyncEnumerable over ${total} rows with a page size of ${pageSize}: ${pages
+	.map((page) => `${page.title} (${page.cursor}) reopens the stream, skips ${page.offset} rows, returns ${page.kept}${page.probed ? ' and reads one more' : ''}, then answers ${page.next}`)
+	.join('; ')}.`;
+const caption = `The cost of a page grows with its offset: ${last.title} reads ${lastRead} rows to return ${last.kept}. Every page but the last also reads one row past its end.`;
+---
+
+<Figure viewWidth={viewWidth} viewHeight={viewHeight} label={label} caption={caption}>
+	{
+		pages.map((page, index) => (
+			<g>
+				<text class="rt-tag" x={left} y={rowY(index) + 10}>{page.title}</text>
+				<text class="rt-note" x={left} y={rowY(index) + 27}>{page.cursor}</text>
+				<CellRow x={rowsX} y={rowY(index)} cells={page.cells} />
+				<text class="rt-code" x={nextX} y={rowY(index) + 17}>{page.next}</text>
+			</g>
+		))
+	}
+	<CellLegend x={left} y={legendY} kinds={kinds} />
+</Figure>

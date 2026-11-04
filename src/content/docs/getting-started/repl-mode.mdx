@@ -52,7 +52,7 @@ Id: 42, Name: ACME
 
 ## Ambient commands
 
-These are always available in REPL mode regardless of your command graph:
+These are available in REPL mode regardless of your command graph. `UseEmbeddedConsoleProfile()` disables `exit`:
 
 | Command | Description |
 |---------|-------------|
@@ -65,7 +65,7 @@ These are always available in REPL mode regardless of your command graph:
 ## History and completion
 
 - **Up/Down arrows** navigate command history.
-- **Tab** triggers autocomplete (requires `UseDefaultInteractive()`).
+- **Tab** triggers autocomplete.
 - History is in-memory by default and does not persist across sessions. Inject a custom <ApiRef uid="Repl.IHistoryProvider" /> to add persistence (file, database, or any backing store).
 
 The Tab menu completes:

@@ -5,6 +5,7 @@ description: Output formats, ANSI levels, color palettes, Spectre.Console render
 
 import { Aside } from '@astrojs/starlight/components';
 import ApiRef from '../../../components/ApiRef.astro';
+import FeedbackStreams from '../../../components/diagrams/FeedbackStreams.astro';
 
 Repl's output pipeline is fully composable. The same command graph produces plain text for a CI log, syntax-highlighted JSON for a terminal, and Spectre.Console tables for a rich interactive session — all without touching handler code.
 
@@ -42,6 +43,8 @@ When the output is meant for a program, standard output carries the payload alon
 
 - the command renders a machine-readable format: `--json`, `--xml`, `--yaml`, or a custom transformer whose `IsMachineReadable` is `true`;
 - or standard output is redirected, as in `myapp sync > report.txt` or `myapp sync | jq`.
+
+<FeedbackStreams />
 
 Otherwise feedback stays on standard output, beside the result. Framework diagnostics, such as a refused `--output` format, always go to standard error.
 

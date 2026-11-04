@@ -1,0 +1,22 @@
+---
+import { bracketLayout } from './metrics';
+
+/** A bracket under a span of shapes, with a title and annotation lines centred below it. */
+interface Props {
+	x: number;
+	width: number;
+	/** The bracket's horizontal stroke; its ends rise 6 units towards the shapes above. */
+	y: number;
+	title: string;
+	lines: { text: string; kind: 'code' | 'note' }[];
+}
+
+const { x, width, y, title, lines } = Astro.props;
+const center = x + width / 2;
+---
+
+<g>
+	<path class="rt-lead" d={`M${x} ${y - 6}V${y}H${x + width}V${y - 6}M${center} ${y}v8`}></path>
+	<text class="rt-tag" x={center} y={y + bracketLayout.title} text-anchor="middle">{title}</text>
+	{lines.map((line, index) => <text class={`rt-${line.kind}`} x={center} y={y + bracketLayout.firstLine + index * bracketLayout.line} text-anchor="middle">{line.text}</text>)}
+</g>

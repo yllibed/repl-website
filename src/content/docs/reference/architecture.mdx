@@ -4,49 +4,42 @@ description: How Repl Toolkit's packages and layers fit together.
 ---
 
 import ApiRef from '../../../components/ApiRef.astro';
+import Layering from '../../../components/diagrams/Layering.astro';
+import ExecutionStages from '../../../components/diagrams/ExecutionStages.astro';
 
 ## Package boundaries
 
 | Package | Purpose |
 |---------|---------|
 | `Repl.Core` | Dependency-free authoring/runtime core: routing, parsing, binding, output pipeline, <ApiRef uid="Repl.CoreReplApp" />, <ApiRef uid="Repl.IReplMap" />, <ApiRef uid="Repl.Results" label="Results.*" /> |
-| `Repl.Defaults` | DI-enabled facade (<ApiRef uid="Repl.ReplApp" />), lifecycle orchestration, default composition profiles (`UseDefaultInteractive`, `UseCliProfile`) |
+| `Repl.Defaults` | DI-enabled facade (<ApiRef uid="Repl.ReplApp" />), lifecycle orchestration, default composition profiles (`UseDefaultInteractive`, `UseCliProfile`, `UseEmbeddedConsoleProfile`) |
 | `Repl` | Meta-package — bundles Core + Defaults + Protocol. Start here. |
 | `Repl.Protocol` | Machine-readable contracts: help schemas, error contracts, minimal MCP manifest types |
 | `Repl.WebSocket` | WebSocket transport for hosted sessions (<ApiRef uid="Repl.WebSocket.ReplWebSocketSession" /> over <ApiRef uid="Repl.StreamedReplHost" />) |
-| `Repl.Telnet` | Telnet session protocol (framing + NAWS negotiation) layered over `Repl.WebSocket` |
+| `Repl.Telnet` | Telnet session protocol (framing, NAWS and terminal-type negotiation) over a WebSocket, a `Stream` or an `IDuplexPipe` |
+| `Repl.Remote` | Remote administration of a running process: wire contracts, named-pipe listener, console and one-shot clients |
+| `Repl.Remote.Defaults` | Connects `Repl.Remote` to a <ApiRef uid="Repl.ReplApp" /> through <ApiRef uid="Repl.Remote.ReplAppRemoteBackend" /> |
 | `Repl.Spectre` | Spectre.Console integration: rich prompts, renderables, `IAnsiConsole` DI injection |
 | `Repl.Mcp` | MCP server: `UseMcpServer()`, tool/resource/prompt mapping, MCP Apps, transport factory |
 | `Repl.Testing` | In-memory multi-session test harness: <ApiRef uid="Repl.Testing.ReplTestHost" />, <ApiRef uid="Repl.Testing.ReplSessionHandle" />, typed results/events |
 
 ## Layering
 
-```
-┌────────────────────────────────────────────────────────┐
-│                    Your application                     │
-└──────────────┬─────────────────────────────────────────┘
-               │ registers commands via
-               ▼
-┌──────────────────────────────────────────────────────────────────┐
-│  Repl.Defaults  (ReplApp, UseDefaultInteractive, UseCliProfile)  │
-│  Repl.Core      (routing, binding, output)                       │
-└──────┬───────────────────────────────────────────────────────────┘
-       │ dispatches to runtime channels
-       ▼
-┌────────────────────────────────────────────────────────────────────────────────────┐
-│  Local console  │  Repl.WebSocket  │  Repl.Telnet  │  Repl.Mcp  │  Repl.Testing  │  custom…  │
-└────────────────────────────────────────────────────────────────────────────────────┘
-```
+<Layering />
 
-`Repl.Core` has no dependencies outside the .NET BCL. All integration packages depend on Core but not on each other — you pick what you need.
+`Repl.Core` has no dependencies outside the .NET BCL. Integration packages depend on Core but not on each other, so you pick what you need. The remote pair is the one exception: `Repl.Remote` depends on nothing in Repl, and `Repl.Remote.Defaults` connects it to `Repl.Defaults`.
 
 ## Execution pipeline
 
-1. **Parse** — route matched, parameters bound and validated against constraints
-2. **Middleware** — ordered pipeline of `IReplMiddleware` (auth, logging, tracing, etc.)
-3. **Dispatch** — handler invoked via DI
-4. **Output** — return value passed to the output transformer for the active channel
-5. **Render** — formatter (text/JSON/YAML/XML/Spectre) writes to the channel's output stream
+<ExecutionStages />
+
+- **Parse** — route matched, parameters bound and validated against constraints
+- **Middleware** — the ordered pipeline registered with `app.Use(...)` (auth, logging, tracing, etc.)
+- **Dispatch** — handler invoked via DI
+- **Output** — return value passed to the output transformer for the active channel
+- **Render** — formatter (text/JSON/YAML/XML/Spectre) writes to the channel's output stream
+
+[Pipelines & Integration](/reference/pipelining/#the-execution-pipeline) lists the twelve stages behind these phases, including the help and completion short-circuit and the exit code.
 
 ## Channel model
 
@@ -67,7 +60,7 @@ Custom transports use <ApiRef uid="Repl.StreamedReplHost" />: it writes to a `Te
 
 ## Result-flow paging
 
-First-class paging contracts (<ApiRef uid="Repl.IReplPageSource`1" label="IReplPageSource&lt;T&gt;" />, <ApiRef uid="Repl.ReplPage`1" label="ReplPage&lt;T&gt;" />) sit at stage 10 of the execution pipeline (Result Processing). The integrated terminal pager, the JSON page envelope (`$type: "page"`), and the MCP `_replCursor`/`_replPageSize` inputs are all driven from this layer — the same handler code works across all output formats.
+First-class paging contracts (<ApiRef uid="Repl.IReplPageSource`1" label="IReplPageSource&lt;T&gt;" />, <ApiRef uid="Repl.ReplPage`1" label="ReplPage&lt;T&gt;" />) sit in the Output phase above, at stage 10 (Result Processing) of the [full pipeline](/reference/pipelining/#the-execution-pipeline). The integrated terminal pager, the JSON page envelope (`$type: "page"`), and the MCP `_replCursor`/`_replPageSize` inputs are all driven from this layer — the same handler code works across all output formats.
 
 → [Result-Flow Paging](/reference/result-flow-paging/) · [Cursor Patterns](/reference/cursor-patterns/)
 

@@ -232,22 +232,22 @@ See [Result-Flow Paging](/reference/result-flow-paging/) for the full paging mod
 
 ## Interaction in MCP mode
 
-Repl routes <ApiRef uid="Repl.Interaction.IReplInteractionChannel" /> calls through MCP primitives when running as an MCP server. Configure the fallback when a client doesn't support elicitation:
+Repl routes <ApiRef uid="Repl.Interaction.IReplInteractionChannel" /> calls through MCP primitives when running as an MCP server. The mode decides what happens when the tool arguments do not answer a prompt:
 
 ```csharp
 app.UseMcpServer(o =>
 {
-    o.InteractivityMode = InteractivityMode.PrefillThenElicitation;
-    //  PrefillThenFail        — fail if no prefill provided (default)
-    //  PrefillThenDefaults    — use C# parameter defaults
-    //  PrefillThenElicitation — structured form via agent
-    //  PrefillThenSampling    — LLM generates answer
+    o.InteractivityMode = InteractivityMode.PrefillThenFail;
+    //  PrefillThenFail        — the prompt's default, else fail (default)
+    //  PrefillThenDefaults    — the prompt's default, else the first choice, false or empty
+    //  PrefillThenElicitation — legacy: elicitation, then sampling, then fail
+    //  PrefillThenSampling    — legacy: sampling, then fail
 });
 ```
 
 **Design for agents:** prefer accepting all required data as route parameters or named options. Reserve <ApiRef uid="Repl.Interaction.IReplInteractionChannel" /> prompts for the human-interactive experience — agents should pass everything upfront.
 
-For direct programmatic access to sampling and elicitation (outside of the interactivity pipeline), see [MCP — Advanced](/reference/mcp-advanced/).
+For direct access to sampling and elicitation, which are legacy on `2026-07-28`, see [MCP — Advanced](/reference/mcp-advanced/).
 
 ---
 
@@ -301,7 +301,7 @@ app.MapModule(
     (IAuthService auth) => auth.IsAdmin());
 ```
 
-To scope visibility to workspace roots (native MCP roots or soft-root fallbacks), see [Client roots and soft roots](/reference/mcp-advanced/#client-roots-and-soft-roots).
+To scope visibility to workspace roots (native MCP roots or soft-root fallbacks, both legacy on `2026-07-28`), see [Client roots and soft roots](/reference/mcp-advanced/#client-roots-and-soft-roots).
 
 A single option can be hidden too. A [hidden option](/reference/routes-and-parameters/#hidden-options) is left out of the tool schema, and a call that supplies it is rejected. `.WithOption(name, o => o.AutomationHidden())` hides an option from agents only.
 
@@ -316,7 +316,7 @@ app.UseMcpServer(o =>
 {
     o.ServerName               = "MyApp";
     o.ToolNamingSeparator      = ToolNamingSeparator.Underscore;
-    o.InteractivityMode        = InteractivityMode.PrefillThenElicitation;
+    o.InteractivityMode        = InteractivityMode.PrefillThenFail;   // the default
     o.ResourceFallbackToTools  = true;   // resources also callable as tools (compatibility fallback)
     o.PromptFallbackToTools    = true;   // AsPrompt() tools also callable as tools
     o.CommandFilter            = cmd => true;
@@ -344,4 +344,4 @@ app.UseMcpServer(o =>
 
 ## Going further
 
-For advanced topics — programmatic sampling and elicitation from handler code, client roots and soft roots, custom transports, stateless HTTP hosting, protocol revisions and operator diagnostics — see [MCP — Advanced](/reference/mcp-advanced/).
+For advanced topics — custom transports, stateless HTTP hosting, protocol revisions, operator diagnostics, and the legacy sampling, elicitation and client roots — see [MCP — Advanced](/reference/mcp-advanced/).

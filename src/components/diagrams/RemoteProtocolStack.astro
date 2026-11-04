@@ -1,0 +1,70 @@
+---
+import Figure from '../Figure.astro';
+import Pocket from './Pocket.astro';
+
+const viewWidth = 760;
+const margin = 20;
+const column = { width: 300, height: 60, gap: 14 };
+const columns = {
+	client: {
+		x: margin,
+		heading: 'client process',
+		layers: [
+			{ title: 'RemoteConsole', code: 'Ctrl+C interrupts, Ctrl+D detaches' },
+			{ title: 'RemoteReplClient', code: 'discover, describe, execute' },
+		],
+	},
+	server: {
+		x: viewWidth - margin - column.width,
+		heading: 'server process',
+		layers: [
+			{ title: 'ReplAppRemoteBackend', code: 'Repl.Remote.Defaults, your ReplApp' },
+			{ title: 'RemoteReplServer', code: 'calls IRemoteReplBackend' },
+		],
+	},
+};
+const shared = [
+	{ title: 'JSON-RPC 2.0', code: 'requests, responses, notifications' },
+	{ title: 'Content-Length framing', code: 'ASCII header, then a UTF-8 JSON body' },
+	{ title: 'Byte stream', code: 'a same-user named pipe, or streams you supply' },
+];
+const top = 34;
+const layerY = (index: number) => top + index * (column.height + column.gap);
+const sideDepth = Math.max(...Object.values(columns).map((side) => side.layers.length));
+const sharedTop = layerY(sideDepth) + 18;
+const sharedY = (index: number) => sharedTop + index * (column.height + column.gap);
+const viewHeight = sharedY(shared.length - 1) + column.height + 10;
+const centerX = (x: number) => x + column.width / 2;
+const label = `Remote protocol layers. The client process stacks ${columns.client.layers.map((layer) => layer.title).join(' over ')}; the server process stacks ${columns.server.layers.map((layer) => layer.title).join(' over ')}. Both meet on ${shared.map((layer) => layer.title).join(', over ')}.`;
+---
+
+<Figure
+	viewWidth={viewWidth}
+	viewHeight={viewHeight}
+	label={label}
+	caption="Client and server share only the wire: JSON-RPC messages, framed on a byte stream. Neither side sees the other's types."
+>
+	{
+		Object.values(columns).map((side) => (
+			<g>
+				<text class="rt-note" x={side.x} y={top - 12}>{side.heading}</text>
+				<path
+					class="rt-rule"
+					d={side.layers.map((_, index) => `M${centerX(side.x)} ${layerY(index) + column.height}V${index === side.layers.length - 1 ? sharedTop : layerY(index + 1)}`).join('')}
+				/>
+				{side.layers.map((layer, index) => (
+					<Pocket x={side.x} y={layerY(index)} width={column.width} height={column.height} align="start" title={layer.title} code={layer.code} />
+				))}
+			</g>
+		))
+	}
+	{
+		shared.map((layer, index) => (
+			<g>
+				<rect class="rt-cloth" x={margin} y={sharedY(index)} width={viewWidth - 2 * margin} height={column.height} rx="2" />
+				<text class="rt-tag" x={margin + 20} y={sharedY(index) + 25}>{layer.title}</text>
+				<text class="rt-code" x={margin + 20} y={sharedY(index) + 45}>{layer.code}</text>
+			</g>
+		))
+	}
+</Figure>

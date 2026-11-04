@@ -69,7 +69,7 @@ return app.Run(args);
 2. **Replace `RootCommand` + `Command` trees with `app.Map(...)` and `app.Context(...)`.**  
    Flat commands become `Map("name route", handler)`. Nested subcommands become `Context("noun", sub => { sub.Map(...) })`.
 3. **Drop `Argument<T>` and `Option<T>` declarations.** Route segments (`{name:type}`) replace positional arguments. Named options are plain parameters on the handler (`string? filter = null`) or grouped into a <ApiRef uid="Repl.Parameters.ReplOptionsGroupAttribute" label="[ReplOptionsGroup]" /> class.
-4. **Add `.UseDefaultInteractive()`** to get the REPL mode for free when `args` is empty.
+4. **Add `.UseDefaultInteractive()`.** Repl then handles Ctrl+C and `SIGTERM` for one-shot runs; `myapp` with no arguments opens the REPL with or without it. To keep a pure command-line tool, set `InteractivePolicy.Prevent` after the profile; see [profiles](/reference/configuration/#profiles).
    If scripts depend on a syntax that routes cannot express, keep it with an [argument preprocessor](/reference/advanced-input-startup/#translate-an-existing-command-line).
 5. **Add `.UseMcpServer()`** when you're ready to expose commands to AI agents.
 
@@ -180,7 +180,7 @@ public sealed class ListOptions
 
 Once your commands are wired into Repl, you get the following without extra code:
 
-- **Interactive REPL** — call `.UseDefaultInteractive()` and users get tab completion, history, and command discovery when they run your app with no arguments.
+- **Interactive REPL** — users get tab completion, history, and command discovery when they run your app with no arguments.
 - **MCP server** — call `.UseMcpServer()` and every mapped command is immediately callable as an MCP tool by AI agents (Claude, Copilot, and others).
 - **Hosted sessions** — add `Repl.WebSocket` or `Repl.Telnet` to serve the same command surface over the network to multiple concurrent clients.
 - **In-process test harness** — `Repl.Testing` runs your full command graph in-memory: real routing, real binding, real output — no subprocess, no mocking.

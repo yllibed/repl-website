@@ -1,0 +1,145 @@
+---
+title: Remote Protocol
+description: The JSON-RPC 2.0 wire profile behind Repl.Remote — framing, discovery, one-shot execution, terminal sessions, errors and cancellation — for writing a client in any language.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import ApiRef from '../../../components/ApiRef.astro';
+import RemoteProtocolStack from '../../../components/diagrams/RemoteProtocolStack.astro';
+import RemoteFraming from '../../../components/diagrams/RemoteFraming.astro';
+import MessageSequence from '../../../components/diagrams/MessageSequence.astro';
+
+[Remote Administration](/cookbook/remote-administration/) connects an operator console, or a one-shot command, to a running process. This page describes what travels on that connection, for those who write a client of their own: a monitoring probe in another language, a custom terminal, a test harness. The .NET client, <ApiRef uid="Repl.Remote.RemoteReplClient" />, already implements everything below.
+
+<Aside type="caution">
+  The CLI method names, the `x-cli` discovery extension and the terminal conventions form an **experimental Repl profile**, version `1.0.0`. They are not an industry CLI standard. A client checks the profile's major version and its capabilities before relying on them.
+</Aside>
+
+## Layers
+
+<RemoteProtocolStack />
+
+The envelope is [JSON-RPC 2.0](https://www.jsonrpc.org/specification). Discovery uses [OpenRPC](https://spec.open-rpc.org/), with JSON Schema Draft 7 for parameter values. No service provider, CLR type name or serialized exception is part of the wire contract, so a client needs no .NET type from the server.
+
+The protocol package, `Repl.Remote`, references neither `Repl.Core` nor `Repl.Defaults`. On the server side, <ApiRef uid="Repl.Remote.IRemoteReplBackend" /> is the boundary: `Repl.Remote.Defaults` implements it with <ApiRef uid="Repl.Remote.ReplAppRemoteBackend" /> for a `ReplApp`, and another engine can implement it without changing clients, framing or messages.
+
+## Framing
+
+<RemoteFraming />
+
+Messages are framed on the stream the way the Language Server Protocol frames them: an ASCII `Content-Length: <bytes>` header, a blank line (`\r\n\r\n`), then the JSON body. The length counts UTF-8 bytes, not characters. This is stream framing, not HTTP.
+
+The supplied listener is a named pipe; `RemoteReplServer.RunAsync` serves any pair of streams you supply instead, including redirected standard input and output.
+
+## Methods
+
+| Method | Direction | Purpose |
+| --- | --- | --- |
+| `rpc.discover` | Client → server | The OpenRPC document, with the profile version and capabilities |
+| `cli.describe` | Client → server | Contexts, canonical routes, aliases and parameter schemas |
+| `cli.execute` | Client → server | Run one command; returns its outcome, exit code, JSON result, stdout and stderr |
+| `terminal.open` | Client → server | Start a terminal session with a client-chosen `sessionId` and initial metadata |
+| `terminal.input` | Client → server | Text and VT sequences, at most 16,384 UTF-16 code units per call |
+| `terminal.resize` | Client → server | New column and row counts, both positive |
+| `terminal.interrupt` | Client → server | Cancel the active command and keep the session |
+| `terminal.close` | Client → server | Cancel and close the session |
+| `terminal.output` | Server notification | Text and VT sequences for a `sessionId` |
+| `terminal.exited` | Server notification | The session's exit code, once its output has drained |
+| `$/cancelRequest` | Notification | Cancel a pending request by its JSON-RPC `id` |
+
+Parameters are passed by name. The authoritative description is [`openrpc.json`](https://github.com/yllibed/repl/blob/v0.12.0/src/Repl.Remote/openrpc.json), which `rpc.discover` returns.
+
+## One command
+
+<MessageSequence
+	left={{ title: 'Client', code: 'probe, script, console' }}
+	right={{ title: 'Server', code: 'the running process' }}
+	messages={[
+		{ from: 'left', kind: 'request', text: 'rpc.discover' },
+		{ from: 'right', kind: 'response', text: 'OpenRPC document, x-cli version, capabilities' },
+		{ from: 'left', kind: 'request', text: 'cli.describe' },
+		{ from: 'right', kind: 'response', text: 'contexts, commands, parameter schemas' },
+		{ from: 'left', kind: 'request', text: 'cli.execute {"arguments":["health"]}' },
+		{ from: 'right', kind: 'response', text: 'kind, exitCode, result, stdout, stderr' },
+	]}
+	caption="A one-shot call: check the profile, read the command graph, then execute once."
+/>
+
+`rpc.discover` returns the OpenRPC document. Its `x-cli` member carries the profile `version`, the `capabilities` (`describe`, `execute`, `terminal`, `cancel`), the `framing` and the schema dialect. The profile version is separate from the document's own `info.version`.
+
+`cli.describe` returns the command graph that discovery shows: hidden commands are left out, and explicit service parameters are omitted. Hidden commands remain invocable, so hiding is not authorization.
+
+`cli.execute` takes exactly one representation of the command. Either already-separated tokens, as a shell would pass them:
+
+```json
+{ "arguments": ["items", "show", "42"] }
+```
+
+or a canonical route from `cli.describe`, with values keyed by canonical parameter names:
+
+```json
+{
+  "command": "items show {id}",
+  "values": { "id": 42 },
+  "globalValues": { "tenant": "demo" }
+}
+```
+
+`values` and `globalValues` require `command`. Shell expansion and quoting stay on the client side. JSON arrays and objects bind as native values.
+
+The response is a <ApiRef uid="Repl.Remote.RemoteExecutionResult" />. A command that fails still answers successfully at the RPC level: read `kind`, the [execution outcome](/reference/exit-codes/) in camelCase (`success`, `usageError`, `help`...), and `exitCode`. `result` holds the rendered JSON, an array when the command produced several results; `standardOutput` and `standardError` hold the text the handler wrote through its injected I/O. `ReplAppRemoteBackend` forces JSON output and never enters interactive mode for `cli.execute`; another backend may choose differently. An empty invocation returns the `help` outcome, with human-readable help in `standardOutput`.
+
+## A terminal session
+
+<MessageSequence
+	left={{ title: 'Client', code: 'RemoteConsole, or yours' }}
+	right={{ title: 'Server', code: 'interactive session' }}
+	messages={[
+		{ from: 'left', kind: 'request', text: 'terminal.open {"sessionId":"t1",...}' },
+		{ from: 'right', kind: 'response', text: 'null: the session started' },
+		{ from: 'left', kind: 'request', text: 'terminal.input "client list\\r"' },
+		{ from: 'right', kind: 'notification', text: 'terminal.output "Alice\\r\\nBob\\r\\n..."' },
+		{ from: 'left', kind: 'request', text: 'terminal.close' },
+		{ from: 'right', kind: 'notification', text: 'terminal.exited {"sessionId":"t1","exitCode":...}' },
+		{ from: 'right', kind: 'response', text: 'null: the session is closed' },
+	]}
+	caption="Which side starts each message of a terminal session, and in what order the exit code and the close response arrive."
+/>
+
+The client chooses the `sessionId` and passes initial `options`: `terminal` type, `columns`, `rows` and `ansi`. Output arrives as `terminal.output` notifications at any time; consume them continuously. The server queues a bounded amount of output for each session, and a session that cannot write its output fails with exit code `1`. The .NET <ApiRef uid="Repl.Remote.RemoteTerminal" /> also disconnects when its own buffer overflows. The responses to `terminal.input`, `terminal.resize` and `terminal.interrupt` are empty and left out of the drawing.
+
+`terminal.interrupt` cancels the command that is running and leaves the session at its prompt. `terminal.close` cancels the session and answers once it has finished. A session that ends by cancellation reports `130`; one whose backend failed reports `1`.
+
+## Connections and errors
+
+A connection runs one execution or one terminal at a time. Open several connections to run commands concurrently.
+
+| Code | Meaning |
+| --- | --- |
+| `-32602` | Invalid parameters: both or neither of `arguments` and `command`, an empty `command`, `values` sent with `arguments`, an empty `sessionId` or terminal type on `terminal.open`, an oversized input chunk, a non-positive size |
+| `-32001` | Busy: this connection already owns an execution or a terminal |
+| `-32002` | No active terminal with this `sessionId` on this connection, including an empty one |
+| `-32603` | "The remote backend failed." The detail goes to the server's `onError` callback, never to the client |
+
+## Cancellation and retries
+
+`$/cancelRequest` cancels a pending request by its `id`. It is a JSON-RPC ecosystem convention, not part of the 2.0 specification. Cancellation is cooperative: the handler receives a cancelled token, but nothing proves it stopped. A request the server abandons answers with a JSON-RPC error that acknowledges the cancellation; a handler that finishes anyway returns its normal result. Closing the connection cancels its work in the same way.
+
+Never retry a `cli.execute` automatically after a transport failure: the command may already have run even though its response was lost.
+
+## Security and limits
+
+<Aside type="caution">
+  The endpoint is for trusted local administration. It has no authentication layer, no per-command authorization and no sandbox. A transport other than the same-user named pipe must establish those boundaries before handing its streams to the server.
+</Aside>
+
+- The supplied listener opens its pipe with `PipeOptions.CurrentUserOnly` on both ends, so only the same OS account connects. Any process running as that account can run any command, hidden ones included. On Windows, client and server also need compatible elevation. On Unix, .NET implements the pipe with a Unix-domain socket, and clients use the logical pipe name rather than a socket path.
+- Terminal output contains VT sequences that the application controls. A custom terminal decides which ones it honours.
+- `cli.execute` captures its output in memory. The endpoint suits administrative commands, not bulk data transfer or untrusted traffic.
+
+## Further reading
+
+- [Remote Administration](/cookbook/remote-administration/) — serve a running application and connect to it from .NET.
+- [Remote CLI and local administration](https://github.com/yllibed/repl/blob/v0.12.0/docs/remote-cli.md#wire-profile) — the repository's description of the wire profile, stream ownership and shutdown.
+- [`openrpc.json`](https://github.com/yllibed/repl/blob/v0.12.0/src/Repl.Remote/openrpc.json) — methods and schemas.
+- <ApiRef uid="Repl.Remote.RemoteProtocol" /> — the profile version and the OpenRPC document in .NET.

@@ -5,6 +5,7 @@ description: First-class paging for commands that return large datasets — from
 
 import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
 import ApiRef from '../../../components/ApiRef.astro';
+import PagingLayers from '../../../components/diagrams/PagingLayers.astro';
 
 When a command can return more rows than fit on a screen, Repl handles paging for you. The handler chooses how data flows; Repl handles the terminal UX, the JSON envelope, and the MCP surface.
 
@@ -24,6 +25,8 @@ When a command can return more rows than fit on a screen, Repl handles paging fo
 <Aside type="caution">
 These two layers are independent. Do not substitute one for the other.
 </Aside>
+
+<PagingLayers />
 
 **Source paging** controls how many data rows the handler fetches from the backing store. **Output paging** controls how many rendered lines the terminal displays at once.
 

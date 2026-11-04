@@ -32,12 +32,13 @@
 - [Dependency Injection](https://repl.yllibed.org/reference/dependency-injection/): Handler-parameter injection, service lifetimes (Scoped = one instance per Run* call or MCP connection), SessionScopeBehavior.CallerOwned, and integration with IHostBuilder.
 - [Advanced Input & Startup](https://repl.yllibed.org/reference/advanced-input-startup/): Opt-in hooks — UseArgumentPreprocessor for legacy syntax, UseInvocationHook and native ReplInvocationRequest values, UseInputValidator with services, ReplStartup preparation before DI.
 - [Interactivity](https://repl.yllibed.org/reference/interactivity/): IReplInteractionChannel API (AskTextAsync, AskSecretAsync, AskConfirmationAsync, AskChoiceAsync), --answer:* prefill, cancellation, prompt answers in tests.
-- [MCP In Depth](https://repl.yllibed.org/reference/mcp-concepts/): Full MCP concepts — tools, resources, prompts, MCP Apps, tool annotations (ReadOnly, Destructive, Idempotent, OpenWorld), interaction tiers, client roots, hidden options.
-- [MCP — Advanced](https://repl.yllibed.org/reference/mcp-advanced/): MCP SDK 2.2, protocol revisions 2025-11-25 and 2026-07-28, stateless HTTP hosting with ConfigureMcpServerOptions, operator log events 2001-2009, sampling, elicitation, roots.
+- [MCP In Depth](https://repl.yllibed.org/reference/mcp-concepts/): Full MCP concepts — tools, resources, prompts, MCP Apps, tool annotations (ReadOnly, Destructive, Idempotent, OpenWorld), interaction tiers, hidden options.
+- [MCP — Advanced](https://repl.yllibed.org/reference/mcp-advanced/): MCP SDK 2.2, protocol revisions 2025-11-25 and 2026-07-28, stateless HTTP hosting with ConfigureMcpServerOptions, operator log events 2001-2009, and legacy features new applications should not adopt: roots and sampling are deprecated by revision 2026-07-28, and server-initiated elicitation is replaced by multi round-trip requests, which Repl 0.12 does not use yet.
 - [Customization & Output](https://repl.yllibed.org/reference/customization/): Output formats (text, JSON, XML, YAML, Markdown), feedback on stderr for machine-readable output, ANSI detection, render width, IReplOutputTransformer, Spectre renderables.
 - [Pipelines & Integration](https://repl.yllibed.org/reference/pipelining/): 12-stage execution pipeline, middleware, CLI scripting with pipes/jq, ASP.NET Core integration, IHostedService, process signals and graceful shutdown.
 - [Exit Codes & Signals](https://repl.yllibed.org/reference/exit-codes/): Outcome kinds and default codes (0 success, 2 usage/binding refusal, 1 handler failure, 130/143 on Ctrl+C or SIGTERM), ReplOptions.ExitCodes and Resolver, Results.CompletedWithFailures, IReplModuleExitCodes, ReplProcessSignalHarness.
 - [Terminal Integration](https://repl.yllibed.org/reference/terminal-integration/): ANSI capability levels, NO_COLOR, shell autocomplete installation, response files, terminal detection.
+- [Remote Protocol](https://repl.yllibed.org/reference/remote-protocol/): The experimental JSON-RPC 2.0 profile behind Repl.Remote — Content-Length framing, rpc.discover/cli.describe/cli.execute, terminal.* methods and notifications, errors, cancellation and retries, security limits.
 - [Architecture](https://repl.yllibed.org/reference/architecture/): Internal design, execution model, extension points, and how the packages compose.
 
 ## Reference
@@ -60,7 +61,7 @@
 - `app.UseMcpServer()` — let the app expose all commands as MCP tools (one line, no handler changes); Repl.Mcp is the component used to build the MCP server
 - `app.Run(args)` — dispatch: CLI if args present, REPL if interactive, MCP serve if args == ["mcp","serve"]
 - `Results.Success(message, details)` / `Results.Error(code, message)` / `Results.CompletedWithFailures(report)` / `Results.Exit(code)` — typed command results; the exit code comes from ReplOptions.ExitCodes, never from a returned int
-- `IReplInteractionChannel` — ask users for input; fulfilled by terminal in interactive mode, --answer:* in CI, MCP elicitation in agents; feedback goes to stderr when output is machine-readable
+- `IReplInteractionChannel` — ask users for input; fulfilled by terminal in interactive mode, --answer:* in CI, tool-argument prefill in agents; feedback goes to stderr when output is machine-readable
 - `Repl.Testing` — in-memory harness for full multi-step interaction testing with typed assertions
 
 

@@ -5,6 +5,7 @@ description: Composable modules, generic CRUD, and reusing the same module under
 
 import { Aside } from '@astrojs/starlight/components';
 import ApiRef from '../../../components/ApiRef.astro';
+import ModuleReuse from '../../../components/diagrams/ModuleReuse.astro';
 
 Modules let you define a command set once and mount it at multiple points in your command graph — DRY at the routing level.
 
@@ -110,6 +111,8 @@ app.Context("products", products =>
     RegisterAuditLog(products, "product");
 });
 ```
+
+<ModuleReuse />
 
 This composes cleanly: each context has both CRUD and audit commands without copy-pasting routes.
 

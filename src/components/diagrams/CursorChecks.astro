@@ -1,0 +1,78 @@
+---
+import Figure from '../Figure.astro';
+import { textWidth } from './metrics';
+
+/* A cursor a caller passes back goes through Repl's own checks, then the checks only the handler can make
+   because only it knows what the cursor means. */
+const incoming = { title: 'Incoming cursor', lines: ['--result:cursor', '_replCursor (MCP)'] };
+const gates = [
+	{
+		title: 'Repl checks',
+		lines: ['not empty', 'at most 512 characters', 'does not start with -', 'no whitespace', 'no control characters'],
+	},
+	{
+		title: 'Your handler checks',
+		lines: ['decodes or decrypts it', 'checks its signature', 'owner and tenant match', 'not expired', 'nextLink: host and path'],
+	},
+];
+const outcome = { title: 'Query the store', lines: ['req.Cursor'] };
+const columns = [incoming, ...gates, outcome];
+const padding = 18;
+const lineHeight = 20;
+const gap = 44;
+const top = 10;
+const boxWidth = (item: { title: string; lines: string[] }) =>
+	Math.max(textWidth(item.title, 'tag'), ...item.lines.map((line) => textWidth(line, 'code'))) + 2 * padding;
+const widths = columns.map(boxWidth);
+const boxX = (index: number) => 10 + widths.slice(0, index).reduce((sum, width) => sum + width + gap, 0);
+const height = 44 + Math.max(...columns.map((item) => item.lines.length)) * lineHeight;
+const rejectY = top + height + 40;
+const viewWidth = boxX(columns.length - 1) + widths[columns.length - 1] + 10;
+const viewHeight = rejectY + 12;
+const middleY = top + height / 2;
+/* Columns between the incoming cursor and the outcome are the gates. */
+const isGate = (index: number) => index > 0 && index !== columns.length - 1;
+const label = `Cursor validation. ${incoming.title} (${incoming.lines.join(' or ')}) goes through ${gates
+	.map((gate) => `${gate.title}: ${gate.lines.join(', ')}`)
+	.join('; then ')}. A cursor that passes both reaches ${outcome.title}; one that fails either is refused.`;
+---
+
+<Figure
+	viewWidth={viewWidth}
+	viewHeight={viewHeight}
+	label={label}
+	caption="Repl checks the shape of every cursor a caller passes back; the handler makes the checks that depend on what its cursor carries."
+>
+	<path
+		class="rt-thread"
+		d={columns
+			.slice(1)
+			.map((_, index) => `M${boxX(index) + widths[index]} ${middleY}H${boxX(index + 1)}`)
+			.join('')}
+	></path>
+	<path
+		class="rt-lead"
+		d={gates
+			.map((_, index) => {
+				const center = boxX(index + 1) + widths[index + 1] / 2;
+				return `M${center} ${top + height}V${rejectY - 14}`;
+			})
+			.join('')}
+	></path>
+	{
+		columns.map((item, index) => {
+			return (
+				<g>
+					<rect class="rt-cloth" x={boxX(index)} y={top} width={widths[index]} height={height} rx="2" />
+					<text class="rt-tag" x={boxX(index) + padding} y={top + 26}>{item.title}</text>
+					{item.lines.map((line, lineIndex) => (
+						<text class="rt-code" x={boxX(index) + padding} y={top + 52 + lineIndex * lineHeight}>{line}</text>
+					))}
+					{isGate(index) && (
+						<text class="rt-note" x={boxX(index) + widths[index] / 2} y={rejectY} text-anchor="middle">otherwise refused</text>
+					)}
+				</g>
+			);
+		})
+	}
+</Figure>

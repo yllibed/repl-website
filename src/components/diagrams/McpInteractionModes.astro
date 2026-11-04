@@ -1,0 +1,72 @@
+---
+import Figure from '../Figure.astro';
+import { textWidth } from './metrics';
+
+/* Columns are the ways a prompt can be answered under MCP; each mode is a line that stops at the ones it tries. */
+const stops = [
+	{ key: 'prefill', title: 'Prefill', note: 'tool arguments' },
+	{ key: 'elicitation', title: 'Elicitation', note: 'client support' },
+	{ key: 'sampling', title: 'Sampling', note: 'client support' },
+	{ key: 'promptDefault', title: 'Default', note: "prompt's own" },
+	{ key: 'typeDefault', title: 'Fallback', note: 'first, no, empty' },
+	{ key: 'fail', title: 'Fail', note: 'tool error' },
+] as const;
+type Stop = (typeof stops)[number]['key'];
+const modes: { name: string; note?: string; path: Stop[] }[] = [
+	{ name: 'PrefillThenFail', note: 'default mode', path: ['prefill', 'promptDefault', 'fail'] },
+	{ name: 'PrefillThenDefaults', path: ['prefill', 'promptDefault', 'typeDefault'] },
+	{ name: 'PrefillThenElicitation', path: ['prefill', 'elicitation', 'sampling', 'promptDefault', 'fail'] },
+	{ name: 'PrefillThenSampling', path: ['prefill', 'sampling', 'promptDefault', 'fail'] },
+];
+const left = 10;
+const firstColumn = left + Math.max(...modes.map((mode) => textWidth(mode.name, 'code'))) + 40;
+// Wide enough that neighbouring column notes never touch.
+const columnGap = Math.max(...stops.map((stop) => textWidth(stop.note, 'note'))) + 12;
+const columnX = (key: Stop) => firstColumn + stops.findIndex((stop) => stop.key === key) * columnGap;
+const header = { title: 26, note: 44 };
+const rowTop = 84;
+const rowHeight = 42;
+const rowY = (index: number) => rowTop + index * rowHeight;
+const bottom = rowY(modes.length - 1) + 20;
+const viewWidth = firstColumn + (stops.length - 1) * columnGap + columnGap / 2 + left;
+const viewHeight = bottom + 10;
+const stopName = (key: Stop) => {
+	const stop = stops.find((item) => item.key === key);
+	return `${stop?.title} (${stop?.note})`;
+};
+const label = `MCP interactivity modes. A prompt is answered from the tool arguments first; then ${modes
+	.map((mode) => `${mode.name} tries ${mode.path.slice(1).map(stopName).join(', then ')}`)
+	.join('; ')}.`;
+---
+
+<Figure
+	viewWidth={viewWidth}
+	viewHeight={viewHeight}
+	label={label}
+	caption="What each interactivity mode tries, in order, when an MCP tool call reaches a prompt. A prompt's own default always comes before failing."
+>
+	{
+		stops.map((stop) => (
+			<g>
+				<path class="rt-lead" d={`M${columnX(stop.key)} ${header.note + 12}V${bottom}`} />
+				<text class="rt-tag" x={columnX(stop.key)} y={header.title} text-anchor="middle">{stop.title}</text>
+				<text class="rt-note" x={columnX(stop.key)} y={header.note} text-anchor="middle">{stop.note}</text>
+			</g>
+		))
+	}
+	{
+		modes.map((mode, index) => {
+			const y = rowY(index);
+			const first = columnX(mode.path[0]);
+			const last = columnX(mode.path[mode.path.length - 1]);
+			return (
+				<g>
+					<text class="rt-code" x={left} y={y + 4}>{mode.name}</text>
+					{mode.note && <text class="rt-note" x={left} y={y + 20}>{mode.note}</text>}
+					<path class="rt-thread" d={`M${first} ${y}H${last}`} />
+					{mode.path.map((key) => <circle class="rt-node" cx={columnX(key)} cy={y} r="4" />)}
+				</g>
+			);
+		})
+	}
+</Figure>

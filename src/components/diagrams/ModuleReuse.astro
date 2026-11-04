@@ -1,0 +1,64 @@
+---
+import Figure from '../Figure.astro';
+import Pocket from './Pocket.astro';
+
+/* Two registration functions, each called once per context; every context ends up with all their routes. */
+const functions = [
+	{ title: 'RegisterCrudCommands', code: '(map, store)', routes: ['list', 'show {id:int}', 'delete {id:int}'] },
+	{ title: 'RegisterAuditLog', code: '(map, entityType)', routes: ['log', 'log clear'] },
+];
+const contexts = [
+	{ title: 'contacts', code: 'contactStore, "contact"' },
+	{ title: 'products', code: 'productStore, "product"' },
+];
+const margin = 10;
+const columnWidth = 320;
+const columnGap = 60;
+const columnX = (index: number) => margin + index * (columnWidth + columnGap);
+const columns = Math.max(functions.length, contexts.length);
+const viewWidth = 2 * margin + columns * columnWidth + (columns - 1) * columnGap;
+const fn = { y: 10, height: 60 };
+const ctx = { y: 150, header: 58, line: 22 };
+const routes = functions.flatMap((item) => item.routes);
+const ctxHeight = ctx.header + routes.length * ctx.line + 12;
+const viewHeight = ctx.y + ctxHeight + margin;
+/* Each function feeds both contexts; its threads land on the context tops at distinct points. */
+const landingX = (contextIndex: number, functionIndex: number) =>
+	columnX(contextIndex) + columnWidth / 2 + (functionIndex - (functions.length - 1) / 2) * 60;
+const threads = functions.flatMap((_, functionIndex) =>
+	contexts.map((__, contextIndex) => {
+		const startX = columnX(functionIndex) + columnWidth / 2;
+		const startY = fn.y + fn.height;
+		const endX = landingX(contextIndex, functionIndex);
+		const middle = (startY + ctx.y) / 2;
+		return `M${startX} ${startY}C${startX} ${middle} ${endX} ${middle} ${endX} ${ctx.y}`;
+	}),
+);
+const label = `Reusing registration functions: ${functions.map((item) => `${item.title} adds ${item.routes.join(', ')}`).join('; ')}. Each is called for ${contexts.map((item) => item.title).join(' and ')}, so both contexts expose ${routes.join(', ')}.`;
+---
+
+<Figure
+	viewWidth={viewWidth}
+	viewHeight={viewHeight}
+	label={label}
+	caption="One registration function per feature, called once per context: each context gets every route, bound to its own store."
+>
+	<path class="rt-thread" d={threads.join('')}></path>
+	{functions.map((item, index) => <Pocket x={columnX(index)} y={fn.y} width={columnWidth} height={fn.height} title={item.title} code={item.code} />)}
+	{
+		contexts.map((item, contextIndex) => {
+			const x = columnX(contextIndex);
+			return (
+				<g>
+					<rect class="rt-cloth" x={x} y={ctx.y} width={columnWidth} height={ctxHeight} rx="2" />
+					{functions.map((_, functionIndex) => <circle class="rt-node" cx={landingX(contextIndex, functionIndex)} cy={ctx.y} r="4" />)}
+					<text class="rt-tag" x={x + 20} y={ctx.y + 28}>{item.title}</text>
+					<text class="rt-note" x={x + 20} y={ctx.y + 46}>{item.code}</text>
+					{routes.map((route, index) => (
+						<text class="rt-code" x={x + 36} y={ctx.y + ctx.header + 14 + index * ctx.line}>{route}</text>
+					))}
+				</g>
+			);
+		})
+	}
+</Figure>

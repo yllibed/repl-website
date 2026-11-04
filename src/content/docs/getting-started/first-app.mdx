@@ -56,7 +56,7 @@ This tutorial builds the smallest useful Repl app — a `hello` command that run
 ## What just happened
 
 - `ReplApp.Create()` wires up the DI container, routing, and output pipeline.
-- `UseDefaultInteractive()` activates the interactive REPL when no arguments are given.
+- `UseDefaultInteractive()` lets Repl handle Ctrl+C and `SIGTERM` for a one-shot run. Running `myapp` with no arguments opens the interactive REPL, with or without it; see [profiles](/reference/configuration/#profiles).
 - `app.Map("hello", () => "world")` registers a route. The return value is rendered automatically.
 - `app.Run(args)` dispatches: CLI if `args` is non-empty, REPL otherwise.
 

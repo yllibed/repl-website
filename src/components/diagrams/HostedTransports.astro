@@ -1,0 +1,58 @@
+---
+import Figure from '../Figure.astro';
+import Pocket from './Pocket.astro';
+
+/* Two WebSocket endpoints in one ASP.NET Core host; both run sessions of the same ReplApp. */
+const lanes = [
+	{
+		client: { title: 'WebSocket client', code: 'text frames' },
+		session: { title: 'ReplWebSocketSession', code: 'RunWithServicesAsync' },
+		note: "resolves from the request's services",
+	},
+	{
+		client: { title: 'Telnet client', code: 'Telnet over WebSocket' },
+		session: { title: 'ReplTelnetSession', code: 'RunAsync, NAWS' },
+		note: "resolves from the app's own container",
+	},
+];
+const client = { x: 10, width: 200, height: 60 };
+const host = { x: 250, y: 10, width: 540 };
+const laneTop = 56;
+const laneHeight = 110;
+const laneY = (index: number) => laneTop + index * laneHeight;
+const session = { x: host.x + 20, width: 250, height: 60 };
+const hostHeight = laneY(lanes.length - 1) + session.height + 40 - host.y;
+const app = { x: host.x + host.width - 20 - 210, width: 210 };
+const appY = laneY(0);
+const appHeight = laneY(lanes.length - 1) + session.height - appY;
+const viewWidth = host.x + host.width + 10;
+const viewHeight = host.y + hostHeight + 10;
+const label = `Hosted sessions: an ASP.NET Core host maps two WebSocket endpoints. ${lanes
+	.map((lane) => `A ${lane.client.title} (${lane.client.code}) reaches ${lane.session.title}, which ${lane.note}`)
+	.join('. ')}. Both run the same ReplApp command graph; their services come from different containers.`;
+---
+
+<Figure
+	viewWidth={viewWidth}
+	viewHeight={viewHeight}
+	label={label}
+	caption="One host, two session protocols, one command graph. Each connection is its own session, and the two lanes resolve services from different containers."
+>
+	<rect class="rt-cloth" x={host.x} y={host.y} width={host.width} height={hostHeight} rx="2"></rect>
+	<text class="rt-tag" x={host.x + 20} y={host.y + 28}>ASP.NET Core host</text>
+	{
+		lanes.map((lane, index) => {
+			const y = laneY(index);
+			const mid = y + session.height / 2;
+			return (
+				<g>
+					<path class="rt-thread" d={`M${client.x + client.width} ${mid}H${session.x}M${session.x + session.width} ${mid}H${app.x}`} />
+					<Pocket x={client.x} y={y} width={client.width} height={client.height} title={lane.client.title} code={lane.client.code} />
+					<Pocket x={session.x} y={y} width={session.width} height={session.height} title={lane.session.title} code={lane.session.code} />
+					<text class="rt-note" x={session.x} y={y + session.height + 18}>{lane.note}</text>
+				</g>
+			);
+		})
+	}
+	<Pocket x={app.x} y={appY} width={app.width} height={appHeight} title="ReplApp" code="one command graph" />
+</Figure>

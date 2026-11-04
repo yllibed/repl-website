@@ -5,25 +5,24 @@ description: Middleware pipeline, command chaining, scripting, and integration w
 
 import { Aside } from '@astrojs/starlight/components';
 import ApiRef from '../../../components/ApiRef.astro';
+import MiddlewareChain from '../../../components/diagrams/MiddlewareChain.astro';
 
 ## The execution pipeline
 
 Every command invocation goes through a 12-stage pipeline. Understanding it lets you hook in at the right stage and reason about where errors come from.
 
-```
- 1. Global Option Parsing       — --help, --output:format, --answer:*, custom globals
- 2. Prefix Resolution           — abbreviated command names
- 3. Pre-Execution Handling      — shell completion, help rendering, ambient commands
- 4. Route Resolution            — matches tokens to registered routes
- 5. Banner Rendering            — suppressed in CI/non-interactive
- 6. Command Option Parsing      — --name value, @responsefile, --no-*
- 7. Argument Binding            — CancellationToken → attributes → groups → route → DI → positional → defaults
- 8. Context Validation          — optional validation delegates on contexts
- 9. Middleware & Handler        — your Use() chain + handler invocation
-10. Result Processing           — unwrap IExitResult, EnterInteractiveResult; page sources materialized here (see [Result-Flow Paging](/reference/result-flow-paging/))
-11. Output Transformation       — format selection and rendering
-12. Exit Code                   — outcome kind mapped by ReplOptions.ExitCodes, n via Results.Exit(n)
-```
+1. **Global option parsing** — `--help`, `--output:format`, `--answer:*`, custom globals
+2. **Prefix resolution** — abbreviated command names
+3. **Pre-execution handling** — shell completion, help rendering, ambient commands
+4. **Route resolution** — matches tokens to registered routes
+5. **Banner rendering** — suppressed in CI and non-interactive runs
+6. **Command option parsing** — `--name value`, `@responsefile`, `--no-*`
+7. **Argument binding** — `CancellationToken`, attributes, groups, route, DI, positional, defaults
+8. **Context validation** — optional validation delegates on contexts
+9. **Middleware and handler** — your `Use()` chain, then the handler
+10. **Result processing** — unwraps `IExitResult` and `EnterInteractiveResult`; page sources are materialized here (see [Result-Flow Paging](/reference/result-flow-paging/))
+11. **Output transformation** — format selection and rendering
+12. **Exit code** — the outcome kind mapped by `ReplOptions.ExitCodes`, or `n` from `Results.Exit(n)`
 
 ---
 
@@ -42,6 +41,8 @@ app.Use(async (context, next) =>
     logger.LogInformation("Command completed in {Elapsed}ms", sw.ElapsedMilliseconds);
 });
 ```
+
+<MiddlewareChain />
 
 Middleware runs between argument binding (step 7) and your handler (step 9). Chain multiple `Use(...)` calls — they execute in registration order.
 

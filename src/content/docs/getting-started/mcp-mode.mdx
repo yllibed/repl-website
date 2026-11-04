@@ -4,6 +4,7 @@ description: Expose your command surface to AI agents via the Model Context Prot
 ---
 
 import { Steps } from '@astrojs/starlight/components';
+import McpSurfaces from '../../../components/diagrams/McpSurfaces.astro';
 
 Repl can expose your app's command graph as an [MCP server](https://modelcontextprotocol.io/), making every command available as an MCP tool to any compatible AI agent — Claude, Cursor, Copilot, and others. `Repl.Mcp` is the component that lets your app become the MCP server; it is not itself the server users configure in an agent host.
 
@@ -52,6 +53,8 @@ That's it — every `Map(...)` call in your app is now an MCP tool. In productio
 ## How mapping works
 
 Repl translates your command graph to MCP concepts automatically:
+
+<McpSurfaces />
 
 | Repl concept | MCP concept |
 |---|---|

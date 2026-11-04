@@ -147,7 +147,7 @@ Recommended migration path:
 2. Keep handler logic small and dependency-injected.
 3. Map routes with `app.Map(...)` and `app.Context(...)`.
 4. Return typed objects for JSON-friendly output.
-5. Add `UseDefaultInteractive()` for REPL mode.
+5. Add `UseDefaultInteractive()` for a standalone app, or `UseEmbeddedConsoleProfile()` inside a host. Neither turns the REPL off: for a command-line-only tool, set `InteractivePolicy.Prevent` after the profile. See [profiles](/reference/configuration/#profiles).
 6. Add `UseMcpServer()` only when the app should become an MCP server.
 7. Annotate MCP-visible commands with safety metadata.
 8. Add `Repl.Testing` coverage for important workflows.
@@ -196,7 +196,7 @@ Rules:
 - Define commands once in a Repl command graph.
 - Keep handlers small, typed, and dependency-injected.
 - Return JSON-friendly result objects instead of prose-only console output.
-- Add `UseDefaultInteractive()` for CLI + REPL dispatch.
+- Add `UseDefaultInteractive()` for a standalone app (Repl then handles Ctrl+C and `SIGTERM`), or `UseEmbeddedConsoleProfile()` inside a host. Neither turns the REPL off: for a command-line-only tool, set `InteractivePolicy.Prevent` after the profile.
 - Add `UseMcpServer()` only when this app should expose its command graph as an MCP server.
 - Treat `Repl.Mcp` as the component for building MCP servers; do not describe Repl.Mcp itself as the server users install.
 - Annotate MCP-visible commands with `.ReadOnly()`, `.Destructive()`, `.Idempotent()`, `.OpenWorld()`, `.LongRunning()`, or `.AutomationHidden()`.

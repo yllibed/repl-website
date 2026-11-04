@@ -6,7 +6,31 @@ head:
   - tag: title
     content: Repl Toolkit — .NET Command Surface Framework
 hero:
+  title: 'One graph.<br>Every <span class="rt-nowrap">surface.<span class="rt-cursor" aria-hidden="true"></span></span>'
   tagline: Map your commands like ASP.NET Core routes. Run them as a CLI tool, an interactive REPL, hosted sessions, or MCP tools for AI agents — all from the same code.
+  # The terminal is repeated in src/assets/og-image.svg (the social card): keep both in step.
+  image:
+    html: |
+      <span hidden data-pagefind-meta="title:Repl Toolkit"></span>
+      <div class="rt-term" data-pagefind-ignore role="img" aria-label="A terminal runs the same app three ways: as a CLI call that prints JSON, as a REPL that enters the client 42 context, and as an MCP server that lists the commands as tools.">
+      <div class="rt-term-bar"><span class="rt-term-rivet"></span><span class="rt-term-rivet"></span><span class="rt-term-title">myapp: one graph, three runs</span></div>
+      <div class="rt-term-body">
+      <span class="rt-dim" style="--i:0"># cli</span>
+      <span style="--i:1"><span class="rt-prompt">$</span> myapp client list --json</span>
+      <span class="rt-out" style="--i:2">[{"id":1,"name":"ACME"},{"id":2,"name":"Globex"}]</span>
+      <span style="--i:3"></span>
+      <span class="rt-dim" style="--i:4"># repl</span>
+      <span style="--i:5"><span class="rt-prompt">$</span> myapp</span>
+      <span style="--i:6"><span class="rt-prompt">&gt;</span> client 42</span>
+      <span style="--i:7"><span class="rt-prompt">[client/42]&gt;</span> show</span>
+      <span class="rt-out" style="--i:8">Id:   42   Name: ACME</span>
+      <span style="--i:9"></span>
+      <span class="rt-dim" style="--i:10"># mcp: the same graph, served to an agent</span>
+      <span style="--i:11"><span class="rt-prompt">$</span> myapp mcp serve</span>
+      <span class="rt-dim" style="--i:12">&lt;- {"jsonrpc":"2.0","id":1,"method":"tools/list"}</span>
+      <span class="rt-out" style="--i:13">-&gt; client_list, client_show, client_remove</span>
+      </div>
+      </div>
   actions:
     - text: Get Started
       link: /getting-started/installation/
@@ -18,56 +42,88 @@ hero:
       variant: minimal
 ---
 
-import { Card, CardGrid, Tabs, TabItem, Badge, LinkButton } from '@astrojs/starlight/components';
+import { Tabs, TabItem } from '@astrojs/starlight/components';
 
-## One graph. Every surface.
+## What one command graph gives you
 
-<CardGrid stagger>
-	<Card title="Familiar minimal-API style" icon="seti:config">
-		`app.Map("user {id:int}", handler)` — typed routes, constraints, parameter binding, and structured output. If you've used ASP.NET Core minimal APIs, you already know the pattern.
-	</Card>
-	<Card title="CLI + REPL from the same graph" icon="terminal">
-		Pass arguments and you have a one-shot CLI invocation from your shell — `--json`, `--xml`, `--yaml` output and `--help` at every level. Skip the arguments and you have a read-eval-print loop instead: type a command, see the result, repeat — with scoped navigation, history, and autocomplete.
-	</Card>
-	<Card title="Hosted sessions" icon="laptop">
-		The same command surface runs over any text-based session transport. Multiple concurrent sessions, each with its own scope. `Repl.WebSocket` and `Repl.Telnet` are built-in implementations; any transport that delivers a stream pair works.
-	</Card>
-	<Card title="Build an MCP server in one line" icon="puzzle">
-		`app.UseMcpServer()` lets your app expose every command over the Model Context Protocol — the open standard AI assistants use to discover and call tools. Repl.Mcp is the component; your app is the MCP server. Tools, resources, prompts, and MCP Apps (`ui://`) are generated from the same command graph, with behavioral hints derived from your route annotations.
-	</Card>
-	<Card title="Zero-dependency core" icon="approve-check-circle">
-		`Repl.Core` has zero NuGet dependencies. Build embedded command surfaces in strict environments. Compose only what you need.
-	</Card>
-	<Card title="Every interaction path, testable" icon="approve-check">
-		`Repl.Testing` runs your full command graph in memory — multi-session, multi-step, with a typed assertion API. Prompts, scoped navigation, and MCP tools — all verifiable without a real terminal, with no hidden I/O. Production confidence by `dotnet test`.
-	</Card>
-</CardGrid>
+<div class="rt-listing">
+<section>
+
+### Familiar minimal-API style
+
+`app.Map("user {id:int}", handler)` — typed routes, constraints, parameter binding, and structured output. If you've used ASP.NET Core minimal APIs, you already know the pattern.
+
+</section>
+<section>
+
+### CLI + REPL from the same graph
+
+Pass arguments and you have a one-shot CLI invocation from your shell — `--json`, `--xml`, `--yaml` output and `--help` at every level. Skip the arguments and you have a read-eval-print loop instead: type a command, see the result, repeat — with scoped navigation, history, and autocomplete.
+
+</section>
+<section>
+
+### Hosted sessions
+
+The same command surface runs over any text-based session transport. Multiple concurrent sessions, each with its own scope. `Repl.WebSocket` and `Repl.Telnet` are built-in implementations; any transport that delivers a stream pair works.
+
+</section>
+<section>
+
+### Build an MCP server in one line
+
+`app.UseMcpServer()` lets your app expose every command over the Model Context Protocol — the open standard AI assistants use to discover and call tools. Repl.Mcp is the component; your app is the MCP server. Tools, resources, prompts, and MCP Apps (`ui://`) are generated from the same command graph, with behavioral hints derived from your route annotations.
+
+</section>
+<section>
+
+### Zero-dependency core
+
+`Repl.Core` has zero NuGet dependencies. Build embedded command surfaces in strict environments. Compose only what you need.
+
+</section>
+<section>
+
+### Every interaction path, testable
+
+`Repl.Testing` runs your full command graph in memory — multi-session, multi-step, with a typed assertion API. Prompts, scoped navigation, and MCP tools — all verifiable without a real terminal, with no hidden I/O. Production confidence by `dotnet test`.
+
+</section>
+</div>
 
 ## Production-grade by default
 
 Repl is a complete command surface toolkit. It implements the working [CLI guidelines from clig.dev](https://clig.dev) — the de facto reference for modern command-line tools — out of the box, then extends them for the era of AI agents and multi-channel automation.
 
-<CardGrid>
-	<Card title="What clig.dev asks for, you already have" icon="approve-check">
-		- **`--help` at every level** — root, contexts, individual commands, with examples
-		- **Machine-readable output** — `--json`, `--xml`, `--yaml`, `--markdown` on every command
-		- **Color discipline** — `NO_COLOR`, `CLICOLOR_FORCE`, and `TERM=dumb` honored without configuration
-		- **TTY-aware** — progress bars, prompts, and styling adapt automatically to redirected output and CI
-		- **Forgiving input** — prefix matching (`co li` → `contact list`), unique disambiguation, "Did you mean?" suggestions on typos
-		- **Two-tap `Ctrl+C`** — first tap interrupts work, second tap exits, exactly as the guidelines prescribe
-		- **Shell completion** — Bash, PowerShell, Zsh, Fish, and Nushell adapters generated from your command graph
-		- **Response files** — `@args.rsp` for long invocations, ready for CI scripts
-		- **Structured exit codes** — `0` for success, `2` for usage errors, `1` for failures, `130`/`143` on Ctrl+C or SIGTERM, all configurable
-	</Card>
-	<Card title="What clig.dev couldn't predict" icon="rocket">
-		- **First-class MCP server** — tools, resources (`repl://`), prompts, and MCP Apps (`ui://`) generated from the same routes
-		- **Behavioral annotations** — `.ReadOnly()`, `.Destructive()`, `.Idempotent()`, `.OpenWorld()` propagate into MCP hints and shape interactive confirmations
-		- **In-memory test harness** — `Repl.Testing` runs the full graph (prompts, scoped navigation, multi-step sessions) without a terminal
-		- **Hosted remote sessions** — the same graph served over WebSocket, Telnet, or any stream pair, with per-session DI scope
-		- **Channel-aware interactivity** — prompts degrade automatically when stdin is redirected, when running under MCP, or in non-interactive transports
-		- **Conditional modules** — register surfaces based on environment, license, or runtime detection without restructuring code
-	</Card>
-</CardGrid>
+<div class="rt-checks">
+<section class="rt-checks-asked">
+
+### What clig.dev asks for, you already have
+
+- **`--help` at every level** — root, contexts, individual commands, with examples
+- **Machine-readable output** — `--json`, `--xml`, `--yaml`, `--markdown` on every command
+- **Color discipline** — `NO_COLOR`, `CLICOLOR_FORCE`, and `TERM=dumb` honored without configuration
+- **TTY-aware** — progress bars, prompts, and styling adapt automatically to redirected output and CI
+- **Forgiving input** — prefix matching (`co li` → `contact list`), unique disambiguation, "Did you mean?" suggestions on typos
+- **Two-tap `Ctrl+C`** — first tap interrupts work, second tap exits, exactly as the guidelines prescribe
+- **Shell completion** — Bash, PowerShell, Zsh, Fish, and Nushell adapters generated from your command graph
+- **Response files** — `@args.rsp` for long invocations, ready for CI scripts
+- **Structured exit codes** — `0` for success, `2` for usage errors, `1` for failures, `130`/`143` on Ctrl+C or SIGTERM, all configurable
+
+</section>
+<section class="rt-checks-added">
+
+### What clig.dev couldn't predict
+
+- **First-class MCP server** — tools, resources (`repl://`), prompts, and MCP Apps (`ui://`) generated from the same routes
+- **Behavioral annotations** — `.ReadOnly()`, `.Destructive()`, `.Idempotent()`, `.OpenWorld()` propagate into MCP hints and shape interactive confirmations
+- **In-memory test harness** — `Repl.Testing` runs the full graph (prompts, scoped navigation, multi-step sessions) without a terminal
+- **Hosted remote sessions** — the same graph served over WebSocket, Telnet, or any stream pair, with per-session DI scope
+- **Channel-aware interactivity** — prompts degrade automatically when stdin is redirected, when running under MCP, or in non-interactive transports
+- **Conditional modules** — register surfaces based on environment, license, or runtime detection without restructuring code
+
+</section>
+</div>
 
 ## Quick start
 
@@ -178,33 +234,14 @@ $ myapp contacts add "Alice Dupont" alice@example.com --json
 
 ## Where to go next
 
-<CardGrid>
-	<Card title="Getting Started" icon="rocket">
-		Install the package, write your first app, and understand the three execution modes in 10 minutes.
-
-		[Start here →](/getting-started/installation/)
-	</Card>
-	<Card title="Cookbook" icon="open-book">
-		Recipes from core routing to MCP servers and remote administration, each backed by a full runnable sample.
-
-		[Browse recipes →](/cookbook/core-basics/)
-	</Card>
-	<Card title="Concepts" icon="information">
-		Routes, modules, DI, MCP, interactivity, output, pipelines, and terminal integration.
-
-		[Read the docs →](/reference/routes-and-parameters/)
-	</Card>
-	<Card title="For Coding Agents" icon="puzzle">
-		Decision rules, implementation guidance, and copy/paste instructions for agents adding Repl Toolkit to .NET projects.
-
-		[Guide agents →](/getting-started/for-coding-agents/)
-	</Card>
-	<Card title="API Reference" icon="list-format">
-		Complete generated API reference from the `Repl.*` assemblies.
-
-		[Browse API →](/api/)
-	</Card>
-</CardGrid>
+<nav class="rt-ls" aria-label="Where to go next">
+	<p>$ ls docs/</p>
+	<a href="/getting-started/installation/"><b>getting-started/</b> <span>Install the package, write your first app, and understand the three execution modes in 10 minutes.</span></a>
+	<a href="/cookbook/core-basics/"><b>cookbook/</b> <span>Recipes from core routing to MCP servers and remote administration, each backed by a full runnable sample.</span></a>
+	<a href="/reference/routes-and-parameters/"><b>reference/</b> <span>Concepts: routes, modules, DI, MCP, interactivity, output, pipelines, and terminal integration.</span></a>
+	<a href="/getting-started/for-coding-agents/"><b>getting-started/for-coding-agents</b> <span>Decision rules, implementation guidance, and copy/paste instructions for agents adding Repl Toolkit to .NET projects.</span></a>
+	<a href="/api/"><b>api/</b> <span>Complete generated API reference from the <code>Repl.*</code> assemblies.</span></a>
+</nav>
 
 ## The full story
 

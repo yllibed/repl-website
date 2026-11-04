@@ -32,9 +32,10 @@ dotnet add package Repl.Core
 
 DI-enabled app facade (<ApiRef uid="Repl.ReplApp" />), lifecycle orchestration, and default profiles:
 
-- `UseDefaultInteractive()` — REPL when no args, CLI when args given
-- `UseCliProfile()` — CLI-only, no interactive loop
-- `UseEmbeddedConsoleProfile()` — embedded in a larger host
+- `UseDefaultInteractive()` and `UseCliProfile()` — an app that runs as its own process; Repl owns Ctrl+C and `SIGTERM` for a one-shot run and exits `130` or `143`
+- `UseEmbeddedConsoleProfile()` — a command graph inside a host that owns the process; disables the `exit` command
+
+None of them turns the REPL off; see [profiles](/reference/configuration/#profiles).
 
 ```bash
 dotnet add package Repl.Defaults

@@ -1,0 +1,66 @@
+---
+import Figure from '../Figure.astro';
+import Pocket from './Pocket.astro';
+
+/* The same command in two situations: where its result and its feedback go. */
+const panels = [
+	{
+		title: 'Human output, to a terminal',
+		stdout: 'the screen',
+		stderr: 'the screen',
+		feedback: 'stdout' as const,
+	},
+	{
+		title: '--json, or stdout redirected',
+		stdout: 'payload only',
+		stderr: 'the screen',
+		feedback: 'stderr' as const,
+	},
+];
+const margin = 10;
+const gap = 20;
+const panel = { width: 370, height: 206, y: 10 };
+const panelX = (index: number) => margin + index * (panel.width + gap);
+const viewWidth = 2 * margin + panels.length * panel.width + (panels.length - 1) * gap;
+const viewHeight = panel.y + panel.height + margin;
+const rows = { result: panel.y + 80, feedback: panel.y + 154 };
+const source = { labelX: 20, nodeX: 106 };
+const stream = { x: 166, width: 190, height: 62 };
+const streamMid = { stdout: rows.result, stderr: rows.feedback };
+const label = `Where a command's output goes. ${panels
+	.map((item) => `${item.title}: the result goes to stdout (${item.stdout}) and feedback goes to ${item.feedback}`)
+	.join('. ')}.`;
+---
+
+<Figure
+	viewWidth={viewWidth}
+	viewHeight={viewHeight}
+	label={label}
+	caption="Where the result and the feedback of one command go, depending on the output format and on where standard output leads."
+>
+	{
+		panels.map((item, index) => {
+			const x = panelX(index);
+			const nodeX = x + source.nodeX;
+			const streamX = x + stream.x;
+			const feedbackEnd = streamMid[item.feedback] + (item.feedback === 'stdout' ? 12 : 0);
+			const resultEnd = rows.result - (item.feedback === 'stdout' ? 12 : 0);
+			return (
+				<g>
+					<rect class="rt-cloth" x={x} y={panel.y} width={panel.width} height={panel.height} rx="2" />
+					<text class="rt-tag" x={x + source.labelX} y={panel.y + 28}>{item.title}</text>
+					<text class="rt-code" x={x + source.labelX} y={rows.result + 4}>result</text>
+					<text class="rt-code" x={x + source.labelX} y={rows.feedback + 4}>feedback</text>
+					<path
+						class="rt-thread"
+						d={`M${nodeX} ${rows.result}C${nodeX + 36} ${rows.result} ${streamX - 36} ${resultEnd} ${streamX} ${resultEnd}M${nodeX} ${rows.feedback}C${nodeX + 36} ${rows.feedback} ${streamX - 36} ${feedbackEnd} ${streamX} ${feedbackEnd}`}
+					/>
+					<circle class="rt-node" cx={nodeX} cy={rows.result} r="4" />
+					<circle class="rt-node" cx={nodeX} cy={rows.feedback} r="4" />
+					<Pocket x={streamX} y={rows.result - stream.height / 2} width={stream.width} height={stream.height} title="stdout" code={item.stdout} />
+					<Pocket x={streamX} y={rows.feedback - stream.height / 2} width={stream.width} height={stream.height} title="stderr" code={item.stderr} />
+				</g>
+			);
+		})
+	}
+</Figure>
