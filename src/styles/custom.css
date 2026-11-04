@@ -494,6 +494,13 @@ starlight-tabs {
 	fill: var(--rt-pocket);
 }
 
+/* A data row returned on a page, in the paging diagrams: a tinted fill tells it from a row only read. */
+.rt-cell-kept {
+	fill: color-mix(in srgb, var(--rt-denim) 30%, transparent);
+	stroke: var(--rt-denim);
+	stroke-width: 2;
+}
+
 .rt-stitch {
 	fill: none;
 	stroke: var(--rt-thread);

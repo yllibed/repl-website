@@ -1,0 +1,74 @@
+---
+import Figure from '../Figure.astro';
+import { textWidth } from './metrics';
+
+/* Questions asked in order: the first "yes" picks the helper; a "no" moves down to the next question.
+   Every helper has a recipe on this page. */
+const questions = [
+	{ ask: 'Are all items in memory?', helper: 'ReplPageSource.FromItems(items)' },
+	{ ask: 'Does the store take offset and limit?', helper: 'ReplPageSource.FromOffset(...)' },
+	{ ask: 'Can the stream restart from the start?', helper: 'ReplPageSource.FromAsyncEnumerable(...)' },
+];
+const fallback = {
+	title: 'Otherwise, own the cursor',
+	helpers: [
+		{ helper: 'paging.Page(...)', note: 'one explicit page' },
+		{ helper: 'paging.CreateSource(...)', note: 'continue in the same run' },
+	],
+};
+const spineX = 24;
+const textX = spineX + 18;
+const top = 24;
+const rowHeight = 62;
+const rowY = (index: number) => top + index * rowHeight;
+const fallbackY = rowY(questions.length);
+const helperX = textX + Math.max(...[...questions.map((item) => item.ask), fallback.title].map((text) => textWidth(text, 'tag'))) + 64;
+const lineWidth = (helper: string, note = '') => textWidth(helper, 'code') + (note ? 12 + textWidth(note, 'note') : 0);
+const viewWidth =
+	helperX +
+	Math.max(...questions.map((item) => lineWidth(item.helper)), ...fallback.helpers.map((item) => lineWidth(item.helper, item.note))) +
+	20;
+const helperLine = 26;
+const viewHeight = fallbackY + (fallback.helpers.length - 1) * helperLine + 24;
+const label = `Choosing a page source, one question at a time: ${questions
+	.map((item) => `${item.ask} If yes, use ${item.helper}; if no, go on.`)
+	.join(' ')} ${fallback.title}: ${fallback.helpers.map((item) => `${item.helper} for ${item.note}`).join(', or ')}.`;
+---
+
+<Figure
+	viewWidth={viewWidth}
+	viewHeight={viewHeight}
+	label={label}
+	caption="Ask the questions in order; the first yes picks the helper. Each helper has a recipe below."
+>
+	<path class="rt-rule" d={`M${spineX} ${rowY(0)}V${fallbackY}`}></path>
+	{
+		questions.map((item, index) => {
+			const y = rowY(index);
+			const askEnd = textX + textWidth(item.ask, 'tag') + 10;
+			return (
+				<g>
+					<circle class="rt-node" cx={spineX} cy={y} r="4" />
+					<text class="rt-tag" x={textX} y={y + 5}>{item.ask}</text>
+					<path class="rt-lead" d={`M${askEnd} ${y}H${helperX - 10}`} />
+					<text class="rt-note" x={helperX - 16} y={y - 6} text-anchor="end">yes</text>
+					<text class="rt-code" x={helperX} y={y + 4}>{item.helper}</text>
+					<text class="rt-note" x={spineX + 10} y={y + rowHeight / 2 + 4}>no</text>
+				</g>
+			);
+		})
+	}
+	<circle class="rt-node" cx={spineX} cy={fallbackY} r="4"></circle>
+	<text class="rt-tag" x={textX} y={fallbackY + 5}>{fallback.title}</text>
+	{
+		fallback.helpers.map((item, index) => {
+			const y = fallbackY + index * helperLine;
+			return (
+				<g>
+					<text class="rt-code" x={helperX} y={y + 4}>{item.helper}</text>
+					<text class="rt-note" x={helperX + textWidth(item.helper, 'code') + 12} y={y + 4}>{item.note}</text>
+				</g>
+			);
+		})
+	}
+</Figure>

@@ -5,8 +5,15 @@ description: Recipes for adding result-flow paging to commands backed by in-memo
 
 import { Aside } from '@astrojs/starlight/components';
 import ApiRef from '../../../components/ApiRef.astro';
+import AsyncStreamReplay from '../../../components/diagrams/AsyncStreamReplay.astro';
+import FilterPlacement from '../../../components/diagrams/FilterPlacement.astro';
+import MessageSequence from '../../../components/diagrams/MessageSequence.astro';
+import OffsetVersusKeyset from '../../../components/diagrams/OffsetVersusKeyset.astro';
+import PageSourceChooser from '../../../components/diagrams/PageSourceChooser.astro';
 
 Practical examples for the most common paging scenarios. For the conceptual background and the two-layer model (source paging vs output paging), see [Result-Flow Paging](/reference/result-flow-paging/).
+
+<PageSourceChooser />
 
 ---
 
@@ -78,6 +85,8 @@ public async IAsyncEnumerable<LogRow> StreamAsync(
 }
 ```
 
+<AsyncStreamReplay />
+
 <Aside type="caution">
 The factory is called once per page and must restart from the beginning each time. Never pass a channel, a database cursor, or any shared single-use enumerator. Those are single-use streams — use `ReplPageSource.Create(...)` instead.
 </Aside>
@@ -111,6 +120,8 @@ app.Map("contacts", (ContactStore store, string search) =>
         static (state, offset, take, ct) => state.QueryAsync(offset, take, ct),
         filter: (_, row) => row.Name.Contains(search, StringComparison.OrdinalIgnoreCase)));
 ```
+
+<FilterPlacement />
 
 <Aside type="caution">
 Client-side filtering fetches and discards rows that never reach the terminal. The `totalCount` reported in `pageInfo` reflects the unfiltered source — the number of items actually shown is lower. Prefer server-side filtering whenever the store supports it.
@@ -155,6 +166,18 @@ internal sealed class DirectoryContactFeed
 
 When exposing a paged command via MCP, the tool schema automatically includes `_replCursor` and `_replPageSize` inputs. No extra code is required — any handler that injects `IReplPagingContext` or returns `ReplPage<T>` / `IReplPageSource<T>` gets these for free.
 
+<MessageSequence
+	left={{ title: 'Agent', code: 'MCP client' }}
+	right={{ title: 'myapp mcp serve', code: 'paged tool: contacts' }}
+	messages={[
+		{ from: 'left', kind: 'request', text: 'tools/call contacts {"_replPageSize":20}' },
+		{ from: 'right', kind: 'response', text: 'items 1-20, pageInfo.nextCursor "20"' },
+		{ from: 'left', kind: 'request', text: 'tools/call contacts {"_replCursor":"20","_replPageSize":20}' },
+		{ from: 'right', kind: 'response', text: 'items 21-35, pageInfo.hasMore false' },
+	]}
+	caption="An agent pages through a tool's results by sending back the cursor it received."
+/>
+
 Test it with MCP Inspector:
 
 1. Start the server: `myapp mcp serve`
@@ -178,6 +201,8 @@ app.UseMcpServer(o =>
 ## Custom keyset cursor
 
 For large, mutable datasets, inject `IReplPagingContext` and encode a keyset cursor. This avoids the O(offset) cost of row skipping.
+
+<OffsetVersusKeyset />
 
 ```csharp
 app.Map("orders", async (IReplPagingContext paging, OrderStore store, CancellationToken ct) =>

@@ -1,0 +1,29 @@
+---
+import { cell, cellPitch, type CellKind } from './cells';
+
+/** A row of data-source rows, one cell each, starting at (x, y). See ./cells.ts for the kinds. */
+interface Props {
+	x: number;
+	y: number;
+	cells: readonly CellKind[];
+}
+
+const { x, y, cells } = Astro.props;
+const half = cell.size / 2;
+---
+
+<g>
+	{
+		cells.map((kind, index) => {
+			const left = x + index * cellPitch;
+			if (kind === 'none') return null;
+			if (kind === 'kept') return <rect class="rt-cell-kept" x={left} y={y} width={cell.size} height={cell.size} rx="3" />;
+			return (
+				<g>
+					<rect class="rt-lead" x={left} y={y} width={cell.size} height={cell.size} rx="3" />
+					{kind === 'probe' && <circle class="rt-node" cx={left + half} cy={y + half} r="4" />}
+				</g>
+			);
+		})
+	}
+</g>

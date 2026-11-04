@@ -1,0 +1,70 @@
+---
+import Figure from '../Figure.astro';
+import CellLegend from './CellLegend.astro';
+import CellRow from './CellRow.astro';
+import { cell, cellPitch, cellRun, lane, legendHeight, legendKinds, legendLayout, rowWidth } from './cells';
+import { textWidth } from './metrics';
+
+/* The same page of a sorted table, fetched with FromOffset and with the keyset recipe on this page. */
+const page = 3;
+const pageSize = 5;
+const offset = (page - 1) * pageSize;
+const lanes = [
+	{
+		title: 'Offset cursor, FromOffset',
+		cursor: `cursor "${offset}"`,
+		note: `the store reads and skips ${offset} rows first; the cost grows with every page`,
+		cells: cellRun([['read', offset], ['kept', pageSize], ['probe', 1]]),
+		seek: false,
+	},
+	{
+		title: 'Keyset cursor',
+		cursor: 'cursor base64({ LastCreatedAt, LastId })',
+		note: 'with an index on (CreatedAt, Id), the store seeks past the last key; the cost does not grow',
+		cells: cellRun([['none', offset], ['kept', pageSize]]),
+		seek: true,
+	},
+];
+const kinds = legendKinds(lanes.map((item) => item.cells));
+const left = 10;
+const cursorX = left + rowWidth(Math.max(...lanes.map((item) => item.cells.length))) + 26;
+const viewWidth = Math.max(
+	cursorX + Math.max(...lanes.map((item) => textWidth(item.cursor, 'code'))),
+	left + Math.max(...lanes.map((item) => textWidth(item.note, 'note'))),
+	left + legendLayout(kinds).width,
+) + left;
+const laneY = (index: number) => lane.title + index * lane.height;
+const legendY = laneY(lanes.length) - lane.title + 10;
+const viewHeight = legendY + legendHeight;
+const seekEndX = left + offset * cellPitch;
+const label = `Fetching page ${page} with ${pageSize} rows per page. ${lanes.map((item) => `${item.title}, ${item.cursor}: ${item.note}`).join('. ')}.`;
+---
+
+<Figure
+	viewWidth={viewWidth}
+	viewHeight={viewHeight}
+	label={label}
+	caption={`What the store touches to serve page ${page}, with an offset cursor and with a keyset cursor.`}
+>
+	{
+		lanes.map((item, index) => {
+			const y = laneY(index);
+			const middle = y + cell.size / 2;
+			return (
+				<g>
+					<text class="rt-tag" x={left} y={y - 10}>{item.title}</text>
+					{item.seek && (
+						<g>
+							<path class="rt-thread" d={`M${left + 4} ${middle}H${seekEndX - 10}`} />
+							<circle class="rt-node" cx={seekEndX - 6} cy={middle} r="4" />
+						</g>
+					)}
+					<CellRow x={left} y={y} cells={item.cells} />
+					<text class="rt-code" x={cursorX} y={middle + 4}>{item.cursor}</text>
+					<text class="rt-note" x={left} y={y + lane.note}>{item.note}</text>
+				</g>
+			);
+		})
+	}
+	<CellLegend x={left} y={legendY} kinds={kinds} />
+</Figure>
