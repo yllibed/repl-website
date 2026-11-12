@@ -8,7 +8,7 @@ import { Aside } from '@astrojs/starlight/components';
 `Repl.Mcp` lets your app expose its command graph as an MCP server. It is not a standalone MCP server by itself: the app you build with Repl is the server that agent hosts launch. Every `Map(...)` becomes a tool; return values, resources, and prompts are all first-class.
 
 <Aside type="tip">
-  Full runnable code: [`samples/08-mcp-server`](https://github.com/yllibed/repl/tree/v0.12.0/samples/08-mcp-server)
+  Full runnable code: [`samples/08-mcp-server`](https://github.com/yllibed/repl/tree/v0.12.1/samples/08-mcp-server)
 </Aside>
 
 ## Enable the MCP server
@@ -232,6 +232,10 @@ starts. Use `.cursor/mcp.json` for Cursor, Claude Code's MCP
 registration/settings flow, Cline's MCP settings, or the VS Code-specific shape
 above. Review commands before enabling them: local MCP servers run code on the
 user's machine.
+
+If .NET was installed per user with dotnetup and the host does not start from
+the user's shell, `dotnet` may not be found; see
+[dotnetup installs and agent hosts](/reference/dotnet-11/#dotnetup-installs-and-agent-hosts).
 
 ## Further reading
 

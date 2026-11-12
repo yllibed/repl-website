@@ -11,7 +11,7 @@ Most applications need only `Map` and `RunAsync`. The APIs on this page are for 
 Try ordinary routes, option aliases, route constraints and context validation first. Reach for these hooks when the old interface cannot be expressed that way.
 
 <Aside type="tip">
-  Full runnable code: [`samples/09-advanced-input`](https://github.com/yllibed/repl/tree/v0.12.0/samples/09-advanced-input) keeps a legacy search syntax, validates it against a policy chosen before DI, and guards an external action during preview and completion.
+  Full runnable code: [`samples/09-advanced-input`](https://github.com/yllibed/repl/tree/v0.12.1/samples/09-advanced-input) keeps a legacy search syntax, validates it against a policy chosen before DI, and guards an external action during preview and completion.
 </Aside>
 
 ## Choose an extension point
@@ -79,7 +79,7 @@ app.UseInvocationHook((ReplInvocationContext context, SearchPolicy policy) =>
 
 An <ApiRef uid="Repl.ReplInvocationResult" /> continues, replaces the whole request, or handles it with a result of its own. A replacement is parsed again, and routing, constraints, validators, binding and middleware still apply to it. `context.Channel` tells CLI, interactive, hosted, programmatic and MCP invocations apart. Hooks run on submission, help and explicit completion, never on the background preview.
 
-The same <ApiRef uid="Repl.ReplInvocationRequest" /> can be passed straight to `app.RunAsync(request)`. Its values bind as they are, without being turned into tokens and parsed back, which is also the path MCP tool calls take. See [submit native values](https://github.com/yllibed/repl/blob/v0.12.0/docs/advanced-input.md#submit-native-values).
+The same <ApiRef uid="Repl.ReplInvocationRequest" /> can be passed straight to `app.RunAsync(request)`. Its values bind as they are, without being turned into tokens and parsed back, which is also the path MCP tool calls take. See [submit native values](https://github.com/yllibed/repl/blob/v0.12.1/docs/advanced-input.md#submit-native-values).
 
 ## Validate parsed values
 
@@ -101,7 +101,7 @@ app.UseInputValidator((ParsedInputContext input, SearchPolicy policy) =>
 });
 ```
 
-`SearchPolicy` is the application's own `record SearchPolicy(int MaximumLimit)`, registered as a singleton, as in [sample 09](https://github.com/yllibed/repl/blob/v0.12.0/samples/09-advanced-input/Program.cs).
+`SearchPolicy` is the application's own `record SearchPolicy(int MaximumLimit)`, registered as a singleton, as in [sample 09](https://github.com/yllibed/repl/blob/v0.12.1/samples/09-advanced-input/Program.cs).
 
 Validators run in registration order, during live preview, completion and submission, so the user sees the refusal while typing. `Incomplete` and `Invalid` both block a submitted invocation. Interactive ambient commands such as `help` and `exit`, and input that enters a context, pass through validators too.
 
@@ -138,12 +138,12 @@ The prepared declarations transfer to the app, so do not call `UseGlobalOptions<
 
 ## Callback order and failures
 
-For a submitted input, argument preprocessors run first, then startup hooks once per run, then parsing and route resolution, then invocation hooks, and finally validators, binding, middleware and the handler. The repository documents the [full order](https://github.com/yllibed/repl/blob/v0.12.0/docs/advanced-input.md#callback-order), including the earlier preparation stages.
+For a submitted input, argument preprocessors run first, then startup hooks once per run, then parsing and route resolution, then invocation hooks, and finally validators, binding, middleware and the handler. The repository documents the [full order](https://github.com/yllibed/repl/blob/v0.12.1/docs/advanced-input.md#callback-order), including the earlier preparation stages.
 
 A failing callback is an application error, not invalid input: it is reported as `input_callback_error` and exits as a `HandlerException` (see [Exit Codes & Signals](/reference/exit-codes/)).
 
 ## Further reading
 
-- [Advanced input adaptation and validation](https://github.com/yllibed/repl/blob/v0.12.0/docs/advanced-input.md) — preview and completion modes, native values, structured globals, the shell completion bridge.
-- [Advanced startup preparation and hooks](https://github.com/yllibed/repl/blob/v0.12.0/docs/advanced-startup.md) — lifecycle order, externally owned providers, concurrency rules.
+- [Advanced input adaptation and validation](https://github.com/yllibed/repl/blob/v0.12.1/docs/advanced-input.md) — preview and completion modes, native values, structured globals, the shell completion bridge.
+- [Advanced startup preparation and hooks](https://github.com/yllibed/repl/blob/v0.12.1/docs/advanced-startup.md) — lifecycle order, externally owned providers, concurrency rules.
 - [Routes & Parameters](/reference/routes-and-parameters/) — the ordinary input model to try first.

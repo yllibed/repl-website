@@ -10,7 +10,7 @@ import RemoteAdministration from '../../../components/diagrams/RemoteAdministrat
 A long-running service still needs an operator. `Repl.Remote` lets one attach a console to the process that is already running, or ask it to run a single command and return its exit code. The command runs inside the live process, against the same services, so `settings show` reads the settings the service is actually using, without a restart or a second instance.
 
 <Aside type="tip">
-  Full runnable code: [`samples/05-hosting-remote`](https://github.com/yllibed/repl/tree/v0.12.0/samples/05-hosting-remote) serves browser terminals, native console sessions and one-shot commands from one process. [`samples/10-docs-mcp`](https://github.com/yllibed/repl/tree/v0.12.0/samples/10-docs-mcp) is a documentation MCP server administered the same way.
+  Full runnable code: [`samples/05-hosting-remote`](https://github.com/yllibed/repl/tree/v0.12.1/samples/05-hosting-remote) serves browser terminals, native console sessions and one-shot commands from one process. [`samples/10-docs-mcp`](https://github.com/yllibed/repl/tree/v0.12.1/samples/10-docs-mcp) is a documentation MCP server administered the same way.
 </Aside>
 
 <RemoteAdministration />
@@ -92,7 +92,7 @@ Three details in this code matter in production:
 
 - **The third argument, `onError`, is where failures go.** A client only ever sees "The remote backend failed." (`-32603`) or a terminal that exits `1`. The exception itself reaches `onError`; without a callback it goes to `System.Diagnostics.Trace`, which no default logging provider reads.
 - **Watch `remote.Completion`.** It faults when the endpoint stops accepting connections, so the host can stop instead of running on without its administration endpoint.
-- **Dispose the listener before stopping the host.** Remote work drains first, while the services it uses are still alive. Disposal waits at most five seconds; when it times out, commands are still running and the listener keeps cleaning up in the background, so stopping or disposing the host would pull services from under them. The example ends the process before that happens; [sample 05](https://github.com/yllibed/repl/blob/v0.12.0/samples/05-hosting-remote/HostingLifetime.cs) applies a similar fatal policy to its whole shutdown. A logger that writes on a background thread can lose that last line, so also write it to standard error if it must survive. Choose the policy your application needs.
+- **Dispose the listener before stopping the host.** Remote work drains first, while the services it uses are still alive. Disposal waits at most five seconds; when it times out, commands are still running and the listener keeps cleaning up in the background, so stopping or disposing the host would pull services from under them. The example ends the process before that happens; [sample 05](https://github.com/yllibed/repl/blob/v0.12.1/samples/05-hosting-remote/HostingLifetime.cs) applies a similar fatal policy to its whole shutdown. A logger that writes on a background thread can lose that last line, so also write it to standard error if it must survive. Choose the policy your application needs.
 
 ## Connect from a client
 
@@ -140,7 +140,7 @@ Sample 05 ships a Dockerfile. Its health check and its operator console are both
 
 </Steps>
 
-A real readiness command should check what the service needs to do its work, such as a database or a warmed cache, and return a failing exit code otherwise. The repository's [container hosting recipe](https://github.com/yllibed/repl/blob/v0.12.0/docs/container-hosting.md) also covers logs, the shutdown budget and a Portainer console.
+A real readiness command should check what the service needs to do its work, such as a database or a warmed cache, and return a failing exit code otherwise. The repository's [container hosting recipe](https://github.com/yllibed/repl/blob/v0.12.1/docs/container-hosting.md) also covers logs, the shutdown budget and a Portainer console.
 
 ## Security and limits
 
@@ -155,6 +155,6 @@ A real readiness command should check what the service needs to do its work, suc
 ## Further reading
 
 - [Remote Protocol](/reference/remote-protocol/) — the JSON-RPC messages on the pipe, for writing a client in another language.
-- [Remote CLI and local administration](https://github.com/yllibed/repl/blob/v0.12.0/docs/remote-cli.md) — startup order, stream ownership, structured invocations and the JSON-RPC wire profile.
+- [Remote CLI and local administration](https://github.com/yllibed/repl/blob/v0.12.1/docs/remote-cli.md) — startup order, stream ownership, structured invocations and the JSON-RPC wire profile.
 - [Hosting Remote Sessions](/cookbook/hosting-remote/) — WebSocket and Telnet sessions for users of the app.
 - [Exit Codes & Signals](/reference/exit-codes/) — the codes a remote execution returns.

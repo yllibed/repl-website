@@ -19,8 +19,8 @@ Every command invocation goes through a 12-stage pipeline. Understanding it lets
 6. **Command option parsing** — `--name value`, `@responsefile`, `--no-*`
 7. **Argument binding** — `CancellationToken`, attributes, groups, route, DI, positional, defaults
 8. **Context validation** — optional validation delegates on contexts
-9. **Middleware and handler** — your `Use()` chain, then the handler
-10. **Result processing** — unwraps `IExitResult` and `EnterInteractiveResult`; page sources are materialized here (see [Result-Flow Paging](/reference/result-flow-paging/))
+9. **Middleware and handler** — your `Use()` chain, then the handler; a C# 15 union the handler returns (.NET 11) is replaced by its active case before middleware reads the result
+10. **Result processing** — processes the active case of a union that middleware set as the result, then unwraps `IExitResult` and `EnterInteractiveResult`; page sources are materialized here (see [Result-Flow Paging](/reference/result-flow-paging/))
 11. **Output transformation** — format selection and rendering
 12. **Exit code** — the outcome kind mapped by `ReplOptions.ExitCodes`, or `n` from `Results.Exit(n)`
 

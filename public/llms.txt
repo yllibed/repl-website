@@ -1,13 +1,13 @@
 # Repl Toolkit
 
-> A .NET framework for building composable command surfaces — CLI, interactive REPL, remote interactive REPL sessions, and MCP tools from one command graph. Write your commands like ASP.NET Core minimal-API routes and run them as a one-shot CLI, an interactive REPL, remote interactive REPL sessions hosted by your app over connections such as Telnet, WebSocket, or custom stream integrations, or MCP tools for AI agents — all from the same handler code. Current release: 0.12.
+> A .NET framework for building composable command surfaces — CLI, interactive REPL, remote interactive REPL sessions, and MCP tools from one command graph. Write your commands like ASP.NET Core minimal-API routes and run them as a one-shot CLI, an interactive REPL, remote interactive REPL sessions hosted by your app over connections such as Telnet, WebSocket, or custom stream integrations, or MCP tools for AI agents — all from the same handler code. Current release: 0.12.1, for .NET 10 and .NET 11.
 
 ## Getting Started
 
 - [Installation](https://repl.yllibed.org/getting-started/installation/): Add the Repl NuGet package and run your first app in minutes.
 - [Your First App](https://repl.yllibed.org/getting-started/first-app/): Build a minimal command surface with routing, DI, and structured output.
-- [Migrating & Upgrading](https://repl.yllibed.org/getting-started/migrating/): Coming from System.CommandLine or Spectre.Console.Cli, and the breaking changes when upgrading from 0.11 to 0.12.
-- [CLI Mode](https://repl.yllibed.org/getting-started/cli-mode/): One-shot invocation, --json/--xml/--yaml output flags, --help at every level.
+- [Migrating & Upgrading](https://repl.yllibed.org/getting-started/migrating/): Coming from System.CommandLine or Spectre.Console.Cli, the behavior changes from 0.12.0 to 0.12.1, and the breaking changes when upgrading from 0.11 to 0.12.
+- [CLI Mode](https://repl.yllibed.org/getting-started/cli-mode/): One-shot invocation, --json/--xml/--yaml output flags, --help at every level, shell completion installation (run it from the app's own executable, not through dotnet myapp.dll).
 - [REPL Mode](https://repl.yllibed.org/getting-started/repl-mode/): Interactive shell with scoped navigation, history, and autocomplete.
 - [MCP Mode](https://repl.yllibed.org/getting-started/mcp-mode/): Let your app expose its command graph as an MCP server with one line — app.UseMcpServer(). Repl.Mcp is the component; your app is the server.
 - [For Coding Agents](https://repl.yllibed.org/getting-started/for-coding-agents/): Decision rules, minimal snippets, MCP guidance, structured-output guidance, and copy/paste AGENTS.md/CLAUDE.md/Cursor/Cline rules for coding agents.
@@ -37,7 +37,7 @@
 - [Customization & Output](https://repl.yllibed.org/reference/customization/): Output formats (text, JSON, XML, YAML, Markdown), feedback on stderr for machine-readable output, ANSI detection, render width, IReplOutputTransformer, Spectre renderables.
 - [Pipelines & Integration](https://repl.yllibed.org/reference/pipelining/): 12-stage execution pipeline, middleware, CLI scripting with pipes/jq, ASP.NET Core integration, IHostedService, process signals and graceful shutdown.
 - [Exit Codes & Signals](https://repl.yllibed.org/reference/exit-codes/): Outcome kinds and default codes (0 success, 2 usage/binding refusal, 1 handler failure, 130/143 on Ctrl+C or SIGTERM), ReplOptions.ExitCodes and Resolver, Results.CompletedWithFailures, IReplModuleExitCodes, ReplProcessSignalHarness.
-- [Terminal Integration](https://repl.yllibed.org/reference/terminal-integration/): ANSI capability levels, NO_COLOR, shell autocomplete installation, response files, terminal detection.
+- [Terminal Integration](https://repl.yllibed.org/reference/terminal-integration/): ANSI capability levels, FORCE_COLOR / NO_COLOR / CLICOLOR_FORCE, color decided apart from terminal control sequences, terminal detection.
 - [Remote Protocol](https://repl.yllibed.org/reference/remote-protocol/): The experimental JSON-RPC 2.0 profile behind Repl.Remote — Content-Length framing, rpc.discover/cli.describe/cli.execute, terminal.* methods and notifications, errors, cancellation and retries, security limits.
 - [Architecture](https://repl.yllibed.org/reference/architecture/): Internal design, execution model, extension points, and how the packages compose.
 
@@ -48,6 +48,7 @@
 - [Packaging & Distribution](https://repl.yllibed.org/reference/packaging/): Publish as a .NET global tool (PackAsTool), MCP server registry entry (PackageType=McpServer, .mcp/server.json manifest with dnx runtimeHint and packageArguments), or self-contained binary. CI/CD with GitHub Actions and Nerdbank.GitVersioning.
 - [Best Practices & FAQ](https://repl.yllibed.org/reference/best-practices/): Design patterns, common mistakes, and answers to frequent questions.
 - [Configuration](https://repl.yllibed.org/reference/configuration/): All configuration options for ReplApp, execution modes, and add-on packages.
+- [Running on .NET 11](https://repl.yllibed.org/reference/dotnet-11/): C# 15 union return values, FORCE_COLOR, dotnet watch (one-shot commands only; use dotnet run for the interactive loop), dotnet run -e, and dotnetup per-user installs seen from MCP agent hosts: absolute dotnet path for dnx, DOTNET_ROOT for a global tool, self-contained publish, roll-forward for a net10.0 tool.
 - [Packages](https://repl.yllibed.org/reference/packages/): Overview of all Repl.* NuGet packages — Core, Defaults, Protocol, Mcp, Spectre, WebSocket, Telnet, Remote, Remote.Defaults, Logging, Testing.
 - [API Reference](https://repl.yllibed.org/api/index.html): Generated XML-doc API reference for all Repl.* assemblies.
 
@@ -61,6 +62,7 @@
 - `app.UseMcpServer()` — let the app expose all commands as MCP tools (one line, no handler changes); Repl.Mcp is the component used to build the MCP server
 - `app.Run(args)` — dispatch: CLI if args present, REPL if interactive, MCP serve if args == ["mcp","serve"]
 - `Results.Success(message, details)` / `Results.Error(code, message)` / `Results.CompletedWithFailures(report)` / `Results.Exit(code)` — typed command results; the exit code comes from ReplOptions.ExitCodes, never from a returned int
+- C# 15 `union` return values (net11.0) — Repl processes the active case as if the handler had returned it directly
 - `IReplInteractionChannel` — ask users for input; fulfilled by terminal in interactive mode, --answer:* in CI, tool-argument prefill in agents; feedback goes to stderr when output is machine-readable
 - `Repl.Testing` — in-memory harness for full multi-step interaction testing with typed assertions
 

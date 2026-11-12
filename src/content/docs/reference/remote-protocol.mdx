@@ -47,7 +47,7 @@ The supplied listener is a named pipe; `RemoteReplServer.RunAsync` serves any pa
 | `terminal.exited` | Server notification | The session's exit code, once its output has drained |
 | `$/cancelRequest` | Notification | Cancel a pending request by its JSON-RPC `id` |
 
-Parameters are passed by name. The authoritative description is [`openrpc.json`](https://github.com/yllibed/repl/blob/v0.12.0/src/Repl.Remote/openrpc.json), which `rpc.discover` returns.
+Parameters are passed by name. The authoritative description is [`openrpc.json`](https://github.com/yllibed/repl/blob/v0.12.1/src/Repl.Remote/openrpc.json), which `rpc.discover` returns.
 
 ## One command
 
@@ -140,6 +140,6 @@ Never retry a `cli.execute` automatically after a transport failure: the command
 ## Further reading
 
 - [Remote Administration](/cookbook/remote-administration/) — serve a running application and connect to it from .NET.
-- [Remote CLI and local administration](https://github.com/yllibed/repl/blob/v0.12.0/docs/remote-cli.md#wire-profile) — the repository's description of the wire profile, stream ownership and shutdown.
-- [`openrpc.json`](https://github.com/yllibed/repl/blob/v0.12.0/src/Repl.Remote/openrpc.json) — methods and schemas.
+- [Remote CLI and local administration](https://github.com/yllibed/repl/blob/v0.12.1/docs/remote-cli.md#wire-profile) — the repository's description of the wire profile, stream ownership and shutdown.
+- [`openrpc.json`](https://github.com/yllibed/repl/blob/v0.12.1/src/Repl.Remote/openrpc.json) — methods and schemas.
 - <ApiRef uid="Repl.Remote.RemoteProtocol" /> — the profile version and the OpenRPC document in .NET.

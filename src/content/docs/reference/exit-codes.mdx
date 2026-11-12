@@ -25,10 +25,10 @@ Scripts, CI steps and container supervisors read your app through one number. Ev
 | `Cancelled` | The caller's own `CancellationToken` stopped the run | not mapped: the exception propagates, unless `ExitCodes.Cancelled` or a `Resolver` is set (a resolver receives `130`) |
 | `HandlerExitCode` | `Results.Exit(n)` | `n`, verbatim |
 
-An `int` returned by a handler is data: `int Count() => 3` prints `3` and exits `0`. `Results.Exit(n)` is the only way for a handler to choose the code itself.
+An `int` returned by a handler is data: `int Count() => 3` prints `3` and exits `0`. `Results.Exit(n)` is the only way for a handler to choose the code itself; a C# 15 union whose active case is `Results.Exit(n)` exits with `n` too ([Union return values](/cookbook/core-basics/#union-return-values-net-11)).
 
 <Aside type="note">
-**Changed in 0.12.** Usage and binding refusals used to exit `1`, like handler failures. They now exit `2`, so a script can tell "you called me wrong" from "the command failed". A test that asserts `1` for an unknown command now needs `2`. The repository explains [how to restore the previous codes](https://github.com/yllibed/repl/blob/v0.12.0/docs/configuration-reference.md#restoring-the-pre-policy-codes).
+**Changed in 0.12.** Usage and binding refusals used to exit `1`, like handler failures. They now exit `2`, so a script can tell "you called me wrong" from "the command failed". A test that asserts `1` for an unknown command now needs `2`. The repository explains [how to restore the previous codes](https://github.com/yllibed/repl/blob/v0.12.1/docs/configuration-reference.md#restoring-the-pre-policy-codes).
 </Aside>
 
 ## A command that completed with failures
@@ -80,7 +80,7 @@ public sealed class TestRunnerModule : IReplModuleExitCodes
 }
 ```
 
-A module covers `Success`, `UsageError`, `BindingError`, `HandlerError`, `HandlerException` and `CompletedWithFailures`. Help, cancellation, interruption and framework errors describe the whole run and keep the application's codes. The [execution pipeline](https://github.com/yllibed/repl/blob/v0.12.0/docs/execution-pipeline.md#exit-codes-declared-by-a-module) explains which module owns a refused invocation.
+A module covers `Success`, `UsageError`, `BindingError`, `HandlerError`, `HandlerException` and `CompletedWithFailures`. Help, cancellation, interruption and framework errors describe the whole run and keep the application's codes. The [execution pipeline](https://github.com/yllibed/repl/blob/v0.12.1/docs/execution-pipeline.md#exit-codes-declared-by-a-module) explains which module owns a refused invocation.
 
 ## Process signals
 
@@ -110,7 +110,7 @@ var exitCode = await app.RunAsync(
 ```
 
 <Aside type="caution">
-**Changed in 0.12.** `UseCliProfile()` and `UseDefaultInteractive()` now take signal ownership by default. An interrupted run exits `130` or `143` instead of the operating system's default, and a handler that stored its token for detached work now finds it disposed. `ProcessSignalHandlingMode.None` restores the previous behaviour. See [what changes for an existing application](https://github.com/yllibed/repl/blob/v0.12.0/docs/configuration-reference.md#what-changes-for-an-existing-application).
+**Changed in 0.12.** `UseCliProfile()` and `UseDefaultInteractive()` now take signal ownership by default. An interrupted run exits `130` or `143` instead of the operating system's default, and a handler that stored its token for detached work now finds it disposed. `ProcessSignalHandlingMode.None` restores the previous behavior. See [what changes for an existing application](https://github.com/yllibed/repl/blob/v0.12.1/docs/configuration-reference.md#what-changes-for-an-existing-application).
 </Aside>
 
 Inside the interactive loop, Ctrl+C keeps its usual meaning: the first press cancels the running command and the session continues.
@@ -133,10 +133,10 @@ result.OutcomeKind.Should().Be(ReplExecutionOutcomeKind.Interrupted);
 result.ExitCode.Should().Be(130);
 ```
 
-The [testing toolkit documentation](https://github.com/yllibed/repl/blob/v0.12.0/docs/testing-toolkit.md#process-signals) explains what each half can and cannot prove.
+The [testing toolkit documentation](https://github.com/yllibed/repl/blob/v0.12.1/docs/testing-toolkit.md#process-signals) explains what each half can and cannot prove.
 
 ## Further reading
 
 - [Pipelines & Integration](/reference/pipelining/) — where the exit code is decided in the execution pipeline.
 - [Configuration](/reference/configuration/) — every `ReplOptions` setting.
-- [Execution pipeline, exit code stage](https://github.com/yllibed/repl/blob/v0.12.0/docs/execution-pipeline.md#12-exit-code) — the full rules, in the repository.
+- [Execution pipeline, exit code stage](https://github.com/yllibed/repl/blob/v0.12.1/docs/execution-pipeline.md#12-exit-code) — the full rules, in the repository.

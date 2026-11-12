@@ -198,7 +198,7 @@ Add `Repl.Spectre` and register:
 app.UseSpectreConsole();
 ```
 
-All <ApiRef uid="Repl.Interaction.IReplInteractionChannel" /> calls upgrade automatically to Spectre.Console widgets:
+<ApiRef uid="Repl.Interaction.IReplInteractionChannel" /> prompts upgrade automatically to Spectre.Console widgets:
 
 | Call | Spectre widget |
 |---|---|
@@ -207,10 +207,8 @@ All <ApiRef uid="Repl.Interaction.IReplInteractionChannel" /> calls upgrade auto
 | `AskConfirmationAsync` | `ConfirmationPrompt` |
 | `AskChoiceAsync` | `SelectionPrompt` |
 | `AskMultiChoiceAsync` | `MultiSelectionPrompt` |
-| `WriteProgressAsync` | Live `Progress` display |
-| `WriteIndeterminateProgressAsync` | Live `Status` spinner |
 
-No handler changes required.
+No handler changes required. Spectre prompts are used where Spectre's console is interactive; a console that is colored where the output may not [drive the terminal](/reference/customization/#terminal-control) is not, and Repl's own text prompts answer there instead ([Detecting Spectre capability](/reference/customization/#detecting-spectre-capability)). `WriteProgressAsync` and `WriteIndeterminateProgressAsync` keep Repl's own progress line: Spectre's `Progress` and `Status` are not connected to Repl progress.
 
 ---
 
@@ -238,5 +236,5 @@ Every <ApiRef uid="Repl.Interaction.IReplInteractionChannel" /> method accepts a
 Redirected input that simply ends still settles the prompt through its `PromptFallback`. A handler that prefers the old answer can catch the exception and use an empty string or the default.
 
 <Aside type="note">
-**Changed in 0.12.** Esc in a timed secret prompt used to return an empty answer or ask again. A hosted disconnect during a prompt used to settle it through `PromptFallback`, which returned the default or threw `InvalidOperationException`. Both now throw `OperationCanceledException`. See [cancellation](https://github.com/yllibed/repl/blob/v0.12.0/docs/interaction.md#cancellation).
+**Changed in 0.12.** Esc in a timed secret prompt used to return an empty answer or ask again. A hosted disconnect during a prompt used to settle it through `PromptFallback`, which returned the default or threw `InvalidOperationException`. Both now throw `OperationCanceledException`. See [cancellation](https://github.com/yllibed/repl/blob/v0.12.1/docs/interaction.md#cancellation).
 </Aside>

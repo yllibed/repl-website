@@ -189,7 +189,7 @@ Control the pager mode with `--result:pager`:
 
 | Mode | Behavior |
 |---|---|
-| `auto` (default) | `full` on ANSI terminals, `more` as fallback |
+| `auto` (default) | `full` where the output may [drive the terminal](/reference/customization/#terminal-control), including hosted clients that advertise ANSI through capability flags; `more` as fallback |
 | `more` | Pauses at page boundaries; no cursor movement |
 | `inline` | Scrolls in-place within the terminal viewport (ANSI required) |
 | `full` | Full alternate-screen viewport, `less`-style navigation (ANSI required) |

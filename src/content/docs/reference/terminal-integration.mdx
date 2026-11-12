@@ -22,18 +22,9 @@ Repl integrates with the host terminal at several levels: it detects window size
 
 ## ANSI and color
 
-ANSI escape sequences are enabled or disabled based on a precedence chain:
+Repl answers two questions separately: may the output be **colored**, and may it **drive the terminal** (clear the screen, arrow-key menus, the full-screen pager, shell-integration marks, advanced progress). It reads `FORCE_COLOR`, `NO_COLOR`, `CLICOLOR_FORCE` and `TERM`, and color forced onto a file or a pipe never brings control sequences with it. Both rules, in order, are in [ANSI capability levels](/reference/customization/#ansi-capability-levels).
 
-| Precedence (highest → lowest) | Source |
-|---|---|
-| Session override | `TerminalSessionOverrides.AnsiSupported` |
-| Explicit config | `OutputOptions.AnsiMode = Always` / `Never` |
-| `NO_COLOR` | Any set value disables ANSI (per [no-color.org](https://no-color.org/)) |
-| `CLICOLOR_FORCE=1` | Forces ANSI on |
-| Redirected output | `Console.IsOutputRedirected` disables ANSI |
-| `TERM=dumb` | Disables ANSI |
-
-When ANSI is enabled, the default renderer uses **256-color** SGR styling (`38;5;N`). Add `Repl.Spectre` for 24-bit color (`38;2;r;g;b`) and richer rendering — Spectre honors the same detection chain, requesting true-color when the host allows ANSI and degrading to plain text when it doesn't.
+When color is on, the default renderer uses **256-color** SGR styling (`38;5;N`). Add `Repl.Spectre` for 24-bit color (`38;2;r;g;b`) and richer rendering — Spectre follows the same color rule, requesting true-color when color is on and degrading to plain text when it isn't.
 
 ---
 
@@ -136,7 +127,7 @@ In `Auto` mode, OSC 9;4 is emitted when any of the following is true:
 
 Emission is suppressed when `TMUX` is set or `TERM` starts with `screen` or `tmux`, since multiplexers pass the raw escape sequence to the outer terminal unparsed.
 
-OSC 9;4 is never emitted when ANSI output is disabled or when the session is in protocol-passthrough mode (e.g., MCP serve).
+OSC 9;4 is never emitted when the output may not [drive the terminal](/reference/customization/#terminal-control), when the stream does not reach a terminal (even if color is forced onto it), or when the session is in protocol-passthrough mode (e.g., MCP serve).
 
 ---
 
@@ -177,7 +168,7 @@ Exit codes follow the same [`ReplOptions.ExitCodes` policy](/reference/exit-code
 - **`Always`** — emit whenever the structural gates allow it. Useful for terminals that render marks but are not auto-detected, such as iTerm2 reached over SSH.
 - **`Never`** — never emit.
 
-Regardless of mode, marks are never written when output is redirected (and no hosted session is active), when ANSI output is disabled (`NO_COLOR`, `TERM=dumb`, `AnsiMode.Never`), or around a protocol-passthrough command (MCP stdio, completion payloads) — no mark may sit inside a raw protocol stream.
+Regardless of mode, marks are never written when output is redirected and no hosted session is active (even when color is forced onto it), when the output may not [drive the terminal](/reference/customization/#terminal-control) (`NO_COLOR`, `TERM=dumb`, `AnsiMode.Never`), or around a protocol-passthrough command (MCP stdio, completion payloads) — no mark may sit inside a raw protocol stream.
 
 CLI one-shot mode emits no marks: Repl does not own the surrounding shell prompt there, and fake prompt markers would corrupt the host shell's own command navigation.
 
@@ -198,7 +189,7 @@ app.Map("terminal", (IReplSessionInfo session) =>
     session.ShellIntegrationStatus ?? "no prompt cycle yet");
 ```
 
-If a terminal is misdetected and shows raw `]133;…` text, set `ShellIntegrationMode.Never` app-side, or use `NO_COLOR=1` as a local end-user escape hatch (it disables all ANSI styling, marks included). For hosted sessions, fix the identity or capabilities the client advertises — environment variables on the server affect every connected session.
+If a terminal is misdetected and shows raw `]133;…` text, set `ShellIntegrationMode.Never` app-side, or use `NO_COLOR=1` as a local end-user escape hatch (it turns off terminal control, marks included, and color unless `FORCE_COLOR` is set). For hosted sessions, fix the identity or capabilities the client advertises — environment variables on the server affect every connected session that does not state its own ANSI support.
 
 ---
 
@@ -263,6 +254,12 @@ app.Map("report", (ITerminalInfo terminal, IDataStore store) =>
         return BuildCompactReport(store);
 });
 ```
+
+<ApiRef uid="Repl.Interaction.ITerminalInfo.IsAnsiSupported" label="IsAnsiSupported" /> says whether the handler may drive the terminal (move the cursor, redraw), and <ApiRef uid="Repl.Interaction.ITerminalInfo.Palette" label="Palette" /> whether it may color; color forced onto redirected output gives a palette but not `IsAnsiSupported`. Test `Palette is not null` to decide on color.
+
+<Aside type="note">
+**Changed in 0.12.1.** `IsAnsiSupported` used to follow the color answer. It is now `false` on redirected output under `CLICOLOR_FORCE=1`, and `true` for a hosted client that advertises ANSI only through capability flags. See [`ITerminalInfo`](https://github.com/yllibed/repl/blob/v0.12.1/docs/interaction.md#iterminalinfo).
+</Aside>
 
 With `Repl.Spectre`, adaptation is automatic — Spectre.Console degrades gracefully when the terminal doesn't support colors or Unicode.
 
