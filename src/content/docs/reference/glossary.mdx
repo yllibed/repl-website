@@ -51,7 +51,7 @@ A full-screen, keystroke-driven UI rendered in the terminal — panels, menus, l
 
 Control codes embedded in text output to instruct a terminal to change text color, move the cursor, clear the screen, and more. The name comes from the ANSI X3.64 standard (now part of ECMA-48 and ISO 6429). Modern terminals support a superset including 256-color and 24-bit (true-color) palettes.
 
-Repl's default renderer uses ANSI 256-color mode. 24-bit color is available via `Repl.Spectre`. ANSI output is suppressed automatically when `NO_COLOR` is set, output is redirected, or `TERM=dumb`.
+Repl's default renderer uses ANSI 256-color mode. 24-bit color is available via `Repl.Spectre`. Color is turned off automatically when `NO_COLOR` is set, output is redirected, or `TERM=dumb`; `FORCE_COLOR` turns it back on in every case, and `CLICOLOR_FORCE=1` for redirected output and `TERM=dumb`. See [ANSI capability levels](/reference/customization/#ansi-capability-levels).
 
 → [Terminal Integration](/reference/terminal-integration/)
 

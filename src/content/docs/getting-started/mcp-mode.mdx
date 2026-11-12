@@ -48,7 +48,7 @@ Repl can expose your app's command graph as an [MCP server](https://modelcontext
 
 </Steps>
 
-That's it — every `Map(...)` call in your app is now an MCP tool. In production, prefer configuring a stable executable or `dotnet tool`; for local samples, use an absolute project path because hosts do not always launch from your repository root.
+That's it — every `Map(...)` call in your app is now an MCP tool. In production, prefer configuring a stable executable or `dotnet tool`; for local samples, use an absolute project path because hosts do not always launch from your repository root. If .NET was installed per user with dotnetup and the host does not start from the user's shell, `myapp`, `dotnet` and `dnx` may not be found; see [dotnetup installs and agent hosts](/reference/dotnet-11/#dotnetup-installs-and-agent-hosts).
 
 ## How mapping works
 

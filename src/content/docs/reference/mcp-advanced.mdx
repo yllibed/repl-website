@@ -9,7 +9,7 @@ import ApiRef from '../../../components/ApiRef.astro';
 `Repl.Mcp` is built on the official `ModelContextProtocol` C# SDK, version 2.2. The basics — tools, resources, prompts, MCP Apps, behavioral annotations — are covered in [MCP In Depth](/reference/mcp-concepts/). This page goes one level deeper: the legacy direct access to sampling, elicitation and client roots, dynamic tool compatibility, custom transports, HTTP hosting, protocol revisions, and operator diagnostics.
 
 <Aside type="caution" title="Not for new applications">
-[Sampling](#programmatic-sampling), [elicitation](#programmatic-elicitation) and [client roots](#client-roots-and-soft-roots) are legacy on MCP `2026-07-28`; each section says what to use instead. That revision also replaces the requests a server sends to its client with [multi round-trip requests](https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/mrtr) (SEP-2322), which Repl 0.12 has not adopted yet ([version notes](https://github.com/yllibed/repl/blob/v0.12.0/docs/mcp-reference.md#sdk-and-protocol-versions)). Do not count on these three features with a host on that revision.
+[Sampling](#programmatic-sampling), [elicitation](#programmatic-elicitation) and [client roots](#client-roots-and-soft-roots) are legacy on MCP `2026-07-28`; each section says what to use instead. That revision also replaces the requests a server sends to its client with [multi round-trip requests](https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/mrtr) (SEP-2322), which Repl 0.12 has not adopted yet ([version notes](https://github.com/yllibed/repl/blob/v0.12.1/docs/mcp-reference.md#sdk-and-protocol-versions)). Do not count on these three features with a host on that revision.
 </Aside>
 
 ---
@@ -65,7 +65,7 @@ public interface IMcpSampling
 
 **Current limitations:** single-message, text-only. The wrapper does not expose system prompts, temperature, model preferences, or multi-turn conversation — those are available in the underlying SDK if you need them.
 
-**Design guidance:** prefer passing all necessary data as route parameters and returning a structured result rather than relying on sampling for core logic. Sampling is best for tasks where LLM judgment genuinely adds value and the command can degrade gracefully without it (as in the [CSV import sample](https://github.com/yllibed/repl/tree/v0.12.0/samples/08-mcp-server) in `samples/08-mcp-server`).
+**Design guidance:** prefer passing all necessary data as route parameters and returning a structured result rather than relying on sampling for core logic. Sampling is best for tasks where LLM judgment genuinely adds value and the command can degrade gracefully without it (as in the [CSV import sample](https://github.com/yllibed/repl/tree/v0.12.1/samples/08-mcp-server) in `samples/08-mcp-server`).
 
 ---
 
@@ -303,7 +303,7 @@ await web.RunAsync();
 
 `ConfigureMcpServerOptions` replaces the server identity, capabilities and the tool, resource and prompt collections with the Repl projection, and keeps every other SDK setting: handlers, filters, authentication. In stateless mode the SDK calls it for each request, so always pass `context.RequestServices`: projection and execution then share the request's DI scope. The host owns HTTP, authentication, authorization and shutdown; compose them on the endpoint with its usual policies. `CoreReplApp` has the same helper.
 
-`BuildMcpServerOptions` still returns a ready-made `McpServerOptions` for other hosts. A server built from one reused result has no per-connection DI scope: one `Scoped` instance serves every client. The repository's [MCP transports](https://github.com/yllibed/repl/blob/v0.12.0/docs/mcp-transports.md#scenario-b-mcp-over-http) page covers both paths and what each isolates.
+`BuildMcpServerOptions` still returns a ready-made `McpServerOptions` for other hosts. A server built from one reused result has no per-connection DI scope: one `Scoped` instance serves every client. The repository's [MCP transports](https://github.com/yllibed/repl/blob/v0.12.1/docs/mcp-transports.md#scenario-b-mcp-over-http) page covers both paths and what each isolates.
 
 ---
 
@@ -316,10 +316,10 @@ await web.RunAsync();
 | `2026-07-28` | Modern: each request carries its version and capabilities, with no session | Default for a client that does not pin a version |
 | `2025-11-25` | Legacy: a session starts with an `initialize` handshake | The client pins it, or opens with `initialize` |
 
-The differences matter mostly to commands that depend on the client. On `2026-07-28` the advertised tool set must not vary between clients, so a module whose presence depends on client roots or sampling is offered to every client or to none. Feedback a command reports rides in the tool result rather than in log notifications. Roots, sampling and logging are deprecated by that revision; Repl keeps them for existing hosts. See [what differs by revision](https://github.com/yllibed/repl/blob/v0.12.0/docs/mcp-conformance.md#what-differs-by-revision).
+The differences matter mostly to commands that depend on the client. On `2026-07-28` the advertised tool set must not vary between clients, so a module whose presence depends on client roots or sampling is offered to every client or to none. Feedback a command reports rides in the tool result rather than in log notifications. Roots, sampling and logging are deprecated by that revision; Repl keeps them for existing hosts. See [what differs by revision](https://github.com/yllibed/repl/blob/v0.12.1/docs/mcp-conformance.md#what-differs-by-revision).
 
 <Aside type="note">
-**Changed in 0.12.** `Repl.Mcp` requires the SDK 2.x; the 1.x and 2.x assemblies cannot coexist. `IMcpFeedback.SendMessageAsync` takes `McpMessageLevel` instead of the SDK's `LoggingLevel`. An unknown resource now answers `-32002` on `2025-11-25` or `-32602` on `2026-07-28`, and an unknown prompt `-32602`, instead of `-32603`. See [upgrading from the 1.x SDK](https://github.com/yllibed/repl/blob/v0.12.0/docs/mcp-reference.md#upgrading-from-the-1x-sdk).
+**Changed in 0.12.** `Repl.Mcp` requires the SDK 2.x; the 1.x and 2.x assemblies cannot coexist. `IMcpFeedback.SendMessageAsync` takes `McpMessageLevel` instead of the SDK's `LoggingLevel`. An unknown resource now answers `-32002` on `2025-11-25` or `-32602` on `2026-07-28`, and an unknown prompt `-32602`, instead of `-32603`. See [upgrading from the 1.x SDK](https://github.com/yllibed/repl/blob/v0.12.1/docs/mcp-reference.md#upgrading-from-the-1x-sdk).
 </Aside>
 
 ---
@@ -338,7 +338,7 @@ var app = ReplApp.Create(services => services.AddLogging(logging => logging
     .AddConsole(console => console.LogToStandardErrorThreshold = LogLevel.Trace)));
 ```
 
-The table of events, with what each one carries, is in [operator diagnostics](https://github.com/yllibed/repl/blob/v0.12.0/docs/mcp-reference.md#operator-diagnostics).
+The table of events, with what each one carries, is in [operator diagnostics](https://github.com/yllibed/repl/blob/v0.12.1/docs/mcp-reference.md#operator-diagnostics).
 
 ---
 

@@ -107,7 +107,7 @@ This file lives at `.mcp/server.json` in your repository. It tells registries an
 
 **Required:** `name` (reverse-DNS format `org/repo`), `description`, `version`; inside `packages[]`: `registryType`, `identifier`, `transport`.
 
-**`runtimeHint: "dnx"`** — clients invoke the tool via `dnx MyOrg.MyApp@1.0.0 --yes` rather than the installed global tool name. This works without a prior `dotnet tool install`.
+**`runtimeHint: "dnx"`** — clients invoke the tool via `dnx MyOrg.MyApp@1.0.0 --yes` rather than the installed global tool name. This works without a prior `dotnet tool install`. If .NET was installed per user with dotnetup and the host does not start from the user's shell, `dnx` and the .NET runtime may not be found; see [dotnetup installs and agent hosts](/reference/dotnet-11/#dotnetup-installs-and-agent-hosts). A tool built for `net10.0` does not start on a machine that has only .NET 11 unless it rolls forward; see [A tool built for an older .NET](/reference/dotnet-11/#a-tool-built-for-an-older-net).
 
 **`packageArguments`** — positional args appended to the invocation. Repl activates stdio MCP mode when it receives `mcp serve`.
 
@@ -238,6 +238,6 @@ jobs:
 - [ ] `README.md` has a quick-start snippet
 - [ ] `dotnet tool install -g <pkg>` tested clean on a fresh machine
 - [ ] `myapp --help` works after global install
-- [ ] `myapp completion install` works for your target shells
+- [ ] `myapp completion install`, run from the installed executable, works for your target shells
 - [ ] If MCP: `myapp mcp serve` starts without error, `.mcp/server.json` is present
 - [ ] NuGet API key stored in CI secrets, not in source

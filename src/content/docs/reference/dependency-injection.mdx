@@ -96,7 +96,7 @@ Two traps follow from that boundary:
 - A `Singleton`, or a module's constructor, that injects a `Scoped` service captures the first session's instance for the life of the app. Inject the scoped service into the handler instead.
 - Under MCP, one connection can run several tool calls at once, so a `Scoped` instance can be entered concurrently. Make it thread-safe.
 
-When the caller's provider already is the session, such as a Blazor circuit or an ASP.NET Core request scope, set `ReplRunOptions.SessionScope` to <ApiRef uid="Repl.SessionScopeBehavior" label="SessionScopeBehavior.CallerOwned" /> so the run resolves from it instead of opening a second scope beside it. The repository's [best practices](https://github.com/yllibed/repl/blob/v0.12.0/docs/best-practices.md#pick-the-lifetime-that-matches-the-boundary) cover the details, including the one MCP hosting shape that has no per-connection scope.
+When the caller's provider already is the session, such as a Blazor circuit or an ASP.NET Core request scope, set `ReplRunOptions.SessionScope` to <ApiRef uid="Repl.SessionScopeBehavior" label="SessionScopeBehavior.CallerOwned" /> so the run resolves from it instead of opening a second scope beside it. The repository's [best practices](https://github.com/yllibed/repl/blob/v0.12.1/docs/best-practices.md#pick-the-lifetime-that-matches-the-boundary) cover the details, including the one MCP hosting shape that has no per-connection scope.
 
 <Aside type="note">
 **Changed in 0.12.** Before 0.12, Repl opened no scope at all: one `Scoped` instance served every command and every hosted session until the process ended.

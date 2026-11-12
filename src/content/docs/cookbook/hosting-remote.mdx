@@ -17,7 +17,7 @@ The built-in packages cover the most common cases:
 Any other transport — SSH, TCP sockets, gRPC streams — works by instantiating <ApiRef uid="Repl.StreamedReplHost" /> with a `TextWriter`, pushing received text via `EnqueueInput`, and calling `RunSessionAsync`. For an operator console on the same machine, use [Remote Administration](/cookbook/remote-administration/), which ships a named-pipe endpoint.
 
 <Aside type="tip">
-  Full runnable code: [`samples/05-hosting-remote`](https://github.com/yllibed/repl/tree/v0.12.0/samples/05-hosting-remote)
+  Full runnable code: [`samples/05-hosting-remote`](https://github.com/yllibed/repl/tree/v0.12.1/samples/05-hosting-remote)
 </Aside>
 
 <HostedTransports />
@@ -102,7 +102,7 @@ await ReplTelnetSession.RunAsync(repl, socket, new ReplRunOptions(), session.Tok
 Other overloads accept a `Stream` or an `IDuplexPipe`, plus callbacks for window-size and terminal-type changes. Terminal size and type are negotiated automatically via NAWS (RFC 1073) and TERMINAL-TYPE (RFC 1091). Connect with a Telnet-to-WebSocket bridge, or with `wscat` pointed at that endpoint.
 
 <Aside type="note">
-`ReplTelnetSession` has no overload that takes a service provider: its sessions run on the Repl application's own container. To share host services with Telnet sessions, resolve them in the `AddRepl((sp, repl) => ...)` callback and pass them to a module's constructor, as [sample 05](https://github.com/yllibed/repl/blob/v0.12.0/samples/05-hosting-remote/Program.cs) does.
+`ReplTelnetSession` has no overload that takes a service provider: its sessions run on the Repl application's own container. To share host services with Telnet sessions, resolve them in the `AddRepl((sp, repl) => ...)` callback and pass them to a module's constructor, as [sample 05](https://github.com/yllibed/repl/blob/v0.12.1/samples/05-hosting-remote/Program.cs) does.
 </Aside>
 
 ## Terminal metadata
@@ -120,7 +120,7 @@ app.Map("info", (ITerminalInfo terminal) => new
 });
 ```
 
-Handlers can adapt output to the terminal width, or degrade gracefully when ANSI is unavailable.
+Handlers can adapt output to the terminal width. `IsAnsiSupported` says whether the handler may drive the terminal; test `Palette is not null` to decide on color (see [Adapting output to terminal capabilities](/reference/terminal-integration/#adapting-output-to-terminal-capabilities)).
 
 ## Shared vs. per-session state
 
@@ -142,7 +142,7 @@ Use `AddScoped<T>` for per-user state (shopping cart, selection, cursor position
 A WebSocket session closes the socket with a normal close handshake, waiting up to a second for the peer. When building on the Telnet blocks directly, dispose `TelnetFraming` before completing its pipe.
 
 <Aside type="note">
-**Changed in 0.12.** Cancelling a session's token while the editor waited for input used to end the session with exit code `0`, and a waiting prompt took its default. It now ends as a cancellation. The repository's [execution pipeline](https://github.com/yllibed/repl/blob/v0.12.0/docs/execution-pipeline.md#12-exit-code) lists the other Telnet and WebSocket changes.
+**Changed in 0.12.** Cancelling a session's token while the editor waited for input used to end the session with exit code `0`, and a waiting prompt took its default. It now ends as a cancellation. The repository's [execution pipeline](https://github.com/yllibed/repl/blob/v0.12.1/docs/execution-pipeline.md#12-exit-code) lists the other Telnet and WebSocket changes.
 </Aside>
 
 ---

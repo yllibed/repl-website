@@ -277,9 +277,9 @@ Useful for long or repeatable invocations. Response files are non-recursive.
 
 Override with <ApiRef uid="Repl.Parameters.ReplOptionAttribute" label="[ReplOption(Mode = ReplParameterMode.OptionOnly)]" /> or <ApiRef uid="Repl.Parameters.ReplArgumentAttribute" label="[ReplArgument(Mode = ...)]" />.
 
-A parameter with a default value cannot also declare a required arity: `Map` refuses `ExactlyOne` or `OneOrMore` on it, since the default would never apply. Use `ZeroOrOne` or `ZeroOrMore`, or remove the default. See the [parameter system](https://github.com/yllibed/repl/blob/v0.12.0/docs/parameter-system.md#public-declaration-api).
+A parameter with a default value cannot also declare a required arity: `Map` refuses `ExactlyOne` or `OneOrMore` on it, since the default would never apply. Use `ZeroOrOne` or `ZeroOrMore`, or remove the default. See the [parameter system](https://github.com/yllibed/repl/blob/v0.12.1/docs/parameter-system.md#public-declaration-api).
 
-Some parameters are supplied by Repl itself: `CancellationToken`, `IProgress<double>`, `IReplInteractionChannel`, `IReplIoContext`, `IServiceProvider` and a few others. They are never options or arguments, so `Map` refuses `[ReplOption]` or `[ReplArgument]` on them, and refuses a route segment named like one. The [command reference](https://github.com/yllibed/repl/blob/v0.12.0/docs/commands.md#parameter-binding-precedence) has the full list.
+Some parameters are supplied by Repl itself: `CancellationToken`, `IProgress<double>`, `IReplInteractionChannel`, `IReplIoContext`, `IServiceProvider` and a few others. They are never options or arguments, so `Map` refuses `[ReplOption]` or `[ReplArgument]` on them, and refuses a route segment named like one. The [command reference](https://github.com/yllibed/repl/blob/v0.12.1/docs/commands.md#parameter-binding-precedence) has the full list.
 
 When ordinary routes and aliases cannot express an existing command line, or a rule spans several values, see [Advanced Input & Startup](/reference/advanced-input-startup/).
 
@@ -299,12 +299,12 @@ app.Map("deploy",
     ([ReplOption(Name = "tenant", HiddenAliases = ["--account", "-a"])] string? tenant = null) => tenant);
 ```
 
-The fluent form is `.WithOption("tenant", option => option.HiddenAlias("--account"))`, and global options support both through `options.Parsing.GlobalOption(name)`. See [hiding individual options](https://github.com/yllibed/repl/blob/v0.12.0/docs/commands.md#hiding-individual-options) for the details.
+The fluent form is `.WithOption("tenant", option => option.HiddenAlias("--account"))`, and global options support both through `options.Parsing.GlobalOption(name)`. See [hiding individual options](https://github.com/yllibed/repl/blob/v0.12.1/docs/commands.md#hiding-individual-options) for the details.
 
 Over MCP a hidden option is not just unlisted: a tool call that supplies it is rejected. A hidden option must therefore be omittable, with a default or a nullable type; a required hidden option breaks MCP discovery and is logged as operator event `2008`. To hide an option from agents only, use `.AutomationHidden()` instead.
 
 <Aside type="caution">
-Hiding is not access control. Anyone who knows the option's name can still pass it on the command line. Gate privileged behaviour with real authorization.
+Hiding is not access control. Anyone who knows the option's name can still pass it on the command line. Gate privileged behavior with real authorization.
 </Aside>
 
 ---

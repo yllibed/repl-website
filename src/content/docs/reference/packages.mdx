@@ -6,7 +6,7 @@ description: All Repl Toolkit NuGet packages and what they provide.
 import { Badge } from '@astrojs/starlight/components';
 import ApiRef from '../../../components/ApiRef.astro';
 
-All packages target **.NET 10+** and are published to NuGet under the `Repl` family.
+All packages target `net10.0` and `net11.0` and are published to NuGet under the `Repl` family.
 
 ## `Repl` <Badge text="start here" variant="tip" />
 
@@ -76,7 +76,8 @@ dotnet add package Repl.Mcp
 - Rich renderables as command return values (Table, Panel, Tree, BarChart, Calendar, ...)
 - `UseSpectreConsole()` — enables rich prompts and renderables in one call
 - `IAnsiConsole` DI injection (session-safe across hosted sessions)
-- Automatic capability detection and graceful degradation
+- Automatic capability detection and graceful degradation, with the same color and terminal-control rules as Repl's own output
+- Upgrade it together with `Repl.Core`: the two share the terminal-control rule
 
 ```bash
 dotnet add package Repl.Spectre

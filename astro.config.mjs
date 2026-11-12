@@ -82,6 +82,7 @@ export default defineConfig({
 						{ label: 'Best Practices & FAQ', slug: 'reference/best-practices' },
 						{ label: 'Configuration', slug: 'reference/configuration' },
 						{ label: 'Packages', slug: 'reference/packages' },
+						{ label: 'Running on .NET 11', slug: 'reference/dotnet-11' },
 						{
 							label: 'API Reference',
 							collapsed: true,

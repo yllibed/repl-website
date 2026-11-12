@@ -10,7 +10,7 @@ If you've been using `System.CommandLine` or `Spectre.Console.Cli`, you already 
 
 The migration is mostly a find-and-replace of wiring code. Your handler logic moves over untouched.
 
-Already on Repl? [Upgrading from 0.11 to 0.12](#upgrading-from-011-to-012) lists the breaking changes of the latest release.
+Already on Repl? [Upgrading from 0.12.0 to 0.12.1](#upgrading-from-0120-to-0121) lists the behavior changes of the latest release, and [Upgrading from 0.11 to 0.12](#upgrading-from-011-to-012) the breaking changes of 0.12.
 
 ---
 
@@ -188,9 +188,27 @@ Once your commands are wired into Repl, you get the following without extra code
 
 ---
 
+## Upgrading from 0.12.0 to 0.12.1
+
+Repl 0.12.1 adds .NET 11 support and changes no public API. It changes observable behavior in the places below; the [release notes](https://github.com/yllibed/repl/releases/tag/v0.12.1) list everything else.
+
+**.NET 11**
+
+- **The packages target `net10.0` and `net11.0`.** A `net11.0` application gets the `net11.0` build. See [Running on .NET 11](/reference/dotnet-11/).
+- **A handler can return a C# 15 union** on `net11.0`; Repl processes its active case. See [Union return values](/cookbook/core-basics/#union-return-values-c-15).
+
+**Color and terminal control**
+
+- **`FORCE_COLOR` is honored, ahead of `NO_COLOR`.** With both set, output used to be plain and is now colored. See [color](/reference/customization/#color).
+- **Color no longer decides terminal control.** `CLICOLOR_FORCE=1` on redirected output no longer clears the screen or enables arrow-key menus there, and under `AnsiMode.Always` the screen clear needs a terminal. A hosted client that advertises ANSI only through capability flags now gets the screen clear and the full-screen pager. See [terminal control](/reference/customization/#terminal-control).
+- **`ITerminalInfo.IsAnsiSupported` reports terminal control, not color.** It is now `false` on redirected output under `CLICOLOR_FORCE=1`; test `Palette is not null` to decide on color. See [adapting output to terminal capabilities](/reference/terminal-integration/#adapting-output-to-terminal-capabilities).
+- **A Spectre console colored where the terminal may not be driven is not interactive**: live displays print static lines, Repl's text prompts replace Spectre's, and a prompt on an injected `IAnsiConsole` fails there. Upgrade Repl.Spectre together with Repl.Core. See [Detecting Spectre capability](/reference/customization/#detecting-spectre-capability).
+
+---
+
 ## Upgrading from 0.11 to 0.12
 
-Repl 0.12 changes observable behaviour in the places below. Each item links to the page that explains it; the [release notes](https://github.com/yllibed/repl/releases/tag/v0.12.0) list everything else.
+Repl 0.12 changes observable behavior in the places below. Each item links to the page that explains it; the [release notes](https://github.com/yllibed/repl/releases/tag/v0.12.0) list everything else.
 
 **Exit codes and signals**
 

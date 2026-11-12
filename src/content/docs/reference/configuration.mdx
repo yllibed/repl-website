@@ -91,7 +91,7 @@ builder.Services.AddRepl((_, repl) =>
 
 No: without one you get the *No profile* column above.
 
-Profiles can be chained: each call assigns its options in order, and the last one wins where they overlap. Several [repository samples](https://github.com/yllibed/repl/tree/v0.12.0/samples) chain `UseDefaultInteractive().UseCliProfile()`; in 0.12 the second call adds nothing the first does not already set. `UseEmbeddedConsoleProfile()` contradicts the other two on signal ownership, so use it alone.
+Profiles can be chained: each call assigns its options in order, and the last one wins where they overlap. Several [repository samples](https://github.com/yllibed/repl/tree/v0.12.1/samples) chain `UseDefaultInteractive().UseCliProfile()`; in 0.12 the second call adds nothing the first does not already set. `UseEmbeddedConsoleProfile()` contradicts the other two on signal ownership, so use it alone.
 
 Call the profile first, before `app.Options(...)` and other `Use*` extensions. A profile called later assigns its values again: `InteractivePolicy` returns to `Auto`, and `UseCliProfile()` resets the default output format that `UseSpectreConsole()` sets to `spectre`.
 

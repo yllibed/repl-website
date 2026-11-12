@@ -34,4 +34,4 @@ Pushes to `main` trigger the GitHub Actions workflow (`.github/workflows/deploy.
 4. Builds the Astro site.
 5. Deploys to GitHub Pages.
 
-A daily scheduled run keeps the API reference in sync with new releases even without a doc change.
+A Repl release does not redeploy the site by itself: the daily schedule is disabled and Repl's CI does not send the `repl-released` event. After a release, run the workflow by hand (Actions, "Deploy to GitHub Pages", "Run workflow") or push to `main`.
