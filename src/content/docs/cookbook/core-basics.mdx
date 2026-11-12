@@ -97,11 +97,11 @@ public void Reset() { /* ... */ }
 | `Results.Cancelled(...)` | Message, exit code 1 |
 | `Results.CompletedWithFailures(report)` | The report, without an error prefix, exit code 1 |
 | `Results.Exit(n)` | Optional payload, explicit exit code `n` |
-| `union` (.NET 11) | The active case, as if the handler had returned it directly |
+| `union` (C# 15) | The active case, as if the handler had returned it directly (`net11.0`) |
 
 An `int` returned by a handler is data, rendered like any other value; it never becomes the exit code. See [Exit Codes & Signals](/reference/exit-codes/).
 
-### Union return values (.NET 11)
+### Union return values (C# 15)
 
 On `net11.0`, a handler can return a C# 15 `union`. Repl processes the **active case** in place of the returned union: classification, exit codes and rendering treat the case exactly as if the handler had returned it directly.
 
@@ -120,7 +120,7 @@ app.Map("contact {id}", (string id) =>
 - Sync, `Task<T>` and `ValueTask<T>` handlers can all return a union; a case that is itself a `Task<T>` or `ValueTask<T>` is awaited, and a case that is another union is unwrapped.
 - A `default` union, or a case holding `null`, behaves like a handler that returned `null`.
 
-Limits: a union passed as the payload of a <ApiRef uid="Repl.Results" /> helper (`Results.Exit(3, lookup)`) is rendered as an ordinary object, so return the union itself; a route value or option given for a union parameter is refused as a usage error, like any type Repl cannot convert (a union parameter can still come from the services); and unions are processed on the `net11.0` build of Repl only, for types that implement the runtime's `System.Runtime.CompilerServices.IUnion`. The full list is in [Union return values](https://github.com/yllibed/repl/blob/v0.12.1/docs/commands.md#union-return-values-net-11).
+Limits: a union passed as the payload of a <ApiRef uid="Repl.Results" /> helper (`Results.Exit(3, lookup)`) is rendered as an ordinary object, so return the union itself; a route value or option given for a union parameter is refused as a usage error, like any type Repl cannot convert (a union parameter can still come from the services); and unions are processed on the `net11.0` build of Repl only, for types that implement the runtime's `System.Runtime.CompilerServices.IUnion`. The full list is in [Union return values](https://github.com/yllibed/repl/blob/v0.12.1/docs/commands.md#union-return-values-c-15).
 
 ## Reusable options groups
 

@@ -25,7 +25,7 @@ Scripts, CI steps and container supervisors read your app through one number. Ev
 | `Cancelled` | The caller's own `CancellationToken` stopped the run | not mapped: the exception propagates, unless `ExitCodes.Cancelled` or a `Resolver` is set (a resolver receives `130`) |
 | `HandlerExitCode` | `Results.Exit(n)` | `n`, verbatim |
 
-An `int` returned by a handler is data: `int Count() => 3` prints `3` and exits `0`. `Results.Exit(n)` is the only way for a handler to choose the code itself; a C# 15 union whose active case is `Results.Exit(n)` exits with `n` too ([Union return values](/cookbook/core-basics/#union-return-values-net-11)).
+An `int` returned by a handler is data: `int Count() => 3` prints `3` and exits `0`. `Results.Exit(n)` is the only way for a handler to choose the code itself; a C# 15 union whose active case is `Results.Exit(n)` exits with `n` too ([Union return values](/cookbook/core-basics/#union-return-values-c-15)).
 
 <Aside type="note">
 **Changed in 0.12.** Usage and binding refusals used to exit `1`, like handler failures. They now exit `2`, so a script can tell "you called me wrong" from "the command failed". A test that asserts `1` for an unknown command now needs `2`. The repository explains [how to restore the previous codes](https://github.com/yllibed/repl/blob/v0.12.1/docs/configuration-reference.md#restoring-the-pre-policy-codes).
